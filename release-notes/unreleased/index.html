@@ -1875,6 +1875,33 @@
   eager importされる<code>wandas.processing</code>の各モジュールは、末尾の手書きの一覧ではなく、
   自分の<code>name</code>を持つOperation classをすべて登録するようになりました。名前で解決できない
   組み込みOperation classがあると新しいテストが失敗します。登録されるoperationは変わりません。</li>
+<li>The A, B and C frequency-weighting filters (<code>a_weighting()</code>,
+  <code>sound_level(freq_weighting="A" | "C")</code>, <code>rms_trend(Aw=True)</code>, <code>leq()</code> and
+  <code>percentile_levels()</code>) follow the analog IEC 61672-1 curve up to
+  0.9 × Nyquist within about 0.2 dB from 8 kHz to 192 kHz
+  (<a href="https://github.com/kasahart/wandas/issues/607">#607</a>). The previous
+  design, vendored from waveform-analysis, ran the whole analog filter through
+  the bilinear transform and attenuated too much near Nyquist: at 48 kHz it
+  was 1.2 dB low at 10 kHz, 6.4 dB at 16 kHz and 15.8 dB at 20 kHz, and
+  A-weighted white noise read 0.87 dB low. The low-frequency poles still use
+  the bilinear transform; the 12.2 kHz double pole is matched and two zeros
+  are fitted to the analog curve by linear least squares. The filter stays
+  causal and runs at the input sampling rate. At or below 2 kHz sampling,
+  where 1 kHz is not below Nyquist, the previous design is kept. These numbers change, so new
+  Recipes use <code>a_weighting</code> version 2 and <code>rms_trend</code>/<code>sound_level</code> version
+  3; Recipes saved by 0.12.0 still replay the old filter. The spectral <code>Aw=True</code>
+  options are unchanged; they already evaluate the analog curve.
+  A/B/C特性の周波数重み付けフィルタ（<code>a_weighting()</code>、<code>sound_level(freq_weighting="A" | "C")</code>、
+  <code>rms_trend(Aw=True)</code>、<code>leq()</code>、<code>percentile_levels()</code>）が、8 kHz〜192 kHzでナイキスト周波数の
+  0.9倍までIEC 61672-1のアナログ曲線に約0.2 dB以内で一致するようになりました。waveform-analysisから
+  取り込んだ従来の設計はアナログフィルタ全体を双一次変換していたため、ナイキスト周波数付近で
+  減衰しすぎていました（48 kHzで10 kHzが1.2 dB、16 kHzが6.4 dB、20 kHzが15.8 dB低く、A特性の
+  白色雑音は0.87 dB低く出ていました）。低域の極は引き続き双一次変換し、12.2 kHzの二重極は
+  matched-z変換で写し、2つの零点を線形最小二乗でアナログ曲線に合わせます。フィルタは因果的で、
+  入力のサンプリング周波数のまま動きます。1 kHzがナイキスト周波数未満にならない2 kHz以下の
+  サンプリング周波数では従来の設計のままです。数値が変わるため、新しいRecipeは<code>a_weighting</code>の
+  version 2、<code>rms_trend</code>／<code>sound_level</code>のversion 3を使います。0.12.0で保存したRecipeは従来の
+  フィルタで再生されます。スペクトルの<code>Aw=True</code>はもともとアナログ曲線を評価しているため変わりません。</li>
 <li><code>ChannelFrame.trim()</code> rounds times to the nearest sample (halves up) instead of
   truncating them, so <code>trim(0.29)</code> at 100 Hz starts at sample 29, not 28
   (<code>0.29 * 100</code> is <code>28.999...</code> in floating point). The Recipe step
@@ -1927,6 +1954,14 @@
 <td>None needed: contiguous slices now replay with correct band labels; rewrite a stepped band slice as separate contiguous slices</td>
 <td>Next release</td>
 <td>Wrong labels become correct (values unchanged) and stepped slices raise <code>ValueError</code>; <a href="https://github.com/kasahart/wandas/issues/600#issuecomment-6514808419">decision</a></td>
+</tr>
+<tr>
+<td>Time-domain A/B/C weighting (<code>a_weighting()</code>, <code>sound_level(freq_weighting="A" \| "C")</code>, <code>rms_trend(Aw=True)</code>, <code>leq()</code>, <code>percentile_levels()</code>) and their Recipes</td>
+<td>Stable / Serialized, numeric change with new operation versions</td>
+<td>None</td>
+<td>None needed; Recipes saved by 0.12.0 (<code>a_weighting</code> v1, <code>rms_trend</code>/<code>sound_level</code> v2) replay the old filter, and readers without the new versions reject new Recipes at load time</td>
+<td>Next release</td>
+<td>The old filter attenuated too much near Nyquist; <a href="https://github.com/kasahart/wandas/issues/607">#607</a></td>
 </tr>
 </tbody>
 </table>

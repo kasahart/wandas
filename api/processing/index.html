@@ -16768,8 +16768,7 @@ convert to dB, or establish sound-level-meter conformance.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">444</span>
-<span class="normal">445</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">445</span>
 <span class="normal">446</span>
 <span class="normal">447</span>
 <span class="normal">448</span>
@@ -16844,7 +16843,8 @@ convert to dB, or establish sound-level-meter conformance.</p>
 <span class="normal">517</span>
 <span class="normal">518</span>
 <span class="normal">519</span>
-<span class="normal">520</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ReSampling</span><span class="p">(</span><span class="n">ChannelIndependentAudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
+<span class="normal">520</span>
+<span class="normal">521</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ReSampling</span><span class="p">(</span><span class="n">ChannelIndependentAudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Resampling operation&quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;resampling&quot;</span>
@@ -17066,8 +17066,7 @@ convert to dB, or establish sound-level-meter conformance.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">450</span>
-<span class="normal">451</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">451</span>
 <span class="normal">452</span>
 <span class="normal">453</span>
 <span class="normal">454</span>
@@ -17079,7 +17078,8 @@ convert to dB, or establish sound-level-meter conformance.</p>
 <span class="normal">460</span>
 <span class="normal">461</span>
 <span class="normal">462</span>
-<span class="normal">463</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">target_sr</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+<span class="normal">463</span>
+<span class="normal">464</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">target_sr</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Initialize a resampling operation.</span>
 
@@ -17144,8 +17144,7 @@ input sampling rate.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">470</span>
-<span class="normal">471</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">471</span>
 <span class="normal">472</span>
 <span class="normal">473</span>
 <span class="normal">474</span>
@@ -17155,7 +17154,8 @@ input sampling rate.</p>
 <span class="normal">478</span>
 <span class="normal">479</span>
 <span class="normal">480</span>
-<span class="normal">481</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="normal">481</span>
+<span class="normal">482</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Update sampling rate to target sampling rate.</span>
 
@@ -17243,8 +17243,7 @@ input sampling rate.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">483</span>
-<span class="normal">484</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">484</span>
 <span class="normal">485</span>
 <span class="normal">486</span>
 <span class="normal">487</span>
@@ -17256,7 +17255,8 @@ input sampling rate.</p>
 <span class="normal">493</span>
 <span class="normal">494</span>
 <span class="normal">495</span>
-<span class="normal">496</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="normal">496</span>
+<span class="normal">497</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculate the output data shape after the operation.</span>
 
@@ -17292,9 +17292,9 @@ input sampling rate.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">518</span>
-<span class="normal">519</span>
-<span class="normal">520</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">519</span>
+<span class="normal">520</span>
+<span class="normal">521</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return resampling output dtype metadata.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output_dtype</span><span class="p">(</span><span class="n">input_dtype</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -17355,8 +17355,7 @@ a Frame and preserves the input dtype contract by returning floating data.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">637</span>
-<span class="normal">638</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">638</span>
 <span class="normal">639</span>
 <span class="normal">640</span>
 <span class="normal">641</span>
@@ -17581,7 +17580,15 @@ a Frame and preserves the input dtype contract by returning floating data.</p>
 <span class="normal">860</span>
 <span class="normal">861</span>
 <span class="normal">862</span>
-<span class="normal">863</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">RmsTrend</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
+<span class="normal">863</span>
+<span class="normal">864</span>
+<span class="normal">865</span>
+<span class="normal">866</span>
+<span class="normal">867</span>
+<span class="normal">868</span>
+<span class="normal">869</span>
+<span class="normal">870</span>
+<span class="normal">871</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">RmsTrend</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Windowed linear RMS or reference-relative RMS amplitude level.</span>
 
 <span class="sd">    The operation accepts arrays shaped ``(channels, samples)`` and returns</span>
@@ -17597,6 +17604,8 @@ a Frame and preserves the input dtype contract by returning floating data.</p>
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;rms_trend&quot;</span>
     <span class="n">_display</span> <span class="o">=</span> <span class="s2">&quot;RMS&quot;</span>
     <span class="n">_validate_reference_count</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="c1"># True only in the private replay of the released Recipe version.</span>
+    <span class="n">_bilinear_weighting</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">_calibration_scale</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -17753,9 +17762,14 @@ a Frame and preserves the input dtype contract by returning floating data.</p>
                         <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
                         <span class="n">curve</span><span class="o">=</span><span class="s2">&quot;A&quot;</span><span class="p">,</span>
                         <span class="n">first_unsafe_samples</span><span class="o">=</span><span class="n">first_unsafe_samples</span><span class="p">,</span>
+                        <span class="n">bilinear</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_bilinear_weighting</span><span class="p">,</span>
                     <span class="p">)</span>
             <span class="k">if</span> <span class="n">weighted_log_amplitude</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">_x</span> <span class="o">=</span> <span class="n">A_weight</span><span class="p">(</span><span class="n">weighting_input</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">)</span>
+                <span class="n">_x</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">_apply_weighting</span><span class="p">(</span><span class="n">weighting_input</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="n">bilinear</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bilinear_weighting</span>
+                    <span class="k">else</span> <span class="n">A_weight</span><span class="p">(</span><span class="n">weighting_input</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">)</span>
+                <span class="p">)</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">_x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
                     <span class="n">x</span> <span class="o">=</span> <span class="n">_x</span>
                 <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">_x</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
@@ -18132,10 +18146,7 @@ a reference or calibration scale is not finite and positive.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">655</span>
-<span class="normal">656</span>
-<span class="normal">657</span>
-<span class="normal">658</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">658</span>
 <span class="normal">659</span>
 <span class="normal">660</span>
 <span class="normal">661</span>
@@ -18184,7 +18195,10 @@ a reference or calibration scale is not finite and positive.</p>
 <span class="normal">704</span>
 <span class="normal">705</span>
 <span class="normal">706</span>
-<span class="normal">707</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">707</span>
+<span class="normal">708</span>
+<span class="normal">709</span>
+<span class="normal">710</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">frame_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -18284,16 +18298,16 @@ window centers, not the original sample rate.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">754</span>
-<span class="normal">755</span>
-<span class="normal">756</span>
-<span class="normal">757</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">757</span>
 <span class="normal">758</span>
 <span class="normal">759</span>
 <span class="normal">760</span>
 <span class="normal">761</span>
 <span class="normal">762</span>
-<span class="normal">763</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="normal">763</span>
+<span class="normal">764</span>
+<span class="normal">765</span>
+<span class="normal">766</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return metadata updates for the frame-rate change.</span>
 
 <span class="sd">    Returns:</span>
@@ -18405,10 +18419,7 @@ cannot be broadcast to the input channel count.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">765</span>
-<span class="normal">766</span>
-<span class="normal">767</span>
-<span class="normal">768</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">768</span>
 <span class="normal">769</span>
 <span class="normal">770</span>
 <span class="normal">771</span>
@@ -18428,7 +18439,10 @@ cannot be broadcast to the input channel count.</p>
 <span class="normal">785</span>
 <span class="normal">786</span>
 <span class="normal">787</span>
-<span class="normal">788</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="normal">788</span>
+<span class="normal">789</span>
+<span class="normal">790</span>
+<span class="normal">791</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate the centered, zero-padded output shape.</span>
 
 <span class="sd">    Args:</span>
@@ -18474,9 +18488,9 @@ cannot be broadcast to the input channel count.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">861</span>
-<span class="normal">862</span>
-<span class="normal">863</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">869</span>
+<span class="normal">870</span>
+<span class="normal">871</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return RMS trend output dtype metadata.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">precision_real_dtype</span><span class="p">(</span><span class="n">input_dtype</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -18537,15 +18551,7 @@ shape; Frame execution remains lazy and preserves the input sampling rate.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 919</span>
-<span class="normal"> 920</span>
-<span class="normal"> 921</span>
-<span class="normal"> 922</span>
-<span class="normal"> 923</span>
-<span class="normal"> 924</span>
-<span class="normal"> 925</span>
-<span class="normal"> 926</span>
-<span class="normal"> 927</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 927</span>
 <span class="normal"> 928</span>
 <span class="normal"> 929</span>
 <span class="normal"> 930</span>
@@ -18784,7 +18790,22 @@ shape; Frame execution remains lazy and preserves the input sampling rate.</p>
 <span class="normal">1163</span>
 <span class="normal">1164</span>
 <span class="normal">1165</span>
-<span class="normal">1166</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SoundLevel</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
+<span class="normal">1166</span>
+<span class="normal">1167</span>
+<span class="normal">1168</span>
+<span class="normal">1169</span>
+<span class="normal">1170</span>
+<span class="normal">1171</span>
+<span class="normal">1172</span>
+<span class="normal">1173</span>
+<span class="normal">1174</span>
+<span class="normal">1175</span>
+<span class="normal">1176</span>
+<span class="normal">1177</span>
+<span class="normal">1178</span>
+<span class="normal">1179</span>
+<span class="normal">1180</span>
+<span class="normal">1181</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SoundLevel</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Frequency- and exponentially time-weighted RMS or level.</span>
 
 <span class="sd">    The operation applies A, C, or flat Z frequency weighting, smooths squared</span>
@@ -18799,6 +18820,8 @@ shape; Frame execution remains lazy and preserves the input sampling rate.</p>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;sound_level&quot;</span>
     <span class="n">_calibration_scale</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="c1"># True only in the private replay of the released Recipe version.</span>
+    <span class="n">_bilinear_weighting</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -18979,11 +19002,16 @@ shape; Frame execution remains lazy and preserves the input sampling rate.</p>
                         <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
                         <span class="n">curve</span><span class="o">=</span><span class="n">freq_weighting</span><span class="p">,</span>
                         <span class="n">first_unsafe_samples</span><span class="o">=</span><span class="n">first_unsafe_samples</span><span class="p">,</span>
+                        <span class="n">bilinear</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_bilinear_weighting</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">weighted</span> <span class="o">=</span> <span class="n">frequency_weight</span><span class="p">(</span><span class="n">weighted_input</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">curve</span><span class="o">=</span><span class="n">freq_weighting</span><span class="p">)</span>
+                    <span class="n">weighted</span> <span class="o">=</span> <span class="n">_apply_weighting</span><span class="p">(</span>
+                        <span class="n">weighted_input</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">freq_weighting</span><span class="p">,</span> <span class="n">bilinear</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_bilinear_weighting</span>
+                    <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">weighted</span> <span class="o">=</span> <span class="n">frequency_weight</span><span class="p">(</span><span class="n">weighted_input</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">curve</span><span class="o">=</span><span class="n">freq_weighting</span><span class="p">)</span>
+                <span class="n">weighted</span> <span class="o">=</span> <span class="n">_apply_weighting</span><span class="p">(</span>
+                    <span class="n">weighted_input</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">freq_weighting</span><span class="p">,</span> <span class="n">bilinear</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_bilinear_weighting</span>
+                <span class="p">)</span>
         <span class="n">alpha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_constant</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dB</span><span class="p">:</span>
             <span class="n">references</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reference_values</span><span class="p">(</span><span class="n">weighted_input</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
@@ -19346,17 +19374,7 @@ frequency curve, or time weighting is invalid.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">935</span>
-<span class="normal">936</span>
-<span class="normal">937</span>
-<span class="normal">938</span>
-<span class="normal">939</span>
-<span class="normal">940</span>
-<span class="normal">941</span>
-<span class="normal">942</span>
-<span class="normal">943</span>
-<span class="normal">944</span>
-<span class="normal">945</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">945</span>
 <span class="normal">946</span>
 <span class="normal">947</span>
 <span class="normal">948</span>
@@ -19400,7 +19418,17 @@ frequency curve, or time weighting is invalid.</p>
 <span class="normal">986</span>
 <span class="normal">987</span>
 <span class="normal">988</span>
-<span class="normal">989</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">989</span>
+<span class="normal">990</span>
+<span class="normal">991</span>
+<span class="normal">992</span>
+<span class="normal">993</span>
+<span class="normal">994</span>
+<span class="normal">995</span>
+<span class="normal">996</span>
+<span class="normal">997</span>
+<span class="normal">998</span>
+<span class="normal">999</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">ref</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">NDArrayReal</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
@@ -19477,13 +19505,13 @@ frequency curve, or time weighting is invalid.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1043</span>
-<span class="normal">1044</span>
-<span class="normal">1045</span>
-<span class="normal">1046</span>
-<span class="normal">1047</span>
-<span class="normal">1048</span>
-<span class="normal">1049</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_display_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1053</span>
+<span class="normal">1054</span>
+<span class="normal">1055</span>
+<span class="normal">1056</span>
+<span class="normal">1057</span>
+<span class="normal">1058</span>
+<span class="normal">1059</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_display_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get display name for the operation for use in channel labels.&quot;&quot;&quot;</span>
     <span class="n">freq_weighting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">freq_weighting</span>
     <span class="n">time_weighting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_weighting</span>
@@ -19591,24 +19619,24 @@ be broadcast to the input channel count.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1071</span>
-<span class="normal">1072</span>
-<span class="normal">1073</span>
-<span class="normal">1074</span>
-<span class="normal">1075</span>
-<span class="normal">1076</span>
-<span class="normal">1077</span>
-<span class="normal">1078</span>
-<span class="normal">1079</span>
-<span class="normal">1080</span>
-<span class="normal">1081</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1081</span>
 <span class="normal">1082</span>
 <span class="normal">1083</span>
 <span class="normal">1084</span>
 <span class="normal">1085</span>
 <span class="normal">1086</span>
 <span class="normal">1087</span>
-<span class="normal">1088</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="normal">1088</span>
+<span class="normal">1089</span>
+<span class="normal">1090</span>
+<span class="normal">1091</span>
+<span class="normal">1092</span>
+<span class="normal">1093</span>
+<span class="normal">1094</span>
+<span class="normal">1095</span>
+<span class="normal">1096</span>
+<span class="normal">1097</span>
+<span class="normal">1098</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate channel-wise configuration and preserve input shape.</span>
 
 <span class="sd">    Args:</span>
@@ -19648,9 +19676,9 @@ be broadcast to the input channel count.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1164</span>
-<span class="normal">1165</span>
-<span class="normal">1166</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1179</span>
+<span class="normal">1180</span>
+<span class="normal">1181</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return sound level output dtype metadata.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output_dtype</span><span class="p">(</span><span class="n">input_dtype</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -19705,8 +19733,7 @@ time-range selection.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">523</span>
-<span class="normal">524</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">524</span>
 <span class="normal">525</span>
 <span class="normal">526</span>
 <span class="normal">527</span>
@@ -19756,7 +19783,8 @@ time-range selection.</p>
 <span class="normal">571</span>
 <span class="normal">572</span>
 <span class="normal">573</span>
-<span class="normal">574</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Trim</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
+<span class="normal">574</span>
+<span class="normal">575</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Trim</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Deprecated array-level trimming operation.</span>
 
 <span class="sd">    Use :meth:`wandas.frames.channel.ChannelFrame.trim` for structural</span>
@@ -19947,8 +19975,7 @@ time-range selection.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">533</span>
-<span class="normal">534</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">534</span>
 <span class="normal">535</span>
 <span class="normal">536</span>
 <span class="normal">537</span>
@@ -19958,7 +19985,8 @@ time-range selection.</p>
 <span class="normal">541</span>
 <span class="normal">542</span>
 <span class="normal">543</span>
-<span class="normal">544</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">544</span>
+<span class="normal">545</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">start</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -19992,11 +20020,11 @@ time-range selection.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">566</span>
-<span class="normal">567</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">567</span>
 <span class="normal">568</span>
 <span class="normal">569</span>
-<span class="normal">570</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="normal">570</span>
+<span class="normal">571</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the legacy array-slice output shape.&quot;&quot;&quot;</span>
     <span class="n">start_sample</span><span class="p">,</span> <span class="n">end_sample</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">start_sample</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">end_sample</span><span class="p">)</span><span class="o">.</span><span class="n">indices</span><span class="p">(</span><span class="n">input_shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
     <span class="n">n_samples</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_sample</span> <span class="o">-</span> <span class="n">start_sample</span><span class="p">)</span>
@@ -20588,8 +20616,7 @@ same name is rejected.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">444</span>
-<span class="normal">445</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">445</span>
 <span class="normal">446</span>
 <span class="normal">447</span>
 <span class="normal">448</span>
@@ -20664,7 +20691,8 @@ same name is rejected.</p>
 <span class="normal">517</span>
 <span class="normal">518</span>
 <span class="normal">519</span>
-<span class="normal">520</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ReSampling</span><span class="p">(</span><span class="n">ChannelIndependentAudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
+<span class="normal">520</span>
+<span class="normal">521</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ReSampling</span><span class="p">(</span><span class="n">ChannelIndependentAudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Resampling operation&quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;resampling&quot;</span>
@@ -20886,8 +20914,7 @@ same name is rejected.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">450</span>
-<span class="normal">451</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">451</span>
 <span class="normal">452</span>
 <span class="normal">453</span>
 <span class="normal">454</span>
@@ -20899,7 +20926,8 @@ same name is rejected.</p>
 <span class="normal">460</span>
 <span class="normal">461</span>
 <span class="normal">462</span>
-<span class="normal">463</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">target_sr</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+<span class="normal">463</span>
+<span class="normal">464</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">target_sr</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Initialize a resampling operation.</span>
 
@@ -20964,8 +20992,7 @@ input sampling rate.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">470</span>
-<span class="normal">471</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">471</span>
 <span class="normal">472</span>
 <span class="normal">473</span>
 <span class="normal">474</span>
@@ -20975,7 +21002,8 @@ input sampling rate.</p>
 <span class="normal">478</span>
 <span class="normal">479</span>
 <span class="normal">480</span>
-<span class="normal">481</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="normal">481</span>
+<span class="normal">482</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Update sampling rate to target sampling rate.</span>
 
@@ -21063,8 +21091,7 @@ input sampling rate.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">483</span>
-<span class="normal">484</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">484</span>
 <span class="normal">485</span>
 <span class="normal">486</span>
 <span class="normal">487</span>
@@ -21076,7 +21103,8 @@ input sampling rate.</p>
 <span class="normal">493</span>
 <span class="normal">494</span>
 <span class="normal">495</span>
-<span class="normal">496</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="normal">496</span>
+<span class="normal">497</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculate the output data shape after the operation.</span>
 
@@ -21112,9 +21140,9 @@ input sampling rate.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">518</span>
-<span class="normal">519</span>
-<span class="normal">520</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">519</span>
+<span class="normal">520</span>
+<span class="normal">521</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return resampling output dtype metadata.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output_dtype</span><span class="p">(</span><span class="n">input_dtype</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -21169,8 +21197,7 @@ time-range selection.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">523</span>
-<span class="normal">524</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">524</span>
 <span class="normal">525</span>
 <span class="normal">526</span>
 <span class="normal">527</span>
@@ -21220,7 +21247,8 @@ time-range selection.</p>
 <span class="normal">571</span>
 <span class="normal">572</span>
 <span class="normal">573</span>
-<span class="normal">574</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Trim</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
+<span class="normal">574</span>
+<span class="normal">575</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Trim</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Deprecated array-level trimming operation.</span>
 
 <span class="sd">    Use :meth:`wandas.frames.channel.ChannelFrame.trim` for structural</span>
@@ -21411,8 +21439,7 @@ time-range selection.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">533</span>
-<span class="normal">534</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">534</span>
 <span class="normal">535</span>
 <span class="normal">536</span>
 <span class="normal">537</span>
@@ -21422,7 +21449,8 @@ time-range selection.</p>
 <span class="normal">541</span>
 <span class="normal">542</span>
 <span class="normal">543</span>
-<span class="normal">544</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">544</span>
+<span class="normal">545</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">start</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -21456,11 +21484,11 @@ time-range selection.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">566</span>
-<span class="normal">567</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">567</span>
 <span class="normal">568</span>
 <span class="normal">569</span>
-<span class="normal">570</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="normal">570</span>
+<span class="normal">571</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the legacy array-slice output shape.&quot;&quot;&quot;</span>
     <span class="n">start_sample</span><span class="p">,</span> <span class="n">end_sample</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">start_sample</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">end_sample</span><span class="p">)</span><span class="o">.</span><span class="n">indices</span><span class="p">(</span><span class="n">input_shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
     <span class="n">n_samples</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">end_sample</span> <span class="o">-</span> <span class="n">start_sample</span><span class="p">)</span>
@@ -21515,8 +21543,7 @@ time-range selection.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">577</span>
-<span class="normal">578</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">578</span>
 <span class="normal">579</span>
 <span class="normal">580</span>
 <span class="normal">581</span>
@@ -21572,7 +21599,8 @@ time-range selection.</p>
 <span class="normal">631</span>
 <span class="normal">632</span>
 <span class="normal">633</span>
-<span class="normal">634</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FixLength</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
+<span class="normal">634</span>
+<span class="normal">635</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FixLength</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Operation to adjust signal length to a specified length.&quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;fix_length&quot;</span>
@@ -21793,8 +21821,7 @@ using <code>sampling_rate</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">583</span>
-<span class="normal">584</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">584</span>
 <span class="normal">585</span>
 <span class="normal">586</span>
 <span class="normal">587</span>
@@ -21815,7 +21842,8 @@ using <code>sampling_rate</code>.</p>
 <span class="normal">602</span>
 <span class="normal">603</span>
 <span class="normal">604</span>
-<span class="normal">605</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">605</span>
+<span class="normal">606</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -21915,8 +21943,7 @@ the final dimension.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">612</span>
-<span class="normal">613</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">613</span>
 <span class="normal">614</span>
 <span class="normal">615</span>
 <span class="normal">616</span>
@@ -21925,7 +21952,8 @@ the final dimension.</p>
 <span class="normal">619</span>
 <span class="normal">620</span>
 <span class="normal">621</span>
-<span class="normal">622</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="normal">622</span>
+<span class="normal">623</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the input shape with its sample axis set to target length.</span>
 
 <span class="sd">    Args:</span>
@@ -21994,8 +22022,7 @@ a Frame and preserves the input dtype contract by returning floating data.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">637</span>
-<span class="normal">638</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">638</span>
 <span class="normal">639</span>
 <span class="normal">640</span>
 <span class="normal">641</span>
@@ -22220,7 +22247,15 @@ a Frame and preserves the input dtype contract by returning floating data.</p>
 <span class="normal">860</span>
 <span class="normal">861</span>
 <span class="normal">862</span>
-<span class="normal">863</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">RmsTrend</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
+<span class="normal">863</span>
+<span class="normal">864</span>
+<span class="normal">865</span>
+<span class="normal">866</span>
+<span class="normal">867</span>
+<span class="normal">868</span>
+<span class="normal">869</span>
+<span class="normal">870</span>
+<span class="normal">871</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">RmsTrend</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Windowed linear RMS or reference-relative RMS amplitude level.</span>
 
 <span class="sd">    The operation accepts arrays shaped ``(channels, samples)`` and returns</span>
@@ -22236,6 +22271,8 @@ a Frame and preserves the input dtype contract by returning floating data.</p>
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;rms_trend&quot;</span>
     <span class="n">_display</span> <span class="o">=</span> <span class="s2">&quot;RMS&quot;</span>
     <span class="n">_validate_reference_count</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="c1"># True only in the private replay of the released Recipe version.</span>
+    <span class="n">_bilinear_weighting</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">_calibration_scale</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -22392,9 +22429,14 @@ a Frame and preserves the input dtype contract by returning floating data.</p>
                         <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
                         <span class="n">curve</span><span class="o">=</span><span class="s2">&quot;A&quot;</span><span class="p">,</span>
                         <span class="n">first_unsafe_samples</span><span class="o">=</span><span class="n">first_unsafe_samples</span><span class="p">,</span>
+                        <span class="n">bilinear</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_bilinear_weighting</span><span class="p">,</span>
                     <span class="p">)</span>
             <span class="k">if</span> <span class="n">weighted_log_amplitude</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">_x</span> <span class="o">=</span> <span class="n">A_weight</span><span class="p">(</span><span class="n">weighting_input</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">)</span>
+                <span class="n">_x</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">_apply_weighting</span><span class="p">(</span><span class="n">weighting_input</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="n">bilinear</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bilinear_weighting</span>
+                    <span class="k">else</span> <span class="n">A_weight</span><span class="p">(</span><span class="n">weighting_input</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">)</span>
+                <span class="p">)</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">_x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
                     <span class="n">x</span> <span class="o">=</span> <span class="n">_x</span>
                 <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">_x</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
@@ -22771,10 +22813,7 @@ a reference or calibration scale is not finite and positive.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">655</span>
-<span class="normal">656</span>
-<span class="normal">657</span>
-<span class="normal">658</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">658</span>
 <span class="normal">659</span>
 <span class="normal">660</span>
 <span class="normal">661</span>
@@ -22823,7 +22862,10 @@ a reference or calibration scale is not finite and positive.</p>
 <span class="normal">704</span>
 <span class="normal">705</span>
 <span class="normal">706</span>
-<span class="normal">707</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">707</span>
+<span class="normal">708</span>
+<span class="normal">709</span>
+<span class="normal">710</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">frame_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -22923,16 +22965,16 @@ window centers, not the original sample rate.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">754</span>
-<span class="normal">755</span>
-<span class="normal">756</span>
-<span class="normal">757</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">757</span>
 <span class="normal">758</span>
 <span class="normal">759</span>
 <span class="normal">760</span>
 <span class="normal">761</span>
 <span class="normal">762</span>
-<span class="normal">763</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="normal">763</span>
+<span class="normal">764</span>
+<span class="normal">765</span>
+<span class="normal">766</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return metadata updates for the frame-rate change.</span>
 
 <span class="sd">    Returns:</span>
@@ -23044,10 +23086,7 @@ cannot be broadcast to the input channel count.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">765</span>
-<span class="normal">766</span>
-<span class="normal">767</span>
-<span class="normal">768</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">768</span>
 <span class="normal">769</span>
 <span class="normal">770</span>
 <span class="normal">771</span>
@@ -23067,7 +23106,10 @@ cannot be broadcast to the input channel count.</p>
 <span class="normal">785</span>
 <span class="normal">786</span>
 <span class="normal">787</span>
-<span class="normal">788</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="normal">788</span>
+<span class="normal">789</span>
+<span class="normal">790</span>
+<span class="normal">791</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate the centered, zero-padded output shape.</span>
 
 <span class="sd">    Args:</span>
@@ -23113,9 +23155,9 @@ cannot be broadcast to the input channel count.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">861</span>
-<span class="normal">862</span>
-<span class="normal">863</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">869</span>
+<span class="normal">870</span>
+<span class="normal">871</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return RMS trend output dtype metadata.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">precision_real_dtype</span><span class="p">(</span><span class="n">input_dtype</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -23176,15 +23218,7 @@ shape; Frame execution remains lazy and preserves the input sampling rate.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 919</span>
-<span class="normal"> 920</span>
-<span class="normal"> 921</span>
-<span class="normal"> 922</span>
-<span class="normal"> 923</span>
-<span class="normal"> 924</span>
-<span class="normal"> 925</span>
-<span class="normal"> 926</span>
-<span class="normal"> 927</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 927</span>
 <span class="normal"> 928</span>
 <span class="normal"> 929</span>
 <span class="normal"> 930</span>
@@ -23423,7 +23457,22 @@ shape; Frame execution remains lazy and preserves the input sampling rate.</p>
 <span class="normal">1163</span>
 <span class="normal">1164</span>
 <span class="normal">1165</span>
-<span class="normal">1166</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SoundLevel</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
+<span class="normal">1166</span>
+<span class="normal">1167</span>
+<span class="normal">1168</span>
+<span class="normal">1169</span>
+<span class="normal">1170</span>
+<span class="normal">1171</span>
+<span class="normal">1172</span>
+<span class="normal">1173</span>
+<span class="normal">1174</span>
+<span class="normal">1175</span>
+<span class="normal">1176</span>
+<span class="normal">1177</span>
+<span class="normal">1178</span>
+<span class="normal">1179</span>
+<span class="normal">1180</span>
+<span class="normal">1181</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SoundLevel</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Frequency- and exponentially time-weighted RMS or level.</span>
 
 <span class="sd">    The operation applies A, C, or flat Z frequency weighting, smooths squared</span>
@@ -23438,6 +23487,8 @@ shape; Frame execution remains lazy and preserves the input sampling rate.</p>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;sound_level&quot;</span>
     <span class="n">_calibration_scale</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="c1"># True only in the private replay of the released Recipe version.</span>
+    <span class="n">_bilinear_weighting</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -23618,11 +23669,16 @@ shape; Frame execution remains lazy and preserves the input sampling rate.</p>
                         <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
                         <span class="n">curve</span><span class="o">=</span><span class="n">freq_weighting</span><span class="p">,</span>
                         <span class="n">first_unsafe_samples</span><span class="o">=</span><span class="n">first_unsafe_samples</span><span class="p">,</span>
+                        <span class="n">bilinear</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_bilinear_weighting</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">weighted</span> <span class="o">=</span> <span class="n">frequency_weight</span><span class="p">(</span><span class="n">weighted_input</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">curve</span><span class="o">=</span><span class="n">freq_weighting</span><span class="p">)</span>
+                    <span class="n">weighted</span> <span class="o">=</span> <span class="n">_apply_weighting</span><span class="p">(</span>
+                        <span class="n">weighted_input</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">freq_weighting</span><span class="p">,</span> <span class="n">bilinear</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_bilinear_weighting</span>
+                    <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">weighted</span> <span class="o">=</span> <span class="n">frequency_weight</span><span class="p">(</span><span class="n">weighted_input</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">curve</span><span class="o">=</span><span class="n">freq_weighting</span><span class="p">)</span>
+                <span class="n">weighted</span> <span class="o">=</span> <span class="n">_apply_weighting</span><span class="p">(</span>
+                    <span class="n">weighted_input</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">freq_weighting</span><span class="p">,</span> <span class="n">bilinear</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_bilinear_weighting</span>
+                <span class="p">)</span>
         <span class="n">alpha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_constant</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dB</span><span class="p">:</span>
             <span class="n">references</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reference_values</span><span class="p">(</span><span class="n">weighted_input</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
@@ -23985,17 +24041,7 @@ frequency curve, or time weighting is invalid.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">935</span>
-<span class="normal">936</span>
-<span class="normal">937</span>
-<span class="normal">938</span>
-<span class="normal">939</span>
-<span class="normal">940</span>
-<span class="normal">941</span>
-<span class="normal">942</span>
-<span class="normal">943</span>
-<span class="normal">944</span>
-<span class="normal">945</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">945</span>
 <span class="normal">946</span>
 <span class="normal">947</span>
 <span class="normal">948</span>
@@ -24039,7 +24085,17 @@ frequency curve, or time weighting is invalid.</p>
 <span class="normal">986</span>
 <span class="normal">987</span>
 <span class="normal">988</span>
-<span class="normal">989</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">989</span>
+<span class="normal">990</span>
+<span class="normal">991</span>
+<span class="normal">992</span>
+<span class="normal">993</span>
+<span class="normal">994</span>
+<span class="normal">995</span>
+<span class="normal">996</span>
+<span class="normal">997</span>
+<span class="normal">998</span>
+<span class="normal">999</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">ref</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">NDArrayReal</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
@@ -24116,13 +24172,13 @@ frequency curve, or time weighting is invalid.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1043</span>
-<span class="normal">1044</span>
-<span class="normal">1045</span>
-<span class="normal">1046</span>
-<span class="normal">1047</span>
-<span class="normal">1048</span>
-<span class="normal">1049</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_display_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1053</span>
+<span class="normal">1054</span>
+<span class="normal">1055</span>
+<span class="normal">1056</span>
+<span class="normal">1057</span>
+<span class="normal">1058</span>
+<span class="normal">1059</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_display_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get display name for the operation for use in channel labels.&quot;&quot;&quot;</span>
     <span class="n">freq_weighting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">freq_weighting</span>
     <span class="n">time_weighting</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_weighting</span>
@@ -24230,24 +24286,24 @@ be broadcast to the input channel count.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1071</span>
-<span class="normal">1072</span>
-<span class="normal">1073</span>
-<span class="normal">1074</span>
-<span class="normal">1075</span>
-<span class="normal">1076</span>
-<span class="normal">1077</span>
-<span class="normal">1078</span>
-<span class="normal">1079</span>
-<span class="normal">1080</span>
-<span class="normal">1081</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1081</span>
 <span class="normal">1082</span>
 <span class="normal">1083</span>
 <span class="normal">1084</span>
 <span class="normal">1085</span>
 <span class="normal">1086</span>
 <span class="normal">1087</span>
-<span class="normal">1088</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="normal">1088</span>
+<span class="normal">1089</span>
+<span class="normal">1090</span>
+<span class="normal">1091</span>
+<span class="normal">1092</span>
+<span class="normal">1093</span>
+<span class="normal">1094</span>
+<span class="normal">1095</span>
+<span class="normal">1096</span>
+<span class="normal">1097</span>
+<span class="normal">1098</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate channel-wise configuration and preserve input shape.</span>
 
 <span class="sd">    Args:</span>
@@ -24287,9 +24343,9 @@ be broadcast to the input channel count.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1164</span>
-<span class="normal">1165</span>
-<span class="normal">1166</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1179</span>
+<span class="normal">1180</span>
+<span class="normal">1181</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return sound level output dtype metadata.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output_dtype</span><span class="p">(</span><span class="n">input_dtype</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -24350,36 +24406,7 @@ energy gives NaN rows. The signals are not mean-removed.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1169</span>
-<span class="normal">1170</span>
-<span class="normal">1171</span>
-<span class="normal">1172</span>
-<span class="normal">1173</span>
-<span class="normal">1174</span>
-<span class="normal">1175</span>
-<span class="normal">1176</span>
-<span class="normal">1177</span>
-<span class="normal">1178</span>
-<span class="normal">1179</span>
-<span class="normal">1180</span>
-<span class="normal">1181</span>
-<span class="normal">1182</span>
-<span class="normal">1183</span>
-<span class="normal">1184</span>
-<span class="normal">1185</span>
-<span class="normal">1186</span>
-<span class="normal">1187</span>
-<span class="normal">1188</span>
-<span class="normal">1189</span>
-<span class="normal">1190</span>
-<span class="normal">1191</span>
-<span class="normal">1192</span>
-<span class="normal">1193</span>
-<span class="normal">1194</span>
-<span class="normal">1195</span>
-<span class="normal">1196</span>
-<span class="normal">1197</span>
-<span class="normal">1198</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1198</span>
 <span class="normal">1199</span>
 <span class="normal">1200</span>
 <span class="normal">1201</span>
@@ -24433,7 +24460,36 @@ energy gives NaN rows. The signals are not mean-removed.</p>
 <span class="normal">1249</span>
 <span class="normal">1250</span>
 <span class="normal">1251</span>
-<span class="normal">1252</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CrossCorrelation</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
+<span class="normal">1252</span>
+<span class="normal">1253</span>
+<span class="normal">1254</span>
+<span class="normal">1255</span>
+<span class="normal">1256</span>
+<span class="normal">1257</span>
+<span class="normal">1258</span>
+<span class="normal">1259</span>
+<span class="normal">1260</span>
+<span class="normal">1261</span>
+<span class="normal">1262</span>
+<span class="normal">1263</span>
+<span class="normal">1264</span>
+<span class="normal">1265</span>
+<span class="normal">1266</span>
+<span class="normal">1267</span>
+<span class="normal">1268</span>
+<span class="normal">1269</span>
+<span class="normal">1270</span>
+<span class="normal">1271</span>
+<span class="normal">1272</span>
+<span class="normal">1273</span>
+<span class="normal">1274</span>
+<span class="normal">1275</span>
+<span class="normal">1276</span>
+<span class="normal">1277</span>
+<span class="normal">1278</span>
+<span class="normal">1279</span>
+<span class="normal">1280</span>
+<span class="normal">1281</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CrossCorrelation</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalized cross-correlation of every output/input channel pair.</span>
 
 <span class="sd">    Row ``output * n_channels + input`` is</span>
@@ -24568,10 +24624,10 @@ energy gives NaN rows. The signals are not mean-removed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1186</span>
-<span class="normal">1187</span>
-<span class="normal">1188</span>
-<span class="normal">1189</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_lag</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1215</span>
+<span class="normal">1216</span>
+<span class="normal">1217</span>
+<span class="normal">1218</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_lag</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_lag</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Real</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_lag</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
         <span class="n">max_lag</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">max_lag</span><span class="p">)</span>
     <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">max_lag</span><span class="o">=</span><span class="n">max_lag</span><span class="p">)</span>
@@ -24595,24 +24651,24 @@ energy gives NaN rows. The signals are not mean-removed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1191</span>
-<span class="normal">1192</span>
-<span class="normal">1193</span>
-<span class="normal">1194</span>
-<span class="normal">1195</span>
-<span class="normal">1196</span>
-<span class="normal">1197</span>
-<span class="normal">1198</span>
-<span class="normal">1199</span>
-<span class="normal">1200</span>
-<span class="normal">1201</span>
-<span class="normal">1202</span>
-<span class="normal">1203</span>
-<span class="normal">1204</span>
-<span class="normal">1205</span>
-<span class="normal">1206</span>
-<span class="normal">1207</span>
-<span class="normal">1208</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">validate_params</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1220</span>
+<span class="normal">1221</span>
+<span class="normal">1222</span>
+<span class="normal">1223</span>
+<span class="normal">1224</span>
+<span class="normal">1225</span>
+<span class="normal">1226</span>
+<span class="normal">1227</span>
+<span class="normal">1228</span>
+<span class="normal">1229</span>
+<span class="normal">1230</span>
+<span class="normal">1231</span>
+<span class="normal">1232</span>
+<span class="normal">1233</span>
+<span class="normal">1234</span>
+<span class="normal">1235</span>
+<span class="normal">1236</span>
+<span class="normal">1237</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">validate_params</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="n">max_lag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_value</span><span class="p">(</span><span class="s2">&quot;max_lag&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">max_lag</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span>
@@ -24652,19 +24708,19 @@ energy gives NaN rows. The signals are not mean-removed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1210</span>
-<span class="normal">1211</span>
-<span class="normal">1212</span>
-<span class="normal">1213</span>
-<span class="normal">1214</span>
-<span class="normal">1215</span>
-<span class="normal">1216</span>
-<span class="normal">1217</span>
-<span class="normal">1218</span>
-<span class="normal">1219</span>
-<span class="normal">1220</span>
-<span class="normal">1221</span>
-<span class="normal">1222</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">max_lag_samples</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1239</span>
+<span class="normal">1240</span>
+<span class="normal">1241</span>
+<span class="normal">1242</span>
+<span class="normal">1243</span>
+<span class="normal">1244</span>
+<span class="normal">1245</span>
+<span class="normal">1246</span>
+<span class="normal">1247</span>
+<span class="normal">1248</span>
+<span class="normal">1249</span>
+<span class="normal">1250</span>
+<span class="normal">1251</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">max_lag_samples</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the largest kept lag in samples for an input of ``n_samples``.&quot;&quot;&quot;</span>
     <span class="n">full</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">n_samples</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
     <span class="n">max_lag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_value</span><span class="p">(</span><span class="s2">&quot;max_lag&quot;</span><span class="p">)</span>
@@ -24697,9 +24753,9 @@ energy gives NaN rows. The signals are not mean-removed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1224</span>
-<span class="normal">1225</span>
-<span class="normal">1226</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1253</span>
+<span class="normal">1254</span>
+<span class="normal">1255</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
     <span class="n">n_channels</span> <span class="o">=</span> <span class="n">input_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">n_channels</span> <span class="o">*</span> <span class="n">n_channels</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_lag_samples</span><span class="p">(</span><span class="n">input_shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -24722,8 +24778,8 @@ energy gives NaN rows. The signals are not mean-removed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1228</span>
-<span class="normal">1229</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1257</span>
+<span class="normal">1258</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
     <span class="k">return</span> <span class="n">precision_real_dtype</span><span class="p">(</span><span class="n">input_dtype</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -24756,17 +24812,17 @@ energy gives NaN rows. The signals are not mean-removed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">866</span>
-<span class="normal">867</span>
-<span class="normal">868</span>
-<span class="normal">869</span>
-<span class="normal">870</span>
-<span class="normal">871</span>
-<span class="normal">872</span>
-<span class="normal">873</span>
-<span class="normal">874</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">874</span>
 <span class="normal">875</span>
-<span class="normal">876</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">normalize_freq_weighting</span><span class="p">(</span><span class="n">freq_weighting</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="normal">876</span>
+<span class="normal">877</span>
+<span class="normal">878</span>
+<span class="normal">879</span>
+<span class="normal">880</span>
+<span class="normal">881</span>
+<span class="normal">882</span>
+<span class="normal">883</span>
+<span class="normal">884</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">normalize_freq_weighting</span><span class="p">(</span><span class="n">freq_weighting</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``&quot;A&quot;``, ``&quot;C&quot;`` or ``&quot;Z&quot;`` for a frequency-weighting name (``None`` is ``&quot;Z&quot;``).&quot;&quot;&quot;</span>
     <span class="n">normalized</span> <span class="o">=</span> <span class="s2">&quot;Z&quot;</span> <span class="k">if</span> <span class="n">freq_weighting</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">freq_weighting</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">normalized</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;Z&quot;</span><span class="p">}:</span>
@@ -24802,22 +24858,22 @@ gives a finite result. A zero row gives <code>-inf</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">879</span>
-<span class="normal">880</span>
-<span class="normal">881</span>
-<span class="normal">882</span>
-<span class="normal">883</span>
-<span class="normal">884</span>
-<span class="normal">885</span>
-<span class="normal">886</span>
-<span class="normal">887</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">887</span>
 <span class="normal">888</span>
 <span class="normal">889</span>
 <span class="normal">890</span>
 <span class="normal">891</span>
 <span class="normal">892</span>
 <span class="normal">893</span>
-<span class="normal">894</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">log10_weighted_rms</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">freq_weighting</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArrayReal</span><span class="p">:</span>
+<span class="normal">894</span>
+<span class="normal">895</span>
+<span class="normal">896</span>
+<span class="normal">897</span>
+<span class="normal">898</span>
+<span class="normal">899</span>
+<span class="normal">900</span>
+<span class="normal">901</span>
+<span class="normal">902</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">log10_weighted_rms</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">freq_weighting</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArrayReal</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``log10(rms(weighted x))`` for each row of ``x``.</span>
 
 <span class="sd">    Every row is divided by its peak before weighting and squaring, and the</span>
@@ -24855,15 +24911,15 @@ gives a finite result. A zero row gives <code>-inf</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">897</span>
-<span class="normal">898</span>
-<span class="normal">899</span>
-<span class="normal">900</span>
-<span class="normal">901</span>
-<span class="normal">902</span>
-<span class="normal">903</span>
-<span class="normal">904</span>
-<span class="normal">905</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">equivalent_level_db</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">905</span>
+<span class="normal">906</span>
+<span class="normal">907</span>
+<span class="normal">908</span>
+<span class="normal">909</span>
+<span class="normal">910</span>
+<span class="normal">911</span>
+<span class="normal">912</span>
+<span class="normal">913</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">equivalent_level_db</span><span class="p">(</span>
     <span class="n">log10_rms</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">,</span>
     <span class="n">calibration_scale</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">,</span>
     <span class="n">reference</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">,</span>
@@ -24896,15 +24952,15 @@ gives a finite result. A zero row gives <code>-inf</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/temporal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">908</span>
-<span class="normal">909</span>
-<span class="normal">910</span>
-<span class="normal">911</span>
-<span class="normal">912</span>
-<span class="normal">913</span>
-<span class="normal">914</span>
-<span class="normal">915</span>
-<span class="normal">916</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">percentile_levels</span><span class="p">(</span><span class="n">levels</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">NDArrayReal</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArrayReal</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">916</span>
+<span class="normal">917</span>
+<span class="normal">918</span>
+<span class="normal">919</span>
+<span class="normal">920</span>
+<span class="normal">921</span>
+<span class="normal">922</span>
+<span class="normal">923</span>
+<span class="normal">924</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">percentile_levels</span><span class="p">(</span><span class="n">levels</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">NDArrayReal</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArrayReal</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the levels exceeded ``n`` percent of the time along the last axis.</span>
 
 <span class="sd">    ``n`` goes to ``numpy.percentile`` as ``100 - n``. The result has shape</span>
