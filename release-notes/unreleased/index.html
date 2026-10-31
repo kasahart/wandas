@@ -1212,19 +1212,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Unreleased
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1236,61 +1223,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
-    <span class="md-ellipsis">
-      Added / 追加
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Changed / 変更
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#fixed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Fixed / 修正
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#compatibility" class="md-nav__link">
-    <span class="md-ellipsis">
-      Compatibility / 互換性
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -1767,50 +1699,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
-    <span class="md-ellipsis">
-      Added / 追加
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Changed / 変更
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#fixed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Fixed / 修正
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#compatibility" class="md-nav__link">
-    <span class="md-ellipsis">
-      Compatibility / 互換性
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -1834,137 +1722,8 @@
 
 
 <h1 id="unreleased-changes">Unreleased changes<a class="headerlink" href="#unreleased-changes" title="Permanent link">&para;</a></h1>
-<p>Changes after <a href="../v0.12.0/">Wandas 0.12.0</a>.</p>
-<h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>trim()</code> selects by time on more frames and in more units
-  (<a href="https://github.com/kasahart/wandas/issues/603">#603</a>). Times are seconds or
-  strings with the units <code>h</code>, <code>min</code>, <code>s</code> and <code>ms</code>, such as
-  <code>recording.trim("1min30s", "2min")</code>. <code>reference="source"</code> measures them on the
-  source timeline instead of from the frame start. <code>SpectrogramFrame.trim()</code> and
-  <code>CepstrogramFrame.trim()</code> keep the frames whose center lies in the half-open
-  range, and <code>SpectrogramFrame.at_time(12.3)</code> returns the spectrum of the frame
-  whose center is nearest, with an optional <code>tolerance</code>. All of them are Recipe
-  steps that record the requested times, so a plan selects the same seconds on
-  files with other sampling rates.
-  <code>trim()</code>で秒のほか<code>h</code>・<code>min</code>・<code>s</code>・<code>ms</code>付きの文字列（<code>recording.trim("1min30s", "2min")</code>など）を
-  指定できるようになり、<code>reference="source"</code>で元の音源の時刻を使えます。<code>SpectrogramFrame.trim()</code>と
-  <code>CepstrogramFrame.trim()</code>は中心が半開区間に入るフレームを残し、<code>SpectrogramFrame.at_time(12.3)</code>は
-  中心が最も近いフレームのスペクトルを返します（<code>tolerance</code>も指定可）。どれもRecipeの段で、
-  指定した時刻を記録するため、サンプリング周波数が違うファイルでも同じ秒数を選びます。</li>
-</ul>
-<h2 id="changed">Changed / 変更<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
-<ul>
-<li>The built-in Recipe operations are now collected from the Frame types that
-  <code>wandas.frames</code> exports (with their base classes and mixins) instead of a
-  hand-written list, so a new public Frame or mixin needs no extra registration
-  (<a href="https://github.com/kasahart/wandas/issues/608">#608</a>). For each Frame type,
-  <code>default_recipe_registry().describe()</code> lists its operations in the same order
-  as before; only the pairwise-frame operations move after the spectrogram ones
-  in the full catalog.
-  組み込みRecipe operationは手書きの一覧ではなく、<code>wandas.frames</code>が公開するFrame型と
-  そのbase class・mixinから集めるようになりました。新しい公開Frameやmixinは追加登録が要りません。
-  Frame型ごとの<code>default_recipe_registry().describe()</code>の並びは変わらず、全体の一覧で
-  pairwise系Frameのoperationがspectrogram系の後ろへ移るだけです。</li>
-<li>The eagerly imported <code>wandas.processing</code> modules register every Operation
-  class they define with its own <code>name</code>, instead of a hand-written list at the
-  end of each module, and a new test fails when a built-in Operation class
-  cannot be resolved by its name
-  (<a href="https://github.com/kasahart/wandas/issues/610">#610</a>). The registered
-  operations are unchanged.
-  eager importされる<code>wandas.processing</code>の各モジュールは、末尾の手書きの一覧ではなく、
-  自分の<code>name</code>を持つOperation classをすべて登録するようになりました。名前で解決できない
-  組み込みOperation classがあると新しいテストが失敗します。登録されるoperationは変わりません。</li>
-<li>The A, B and C frequency-weighting filters (<code>a_weighting()</code>,
-  <code>sound_level(freq_weighting="A" | "C")</code>, <code>rms_trend(Aw=True)</code>, <code>leq()</code> and
-  <code>percentile_levels()</code>) follow the analog IEC 61672-1 curve up to
-  0.9 × Nyquist within about 0.2 dB from 8 kHz to 192 kHz
-  (<a href="https://github.com/kasahart/wandas/issues/607">#607</a>). The previous
-  design, vendored from waveform-analysis, ran the whole analog filter through
-  the bilinear transform and attenuated too much near Nyquist: at 48 kHz it
-  was 1.2 dB low at 10 kHz, 6.4 dB at 16 kHz and 15.8 dB at 20 kHz, and
-  A-weighted white noise read 0.87 dB low. The low-frequency poles still use
-  the bilinear transform; the 12.2 kHz double pole is matched and two zeros
-  are fitted to the analog curve by linear least squares. The filter stays
-  causal and runs at the input sampling rate. At or below 2 kHz sampling,
-  where 1 kHz is not below Nyquist, the previous design is kept. These numbers change, so new
-  Recipes use <code>a_weighting</code> version 2 and <code>rms_trend</code>/<code>sound_level</code> version
-  3; Recipes saved by 0.12.0 still replay the old filter. The spectral <code>Aw=True</code>
-  options are unchanged; they already evaluate the analog curve.
-  A/B/C特性の周波数重み付けフィルタ（<code>a_weighting()</code>、<code>sound_level(freq_weighting="A" | "C")</code>、
-  <code>rms_trend(Aw=True)</code>、<code>leq()</code>、<code>percentile_levels()</code>）が、8 kHz〜192 kHzでナイキスト周波数の
-  0.9倍までIEC 61672-1のアナログ曲線に約0.2 dB以内で一致するようになりました。waveform-analysisから
-  取り込んだ従来の設計はアナログフィルタ全体を双一次変換していたため、ナイキスト周波数付近で
-  減衰しすぎていました（48 kHzで10 kHzが1.2 dB、16 kHzが6.4 dB、20 kHzが15.8 dB低く、A特性の
-  白色雑音は0.87 dB低く出ていました）。低域の極は引き続き双一次変換し、12.2 kHzの二重極は
-  matched-z変換で写し、2つの零点を線形最小二乗でアナログ曲線に合わせます。フィルタは因果的で、
-  入力のサンプリング周波数のまま動きます。1 kHzがナイキスト周波数未満にならない2 kHz以下の
-  サンプリング周波数では従来の設計のままです。数値が変わるため、新しいRecipeは<code>a_weighting</code>の
-  version 2、<code>rms_trend</code>／<code>sound_level</code>のversion 3を使います。0.12.0で保存したRecipeは従来の
-  フィルタで再生されます。スペクトルの<code>Aw=True</code>はもともとアナログ曲線を評価しているため変わりません。</li>
-<li><code>ChannelFrame.trim()</code> rounds times to the nearest sample (halves up) instead of
-  truncating them, so <code>trim(0.29)</code> at 100 Hz starts at sample 29, not 28
-  (<code>0.29 * 100</code> is <code>28.999...</code> in floating point). The Recipe step
-  <code>wandas.frame.time_slice</code> is now version 2; saved version 1 plans replay with
-  the old truncation.
-  <code>ChannelFrame.trim()</code>は時刻をサンプルへ切り捨てずに四捨五入するようになりました。100 Hzで
-  <code>trim(0.29)</code>は28ではなく29番目のサンプルから始まります（浮動小数点では<code>0.29 * 100</code>が<code>28.999...</code>）。
-  Recipeの段<code>wandas.frame.time_slice</code>はversion 2になり、保存済みのversion 1は従来の切り捨てで再実行します。</li>
-</ul>
-<h2 id="fixed">Fixed / 修正<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Slicing an <code>NOctFrame</code> along the band axis now labels the selected bands
-  with their own center frequencies
-  (<a href="https://github.com/kasahart/wandas/issues/600">#600</a>). Before, <code>freqs</code>
-  restarted from the original lowest band, so <code>noct[:, 3:6]</code> of a
-  100 Hz–4 kHz spectrum was labelled 100/125/160 Hz instead of
-  200/250/315 Hz, and <code>dBA</code>, <code>plot()</code>, <code>to_dataframe()</code> and saved WDF files
-  used those wrong labels. The slice now moves <code>fmin</code>/<code>fmax</code> to the first and
-  last selected bands. A stepped band slice (<code>noct[:, ::2]</code>) or an empty one
-  now raises <code>ValueError</code>, because <code>fmin</code>/<code>fmax</code> can describe only a
-  contiguous run of bands. A WDF file saved from a band slice before this fix
-  keeps its wrong labels, because it does not store which bands were selected;
-  recompute it from the source.
-  <code>NOctFrame</code>をバンド方向にスライスしたとき、選んだバンドに正しい中心周波数が付くようになりました。
-  これまでは<code>freqs</code>が元の最低バンドから数え直されていたため、100 Hz〜4 kHzのスペクトルの
-  <code>noct[:, 3:6]</code>に200/250/315 Hzではなく100/125/160 Hzが付き、<code>dBA</code>、<code>plot()</code>、
-  <code>to_dataframe()</code>、保存したWDFファイルもその誤ったラベルを使っていました。スライスは
-  <code>fmin</code>/<code>fmax</code>を選んだ最初と最後のバンドへ移します。<code>fmin</code>/<code>fmax</code>は連続したバンドしか表せないため、
-  ステップ付きのスライス（<code>noct[:, ::2]</code>）と空のスライスは<code>ValueError</code>になります。
-  この修正より前にバンドをスライスして保存したWDFファイルは、どのバンドを選んだかを保存していないため
-  誤ったラベルのままです。元のデータから計算し直してください。</li>
-</ul>
-<h2 id="compatibility">Compatibility / 互換性<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Affected surface or artifact</th>
-<th>Classification</th>
-<th>Deprecation start</th>
-<th>Replacement or migration</th>
-<th>Removal/change version</th>
-<th>Exception reason and decision link</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Replay of <code>wandas.frame.index</code> (v1) Recipes that slice an <code>NOctFrame</code> along the band axis</td>
-<td>Serialized</td>
-<td><code>None</code></td>
-<td>None needed: contiguous slices now replay with correct band labels; rewrite a stepped band slice as separate contiguous slices</td>
-<td>Next release</td>
-<td>Wrong labels become correct (values unchanged) and stepped slices raise <code>ValueError</code>; <a href="https://github.com/kasahart/wandas/issues/600#issuecomment-6514808419">decision</a></td>
-</tr>
-<tr>
-<td>Time-domain A/B/C weighting (<code>a_weighting()</code>, <code>sound_level(freq_weighting="A" \| "C")</code>, <code>rms_trend(Aw=True)</code>, <code>leq()</code>, <code>percentile_levels()</code>) and their Recipes</td>
-<td>Stable / Serialized, numeric change with new operation versions</td>
-<td>None</td>
-<td>None needed; Recipes saved by 0.12.0 (<code>a_weighting</code> v1, <code>rms_trend</code>/<code>sound_level</code> v2) replay the old filter, and readers without the new versions reject new Recipes at load time</td>
-<td>Next release</td>
-<td>The old filter attenuated too much near Nyquist; <a href="https://github.com/kasahart/wandas/issues/607">#607</a></td>
-</tr>
-</tbody>
-</table>
+<p>No changes are currently pending after 0.12.0. See <a href="../v0.12.0/">Wandas 0.12.0</a>
+for the level trigger, time selection by seconds and the A/B/C weighting fix.</p>
 
 
 
@@ -1985,7 +1744,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 31, 2026 00:00:59 UTC">October 31, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 31, 2026 01:03:38 UTC">October 31, 2026</span>
   </span>
 
     

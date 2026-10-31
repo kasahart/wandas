@@ -1320,6 +1320,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed / 修正
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1827,6 +1836,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed / 修正
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1852,14 +1870,23 @@
 
 
 <h1 id="wandas-0120">Wandas 0.12.0<a class="headerlink" href="#wandas-0120" title="Permanent link">&para;</a></h1>
-<p>Wandas 0.12.0 adds tools for impact tests and transient measurements. A level
-trigger cuts a recording into hits and averages their frequency response, the
-H2 estimator handles noise on the input channel, and the new envelope,
-equivalent and percentile levels and cross-correlation cover common checks on
-recorded signals. <code>cache()</code> also got faster on long recordings.</p>
-<p>Wandas 0.12.0では、打撃試験や過渡的な測定のための機能を追加しました。レベルトリガーで録音を打撃ごとに
-切り出して周波数応答を平均でき、H2推定は入力チャンネルの雑音に強く、包絡・等価騒音レベルと時間率レベル・
-相互相関で録音した信号のよくある確認ができます。<code>cache()</code>も長い録音で速くなりました。</p>
+<p>Wandas 0.12.0 adds tools for impact tests and transient measurements, and lets
+you pick parts of a recording by time. A level trigger cuts a recording into
+hits and averages their frequency response, the H2 estimator handles noise on
+the input channel, and the new envelope, equivalent and percentile levels and
+cross-correlation cover common checks on recorded signals. <code>trim()</code> accepts
+strings such as <code>"1min30s"</code> and works on spectrograms, and
+<code>SpectrogramFrame.at_time()</code> returns the spectrum at a given second. The
+time-domain A/B/C weighting filters now follow the IEC 61672-1 curve up to
+0.9 × Nyquist; before, A-weighted white noise at 48 kHz read 0.87 dB low.
+<code>cache()</code> also got faster on long recordings.</p>
+<p>Wandas 0.12.0では、打撃試験や過渡的な測定のための機能を追加し、録音の一部を時刻で選べるようにしました。
+レベルトリガーで録音を打撃ごとに切り出して周波数応答を平均でき、H2推定は入力チャンネルの雑音に強く、
+包絡・等価騒音レベルと時間率レベル・相互相関で録音した信号のよくある確認ができます。<code>trim()</code>は
+<code>"1min30s"</code>のような文字列を受け付け、スペクトログラムにも使え、<code>SpectrogramFrame.at_time()</code>は指定した秒の
+スペクトルを返します。時間領域のA/B/C特性フィルタはナイキスト周波数の0.9倍までIEC 61672-1の曲線に
+従うようになりました（従来は48 kHzでA特性の白色雑音が0.87 dB低く出ていました）。<code>cache()</code>も長い録音で
+速くなりました。</p>
 <h2 id="highlights">Highlights / 主な変更<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>ChannelFrame.trigger()</code> and <code>segment()</code> cut hits into <code>ChannelFrameSegments</code>,
@@ -1873,6 +1900,16 @@ recorded signals. <code>cache()</code> also got faster on long recordings.</p>
   <code>envelope()</code>・<code>leq()</code>・<code>percentile_levels()</code>・<code>cross_correlation()</code>（新しい<code>CrossCorrelationFrame</code>）を追加しました。</li>
 <li><code>Frame.cache()</code> no longer hashes every sample.
   <code>Frame.cache()</code>が全サンプルをハッシュしなくなりました。</li>
+<li><code>trim("1min30s", "2min")</code>, <code>trim(..., reference="source")</code>, <code>SpectrogramFrame.trim()</code>,
+  <code>CepstrogramFrame.trim()</code> and <code>SpectrogramFrame.at_time(12.3)</code>.
+  <code>trim("1min30s", "2min")</code>、<code>trim(..., reference="source")</code>、<code>SpectrogramFrame.trim()</code>、
+  <code>CepstrogramFrame.trim()</code>、<code>SpectrogramFrame.at_time(12.3)</code>を追加しました。</li>
+<li>A/B/C weighting matches the analog curve near Nyquist, and <code>trim()</code> rounds
+  times to the nearest sample (numbers change; old Recipes replay the old numbers).
+  A/B/C特性がナイキスト周波数付近までアナログ曲線に一致し、<code>trim()</code>は時刻を最も近いサンプルへ丸めます
+  （数値が変わります。既存のRecipeは従来の数値で再実行します）。</li>
+<li><code>NOctFrame</code> band slices are labelled with their own center frequencies.
+  <code>NOctFrame</code>のバンドのスライスに正しい中心周波数が付きます。</li>
 </ul>
 <h2 id="changes">Changes / 変更一覧<a class="headerlink" href="#changes" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1882,19 +1919,29 @@ recorded signals. <code>cache()</code> also got faster on long recordings.</p>
 <li><a href="https://github.com/kasahart/wandas/pull/596">#596: Leq and percentile levels</a> / 等価騒音レベルと時間率レベル</li>
 <li><a href="https://github.com/kasahart/wandas/pull/597">#597: cross-correlation with a lag axis</a> / ラグ軸付きの相互相関</li>
 <li><a href="https://github.com/kasahart/wandas/pull/599">#599: <code>cache()</code> without hashing every sample</a> / 全サンプルをハッシュしない<code>cache()</code></li>
+<li><a href="https://github.com/kasahart/wandas/pull/601">#601: correct band labels for sliced <code>NOctFrame</code></a> / スライスした<code>NOctFrame</code>の正しいバンドのラベル</li>
+<li><a href="https://github.com/kasahart/wandas/pull/609">#609: built-in Recipe owners collected from the public Frame types</a> / 公開Frame型から組み込みRecipeの持ち主を収集</li>
+<li><a href="https://github.com/kasahart/wandas/pull/611">#611: Operation classes registered without hand-written lists</a> / 手書きの一覧なしでOperation classを登録</li>
+<li><a href="https://github.com/kasahart/wandas/pull/613">#613: derived checks of the <code>wandas.frames</code> exports</a> / <code>wandas.frames</code>の公開一覧のテストを自動化</li>
+<li><a href="https://github.com/kasahart/wandas/pull/614">#614: time selection by seconds and unit strings</a> / 秒と単位付き文字列による時刻の選択</li>
+<li><a href="https://github.com/kasahart/wandas/pull/617">#617: A/B/C weighting accurate near Nyquist</a> / ナイキスト周波数付近まで正確なA/B/C特性</li>
 </ul>
 <p>Documentation: the impact-hammer FRF lesson (<a href="https://github.com/kasahart/wandas/pull/606">#606</a>).
 ドキュメント：打撃試験のFRFの教材（<a href="https://github.com/kasahart/wandas/pull/606">#606</a>）。</p>
 <h2 id="compatibility-and-migration">Compatibility and migration / 互換性と移行<a class="headerlink" href="#compatibility-and-migration" title="Permanent link">&para;</a></h2>
-<p>Everything new is additive, and existing Recipes replay as before. Files that
-use the new features need 0.12.0 to read them: WDF files holding an H2 transfer
-function or a <code>CrossCorrelationFrame</code>, and Recipes with the new operations, are
-rejected by 0.11.0 and earlier. A Recipe with <code>estimator="H2"</code> loads in 0.11.0
-but fails when applied.</p>
-<p>追加した機能はすべて既存の動作を変えず、既存のRecipeはこれまでどおり再実行できます。新しい機能を使った
-ファイルの読み込みには0.12.0が必要です。H2の伝達関数や<code>CrossCorrelationFrame</code>を保存したWDFファイルと、
-新しい操作を含むRecipeは、0.11.0以前では拒否されます。<code>estimator="H2"</code>を含むRecipeは0.11.0でも
-読み込めますが、実行すると失敗します。</p>
+<p>Two changes give different numbers for the same input: time-domain A/B/C
+weighting and <code>trim()</code> rounding. Both come with new Recipe operation versions,
+so Recipes saved by 0.11.0 and earlier replay exactly as before. Everything
+else is additive. Files that use the new features need 0.12.0 to read them:
+WDF files holding an H2 transfer function or a <code>CrossCorrelationFrame</code>, and
+Recipes with the new operations or operation versions, are rejected by 0.11.0
+and earlier. A Recipe with <code>estimator="H2"</code> loads in 0.11.0 but fails when
+applied.</p>
+<p>同じ入力で数値が変わる変更が2つあります。時間領域のA/B/C特性と<code>trim()</code>の丸めです。どちらも新しい
+Recipeの操作versionを伴うため、0.11.0以前で保存したRecipeはこれまでどおりの数値で再実行されます。
+それ以外の追加は既存の動作を変えません。新しい機能を使ったファイルの読み込みには0.12.0が必要です。
+H2の伝達関数や<code>CrossCorrelationFrame</code>を保存したWDFファイルと、新しい操作や操作versionを含むRecipeは、
+0.11.0以前では拒否されます。<code>estimator="H2"</code>を含むRecipeは0.11.0でも読み込めますが、実行すると失敗します。</p>
 <table>
 <thead>
 <tr>
@@ -1930,6 +1977,38 @@ but fails when applied.</p>
 <td>None needed; values, dtype, chunks, metadata and lineage are unchanged</td>
 <td>0.12.0</td>
 <td>Two <code>cache()</code> calls on equal data no longer share a key because the samples are not hashed; <a href="https://github.com/kasahart/wandas/pull/599">#599</a></td>
+</tr>
+<tr>
+<td>Replay of <code>wandas.frame.index</code> (v1) Recipes that slice an <code>NOctFrame</code> along the band axis</td>
+<td>Serialized</td>
+<td><code>None</code></td>
+<td>None needed: contiguous slices now replay with correct band labels; rewrite a stepped band slice as separate contiguous slices</td>
+<td>0.12.0</td>
+<td>Wrong labels become correct (values unchanged) and stepped slices raise <code>ValueError</code>; <a href="https://github.com/kasahart/wandas/issues/600#issuecomment-6514808419">decision</a></td>
+</tr>
+<tr>
+<td>Time-domain A/B/C weighting (<code>a_weighting()</code>, <code>sound_level(freq_weighting="A" \| "C")</code>, <code>rms_trend(Aw=True)</code>, <code>leq()</code>, <code>percentile_levels()</code>) and their Recipes</td>
+<td>Stable / Serialized, numeric change with new operation versions</td>
+<td>None</td>
+<td>None needed; Recipes saved by 0.11.0 and earlier (<code>a_weighting</code> v1, <code>rms_trend</code>/<code>sound_level</code> v2) replay the old filter, and readers without the new versions reject new Recipes at load time</td>
+<td>0.12.0</td>
+<td>The old filter attenuated too much near Nyquist; <a href="https://github.com/kasahart/wandas/issues/607">#607</a></td>
+</tr>
+<tr>
+<td><code>ChannelFrame.trim()</code> and its Recipes (<code>wandas.frame.time_slice</code>)</td>
+<td>Stable / Serialized, numeric change with a new operation version</td>
+<td>None</td>
+<td>None needed; version 1 plans saved by 0.11.0 and earlier replay with the old truncation, and readers without version 2 reject new plans at load time</td>
+<td>0.12.0</td>
+<td>Times now round to the nearest sample instead of truncating, so <code>trim(0.29)</code> at 100 Hz starts at sample 29, not 28; <a href="https://github.com/kasahart/wandas/pull/614">#614</a></td>
+</tr>
+<tr>
+<td>Recipe JSON of <code>SpectrogramFrame.trim()</code>, <code>CepstrogramFrame.trim()</code> and <code>SpectrogramFrame.at_time()</code></td>
+<td>Serialized, new operations</td>
+<td>Not applicable</td>
+<td>Upgrade readers to 0.12.0 before exchanging such Recipes</td>
+<td>0.12.0</td>
+<td>New operations; 0.11.0 and earlier reject them at load time; <a href="https://github.com/kasahart/wandas/issues/603">#603</a></td>
 </tr>
 </tbody>
 </table>
@@ -1968,6 +2047,38 @@ but fails when applied.</p>
 <td>対応は不要です。値、dtype、チャンク、メタデータ、lineageは変わりません</td>
 <td>0.12.0</td>
 <td>サンプルをハッシュしないため、等しいデータに別々に<code>cache()</code>を呼んでもキーを共有しません。<a href="https://github.com/kasahart/wandas/pull/599">#599</a></td>
+</tr>
+<tr>
+<td><code>NOctFrame</code>をバンド方向にスライスする<code>wandas.frame.index</code>（v1）のRecipeの再実行</td>
+<td>Serialized</td>
+<td><code>None</code></td>
+<td>対応は不要です。連続したスライスは正しいバンドのラベルで再実行されます。ステップ付きのスライスは連続したスライスに分けて書き直してください</td>
+<td>0.12.0</td>
+<td>誤ったラベルが正しくなり（値は不変）、ステップ付きのスライスは<code>ValueError</code>になります。<a href="https://github.com/kasahart/wandas/issues/600#issuecomment-6514808419">判断</a></td>
+</tr>
+<tr>
+<td>時間領域のA/B/C特性（<code>a_weighting()</code>、<code>sound_level(freq_weighting="A" \| "C")</code>、<code>rms_trend(Aw=True)</code>、<code>leq()</code>、<code>percentile_levels()</code>）とそのRecipe</td>
+<td>Stable / Serialized、新しい操作versionを伴う数値の変更</td>
+<td>なし</td>
+<td>対応は不要です。0.11.0以前で保存したRecipe（<code>a_weighting</code> v1、<code>rms_trend</code>／<code>sound_level</code> v2）は従来のフィルタで再実行され、新しいversionを知らない読み手は新しいRecipeを読み込み時に拒否します</td>
+<td>0.12.0</td>
+<td>従来のフィルタはナイキスト周波数付近で減衰しすぎていました。<a href="https://github.com/kasahart/wandas/issues/607">#607</a></td>
+</tr>
+<tr>
+<td><code>ChannelFrame.trim()</code>とそのRecipe（<code>wandas.frame.time_slice</code>）</td>
+<td>Stable / Serialized、新しい操作versionを伴う数値の変更</td>
+<td>なし</td>
+<td>対応は不要です。0.11.0以前で保存したversion 1は従来の切り捨てで再実行され、version 2を知らない読み手は新しいRecipeを読み込み時に拒否します</td>
+<td>0.12.0</td>
+<td>時刻を切り捨てずに最も近いサンプルへ丸めるため、100 Hzの<code>trim(0.29)</code>は28ではなく29番目のサンプルから始まります。<a href="https://github.com/kasahart/wandas/pull/614">#614</a></td>
+</tr>
+<tr>
+<td><code>SpectrogramFrame.trim()</code>・<code>CepstrogramFrame.trim()</code>・<code>SpectrogramFrame.at_time()</code>のRecipe JSON</td>
+<td>Serialized、新しい操作</td>
+<td>該当なし</td>
+<td>このRecipeをやり取りする前に、読む側を0.12.0に揃えてください</td>
+<td>0.12.0</td>
+<td>新しい操作のため、0.11.0以前は読み込み時に拒否します。<a href="https://github.com/kasahart/wandas/issues/603">#603</a></td>
 </tr>
 </tbody>
 </table>
@@ -2048,7 +2159,8 @@ but fails when applied.</p>
   <code>definition</code>は新しい値<code>h2_input_cross_denominator</code>になり、古いWandasでは読み込めません。
   H1のファイルは変わりません。Recipeには<code>estimator</code>を指定したときだけ記録するため、既存の
   Recipeはこれまでどおり再実行できます。</li>
-<li><code>ChannelFrame.cross_correlation(max_lag=None)</code> returns the normalized
+<li>
+<p><code>ChannelFrame.cross_correlation(max_lag=None)</code> returns the normalized
   cross-correlation of every output/input channel pair as a new
   <code>CrossCorrelationFrame</code> with a lag axis in seconds (positive when the output
   lags the input). Each row is <code>scipy.signal.correlate(x_out, x_in)</code> divided by
@@ -2063,18 +2175,118 @@ but fails when applied.</p>
   [-1, 1]の係数です。<code>delays</code>は各組で<code>abs(係数)</code>が最大になるラグ、<code>peak_coefficients</code>はそこでの
   符号付きの値です。<code>select_pair()</code>、連続したラグの切り出し、<code>plot()</code>（横軸がラグ）、
   <code>to_dataframe()</code>、WDFの保存・読み込み、Recipeの再実行は、ペアのスペクトルFrameと同じように
-  使えます。<code>max_lag</code>を指定すると<code>±max_lag</code>秒以内のラグだけを残します。</li>
+  使えます。<code>max_lag</code>を指定すると<code>±max_lag</code>秒以内のラグだけを残します。</p>
+</li>
+<li>
+<p><code>trim()</code> selects by time on more frames and in more units
+  (<a href="https://github.com/kasahart/wandas/issues/603">#603</a>). Times are seconds or
+  strings with the units <code>h</code>, <code>min</code>, <code>s</code> and <code>ms</code>, such as
+  <code>recording.trim("1min30s", "2min")</code>. <code>reference="source"</code> measures them on the
+  source timeline instead of from the frame start. <code>SpectrogramFrame.trim()</code> and
+  <code>CepstrogramFrame.trim()</code> keep the frames whose center lies in the half-open
+  range, and <code>SpectrogramFrame.at_time(12.3)</code> returns the spectrum of the frame
+  whose center is nearest, with an optional <code>tolerance</code>. All of them are Recipe
+  steps that record the requested times, so a plan selects the same seconds on
+  files with other sampling rates.
+  <code>trim()</code>で秒のほか<code>h</code>・<code>min</code>・<code>s</code>・<code>ms</code>付きの文字列（<code>recording.trim("1min30s", "2min")</code>など）を
+  指定できるようになり、<code>reference="source"</code>で元の音源の時刻を使えます。<code>SpectrogramFrame.trim()</code>と
+  <code>CepstrogramFrame.trim()</code>は中心が半開区間に入るフレームを残し、<code>SpectrogramFrame.at_time(12.3)</code>は
+  中心が最も近いフレームのスペクトルを返します（<code>tolerance</code>も指定可）。どれもRecipeの段で、
+  指定した時刻を記録するため、サンプリング周波数が違うファイルでも同じ秒数を選びます。</p>
+</li>
 </ul>
 <h2 id="changed">Changed / 変更<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>Frame.cache()</code> no longer hashes every sample to name its Dask array, which
+<li>
+<p><code>Frame.cache()</code> no longer hashes every sample to name its Dask array, which
   saves one pass over the data (about 0.1–0.3 s for a 10-minute 48 kHz stereo
   recording) (<a href="https://github.com/kasahart/wandas/issues/598">#598</a>). Values,
   dtype, chunks, metadata and lineage are unchanged; two separate <code>cache()</code>
   calls on equal data no longer share a Dask key.
   <code>Frame.cache()</code>はDask配列の名前を付けるために全サンプルをハッシュしなくなり、データを1回読む分だけ
   速くなりました（48 kHzステレオ10分の録音で約0.1〜0.3秒）。値、dtype、チャンク、メタデータ、
-  lineageは変わりません。等しいデータに別々に<code>cache()</code>を呼んだ結果がDaskのキーを共有しなくなります。</li>
+  lineageは変わりません。等しいデータに別々に<code>cache()</code>を呼んだ結果がDaskのキーを共有しなくなります。</p>
+</li>
+<li>
+<p>The built-in Recipe operations are now collected from the Frame types that
+  <code>wandas.frames</code> exports (with their base classes and mixins) instead of a
+  hand-written list, so a new public Frame or mixin needs no extra registration
+  (<a href="https://github.com/kasahart/wandas/issues/608">#608</a>). For each Frame type,
+  <code>default_recipe_registry().describe()</code> lists its operations in the same order
+  as before; only the pairwise-frame operations move after the spectrogram ones
+  in the full catalog.
+  組み込みRecipe operationは手書きの一覧ではなく、<code>wandas.frames</code>が公開するFrame型と
+  そのbase class・mixinから集めるようになりました。新しい公開Frameやmixinは追加登録が要りません。
+  Frame型ごとの<code>default_recipe_registry().describe()</code>の並びは変わらず、全体の一覧で
+  pairwise系Frameのoperationがspectrogram系の後ろへ移るだけです。</p>
+</li>
+<li>The eagerly imported <code>wandas.processing</code> modules register every Operation
+  class they define with its own <code>name</code>, instead of a hand-written list at the
+  end of each module, and a new test fails when a built-in Operation class
+  cannot be resolved by its name
+  (<a href="https://github.com/kasahart/wandas/issues/610">#610</a>). The registered
+  operations are unchanged.
+  eager importされる<code>wandas.processing</code>の各モジュールは、末尾の手書きの一覧ではなく、
+  自分の<code>name</code>を持つOperation classをすべて登録するようになりました。名前で解決できない
+  組み込みOperation classがあると新しいテストが失敗します。登録されるoperationは変わりません。</li>
+<li>The A, B and C frequency-weighting filters (<code>a_weighting()</code>,
+  <code>sound_level(freq_weighting="A" | "C")</code>, <code>rms_trend(Aw=True)</code>, <code>leq()</code> and
+  <code>percentile_levels()</code>) follow the analog IEC 61672-1 curve up to
+  0.9 × Nyquist within about 0.2 dB from 8 kHz to 192 kHz
+  (<a href="https://github.com/kasahart/wandas/issues/607">#607</a>). The previous
+  design, vendored from waveform-analysis, ran the whole analog filter through
+  the bilinear transform and attenuated too much near Nyquist: at 48 kHz it
+  was 1.2 dB low at 10 kHz, 6.4 dB at 16 kHz and 15.8 dB at 20 kHz, and
+  A-weighted white noise read 0.87 dB low. The low-frequency poles still use
+  the bilinear transform; the 12.2 kHz double pole is matched and two zeros
+  are fitted to the analog curve by linear least squares. The filter stays
+  causal and runs at the input sampling rate. At or below 2 kHz sampling,
+  where 1 kHz is not below Nyquist, the previous design is kept. These numbers change, so new
+  Recipes use <code>a_weighting</code> version 2 and <code>rms_trend</code>/<code>sound_level</code> version
+  3; Recipes saved by 0.11.0 and earlier still replay the old filter. The spectral <code>Aw=True</code>
+  options are unchanged; they already evaluate the analog curve.
+  A/B/C特性の周波数重み付けフィルタ（<code>a_weighting()</code>、<code>sound_level(freq_weighting="A" | "C")</code>、
+  <code>rms_trend(Aw=True)</code>、<code>leq()</code>、<code>percentile_levels()</code>）が、8 kHz〜192 kHzでナイキスト周波数の
+  0.9倍までIEC 61672-1のアナログ曲線に約0.2 dB以内で一致するようになりました。waveform-analysisから
+  取り込んだ従来の設計はアナログフィルタ全体を双一次変換していたため、ナイキスト周波数付近で
+  減衰しすぎていました（48 kHzで10 kHzが1.2 dB、16 kHzが6.4 dB、20 kHzが15.8 dB低く、A特性の
+  白色雑音は0.87 dB低く出ていました）。低域の極は引き続き双一次変換し、12.2 kHzの二重極は
+  matched-z変換で写し、2つの零点を線形最小二乗でアナログ曲線に合わせます。フィルタは因果的で、
+  入力のサンプリング周波数のまま動きます。1 kHzがナイキスト周波数未満にならない2 kHz以下の
+  サンプリング周波数では従来の設計のままです。数値が変わるため、新しいRecipeは<code>a_weighting</code>の
+  version 2、<code>rms_trend</code>／<code>sound_level</code>のversion 3を使います。0.11.0以前で保存したRecipeは従来の
+  フィルタで再生されます。スペクトルの<code>Aw=True</code>はもともとアナログ曲線を評価しているため変わりません。</li>
+<li><code>ChannelFrame.trim()</code> rounds times to the nearest sample (halves up) instead of
+  truncating them, so <code>trim(0.29)</code> at 100 Hz starts at sample 29, not 28
+  (<code>0.29 * 100</code> is <code>28.999...</code> in floating point). The Recipe step
+  <code>wandas.frame.time_slice</code> is now version 2; saved version 1 plans replay with
+  the old truncation.
+  <code>ChannelFrame.trim()</code>は時刻をサンプルへ切り捨てずに四捨五入するようになりました。100 Hzで
+  <code>trim(0.29)</code>は28ではなく29番目のサンプルから始まります（浮動小数点では<code>0.29 * 100</code>が<code>28.999...</code>）。
+  Recipeの段<code>wandas.frame.time_slice</code>はversion 2になり、保存済みのversion 1は従来の切り捨てで再実行します。</li>
+</ul>
+<h2 id="fixed">Fixed / 修正<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Slicing an <code>NOctFrame</code> along the band axis now labels the selected bands
+  with their own center frequencies
+  (<a href="https://github.com/kasahart/wandas/issues/600">#600</a>). Before, <code>freqs</code>
+  restarted from the original lowest band, so <code>noct[:, 3:6]</code> of a
+  100 Hz–4 kHz spectrum was labelled 100/125/160 Hz instead of
+  200/250/315 Hz, and <code>dBA</code>, <code>plot()</code>, <code>to_dataframe()</code> and saved WDF files
+  used those wrong labels. The slice now moves <code>fmin</code>/<code>fmax</code> to the first and
+  last selected bands. A stepped band slice (<code>noct[:, ::2]</code>) or an empty one
+  now raises <code>ValueError</code>, because <code>fmin</code>/<code>fmax</code> can describe only a
+  contiguous run of bands. A WDF file saved from a band slice before this fix
+  keeps its wrong labels, because it does not store which bands were selected;
+  recompute it from the source.
+  <code>NOctFrame</code>をバンド方向にスライスしたとき、選んだバンドに正しい中心周波数が付くようになりました。
+  これまでは<code>freqs</code>が元の最低バンドから数え直されていたため、100 Hz〜4 kHzのスペクトルの
+  <code>noct[:, 3:6]</code>に200/250/315 Hzではなく100/125/160 Hzが付き、<code>dBA</code>、<code>plot()</code>、
+  <code>to_dataframe()</code>、保存したWDFファイルもその誤ったラベルを使っていました。スライスは
+  <code>fmin</code>/<code>fmax</code>を選んだ最初と最後のバンドへ移します。<code>fmin</code>/<code>fmax</code>は連続したバンドしか表せないため、
+  ステップ付きのスライス（<code>noct[:, ::2]</code>）と空のスライスは<code>ValueError</code>になります。
+  この修正より前にバンドをスライスして保存したWDFファイルは、どのバンドを選んだかを保存していないため
+  誤ったラベルのままです。元のデータから計算し直してください。</li>
 </ul>
 <p>See <a href="../v0.11.0/">Wandas 0.11.0</a> for the previous release.</p>
 
@@ -2097,7 +2309,7 @@ but fails when applied.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 30, 2026 20:26:45 UTC">October 30, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 31, 2026 01:03:38 UTC">October 31, 2026</span>
   </span>
 
     
