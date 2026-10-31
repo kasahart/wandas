@@ -1253,6 +1253,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added / 追加
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#changed" class="md-nav__link">
     <span class="md-ellipsis">
       Changed / 変更
@@ -1765,6 +1774,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added / 追加
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#changed" class="md-nav__link">
     <span class="md-ellipsis">
       Changed / 変更
@@ -1817,6 +1835,24 @@
 
 <h1 id="unreleased-changes">Unreleased changes<a class="headerlink" href="#unreleased-changes" title="Permanent link">&para;</a></h1>
 <p>Changes after <a href="../v0.12.0/">Wandas 0.12.0</a>.</p>
+<h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>trim()</code> selects by time on more frames and in more units
+  (<a href="https://github.com/kasahart/wandas/issues/603">#603</a>). Times are seconds or
+  strings with the units <code>h</code>, <code>min</code>, <code>s</code> and <code>ms</code>, such as
+  <code>recording.trim("1min30s", "2min")</code>. <code>reference="source"</code> measures them on the
+  source timeline instead of from the frame start. <code>SpectrogramFrame.trim()</code> and
+  <code>CepstrogramFrame.trim()</code> keep the frames whose center lies in the half-open
+  range, and <code>SpectrogramFrame.at_time(12.3)</code> returns the spectrum of the frame
+  whose center is nearest, with an optional <code>tolerance</code>. All of them are Recipe
+  steps that record the requested times, so a plan selects the same seconds on
+  files with other sampling rates.
+  <code>trim()</code>で秒のほか<code>h</code>・<code>min</code>・<code>s</code>・<code>ms</code>付きの文字列（<code>recording.trim("1min30s", "2min")</code>など）を
+  指定できるようになり、<code>reference="source"</code>で元の音源の時刻を使えます。<code>SpectrogramFrame.trim()</code>と
+  <code>CepstrogramFrame.trim()</code>は中心が半開区間に入るフレームを残し、<code>SpectrogramFrame.at_time(12.3)</code>は
+  中心が最も近いフレームのスペクトルを返します（<code>tolerance</code>も指定可）。どれもRecipeの段で、
+  指定した時刻を記録するため、サンプリング周波数が違うファイルでも同じ秒数を選びます。</li>
+</ul>
 <h2 id="changed">Changed / 変更<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The built-in Recipe operations are now collected from the Frame types that
@@ -1839,6 +1875,14 @@
   eager importされる<code>wandas.processing</code>の各モジュールは、末尾の手書きの一覧ではなく、
   自分の<code>name</code>を持つOperation classをすべて登録するようになりました。名前で解決できない
   組み込みOperation classがあると新しいテストが失敗します。登録されるoperationは変わりません。</li>
+<li><code>ChannelFrame.trim()</code> rounds times to the nearest sample (halves up) instead of
+  truncating them, so <code>trim(0.29)</code> at 100 Hz starts at sample 29, not 28
+  (<code>0.29 * 100</code> is <code>28.999...</code> in floating point). The Recipe step
+  <code>wandas.frame.time_slice</code> is now version 2; saved version 1 plans replay with
+  the old truncation.
+  <code>ChannelFrame.trim()</code>は時刻をサンプルへ切り捨てずに四捨五入するようになりました。100 Hzで
+  <code>trim(0.29)</code>は28ではなく29番目のサンプルから始まります（浮動小数点では<code>0.29 * 100</code>が<code>28.999...</code>）。
+  Recipeの段<code>wandas.frame.time_slice</code>はversion 2になり、保存済みのversion 1は従来の切り捨てで再実行します。</li>
 </ul>
 <h2 id="fixed">Fixed / 修正<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1906,7 +1950,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 30, 2026 23:52:25 UTC">October 30, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 31, 2026 00:00:59 UTC">October 31, 2026</span>
   </span>
 
     

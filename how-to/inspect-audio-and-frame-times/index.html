@@ -623,6 +623,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#select-by-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      Select by time / 時間で選ぶ
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#saved-results" class="md-nav__link">
     <span class="md-ellipsis">
       Saved results / 保存互換性
@@ -1765,6 +1774,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#select-by-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      Select by time / 時間で選ぶ
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#saved-results" class="md-nav__link">
     <span class="md-ellipsis">
       Saved results / 保存互換性
@@ -1842,6 +1860,27 @@ Requesting <code>frame_center_times</code> when the origin is unknown raises <co
 instead of guessing from window parameters or display history.</p>
 <p>実時刻はchannelごとの原音timelineで返し、padding分を含みます。既存のゼロ始点の軸や
 plot/ISTFTは変更しません。手動構築や旧保存形式で情報がない場合は推測せず明示的に失敗します。</p>
+<h2 id="select-by-time">Select by time / 時間で選ぶ<a class="headerlink" href="#select-by-time" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="n">part</span> <span class="o">=</span> <span class="n">recording</span><span class="o">.</span><span class="n">trim</span><span class="p">(</span><span class="s2">&quot;1min30s&quot;</span><span class="p">,</span> <span class="s2">&quot;2min&quot;</span><span class="p">)</span>          <span class="c1"># samples in [90 s, 120 s)</span>
+<span class="n">spectrum</span> <span class="o">=</span> <span class="n">recording</span><span class="o">.</span><span class="n">stft</span><span class="p">(</span><span class="n">n_fft</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="mi">512</span><span class="p">)</span>
+<span class="n">middle</span> <span class="o">=</span> <span class="n">spectrum</span><span class="o">.</span><span class="n">trim</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>                     <span class="c1"># frames centered in [10 s, 20 s)</span>
+<span class="n">snapshot</span> <span class="o">=</span> <span class="n">spectrum</span><span class="o">.</span><span class="n">at_time</span><span class="p">(</span><span class="mf">12.3</span><span class="p">)</span>                  <span class="c1"># SpectralFrame of the nearest frame</span>
+</code></pre></div>
+<p><code>ChannelFrame.trim</code>, <code>SpectrogramFrame.trim</code> and <code>CepstrogramFrame.trim</code> take
+seconds, or strings with the units <code>h</code>, <code>min</code>, <code>s</code> and <code>ms</code>. Ranges are
+half-open, so adjacent trims neither overlap nor leave a gap. A ChannelFrame
+rounds each time to the nearest sample. Spectrogram and cepstrogram frames are
+kept whole when their center lies in the range, so their windows can reach
+outside it; trim the signal before <code>stft()</code> to analyze only the samples in the
+range. <code>at_time</code> picks the nearest frame center, and <code>tolerance=</code> bounds how far
+it may be. By default times count from this frame's <code>source_time_offset</code>;
+<code>reference="source"</code> measures them on the source timeline. Recipes record the
+requested times, so a plan selects the same seconds on files with other sampling
+rates or hops.</p>
+<p><code>trim</code>は秒または<code>h</code>・<code>min</code>・<code>s</code>・<code>ms</code>付きの文字列を受け取り、半開区間<code>[start, end)</code>で選びます。
+ChannelFrameは最寄りのサンプルへ丸め、スペクトログラムとケプストログラムは中心が範囲内のフレームを
+丸ごと残します。<code>at_time</code>は中心が最も近いフレームのスペクトルを返します。既定はこのFrameの
+<code>source_time_offset</code>から数え、<code>reference="source"</code>で元の音源の時刻になります。</p>
 <h2 id="saved-results">Saved results / 保存互換性<a class="headerlink" href="#saved-results" title="Permanent link">&para;</a></h2>
 <p>Frames with a known physical time origin use the additive WDF 0.5 constructor
 extension. Other Frames still save as WDF 0.4. The new reader accepts both strict
@@ -1873,7 +1912,7 @@ axis state from the numerical STFT operation.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 2, 2026 23:54:14 UTC">October 2, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 31, 2026 00:00:59 UTC">October 31, 2026</span>
   </span>
 
     
