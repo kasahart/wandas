@@ -58,7 +58,7 @@ def test_trim_recipe_replay_preserves_structural_time_slice_contract() -> None:
     assert replayed.operation_history == [
         {
             "operation": "wandas.frame.time_slice",
-            "version": 1,
+            "version": 2,
             "params": {"start": 0.25, "end": 0.75},
         }
     ]
@@ -127,3 +127,18 @@ def test_released_trim_recipe_v1_preserves_default_end_and_order_validation() ->
     np.testing.assert_array_equal(channel_first_values(legacy), raw[:, 2:])
     with pytest.raises(ValueError, match="start must be less than end"):
         source._trim_recipe_v1(start=0.75, end=0.25)
+
+
+def test_released_time_slice_recipe_v1_replays_truncated_samples() -> None:
+    # 0.29 s is 28.999... samples at 100 Hz: version 1 truncated it, version 2 rounds it.
+    source = ChannelFrame.from_numpy(np.arange(100, dtype=np.float64).reshape(1, 100), sampling_rate=100)
+    legacy = source._time_slice_recipe_v1(start=0.29, end=0.5)
+    plan = RecipePlan.from_dict(
+        json.loads(json.dumps(RecipePlan.from_frame(legacy, input_names=("signal",)).to_dict(), allow_nan=False))
+    )
+
+    replayed = plan.apply({"signal": source})
+
+    assert [(node.operation, node.version) for node in plan.nodes] == [("wandas.frame.time_slice", 1)]
+    np.testing.assert_array_equal(channel_first_values(replayed), np.arange(28, 50).reshape(1, -1))
+    np.testing.assert_array_equal(channel_first_values(source.trim(0.29, 0.5)), np.arange(29, 50).reshape(1, -1))

@@ -766,12 +766,13 @@ class TestChannelProcessing:
         assert isinstance(trimmed_frame, ChannelFrame)
         assert trimmed_frame.n_samples == int(0.3 * self.sample_rate)
 
-        # Non-sample-aligned trim starts report the actual sliced sample time.
+        # Non-sample-aligned trim starts report the actual sliced sample time,
+        # rounded to the nearest sample (100.5 samples rounds up to 101).
         sample_data = _da_from_array(np.arange(1000, dtype=np.float64).reshape(1, -1), chunks=(1, -1))
         sample_frame = ChannelFrame(sample_data, sampling_rate=1000)
         trimmed_frame = sample_frame.trim(start=0.1005, end=0.2)
-        np.testing.assert_array_equal(trimmed_frame.source_time_offset, np.array([0.1]))
-        np.testing.assert_array_equal(trimmed_frame.source_time[:, 0], np.array([0.1]))
+        np.testing.assert_array_equal(trimmed_frame.source_time_offset, np.array([0.101]))
+        np.testing.assert_array_equal(trimmed_frame.source_time[:, 0], np.array([0.101]))
 
         # Test trimming with no start or end (should return the same frame)
         trimmed_frame = self.channel_frame.trim()
@@ -790,7 +791,7 @@ class TestChannelProcessing:
 
         assert trimmed_frame.operation_history[-1] == {
             "operation": "wandas.frame.time_slice",
-            "version": 1,
+            "version": 2,
             "params": {"start": 0.2, "end": 0.5},
         }
         np.testing.assert_array_equal(channel_first_values(trimmed_frame), data[:, 2:5])
