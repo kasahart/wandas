@@ -83,6 +83,11 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   `rms_trend`/`sound_level` version 2 replay the bilinear-only filter.
   Readers without the new versions reject new Recipes at load time. The
   Recipe document schema is unchanged.
+- `ChannelFrame.trim()` rounds times to the nearest sample (halves up) instead
+  of truncating them. New `wandas.frame.time_slice` Recipes use operation
+  version 2; released version 1 replays the truncation. Readers without
+  version 2 reject new Recipes at load time. The Recipe document schema is
+  unchanged.
 - Sparse Spectrogram/Cepstrogram results save as WDF 0.6 with explicit sparse
   constructor state. Non-sparse results retain WDF 0.4/0.5. Older readers reject
   0.6 explicitly. Cepstrum, liftering and spectral-envelope conversion preserve
