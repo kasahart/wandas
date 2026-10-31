@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, Literal, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
 from wandas.core.metadata import _REF_UNSET, ChannelCalibration, ChannelMetadata, _format_level_unit
+from wandas.frames._frame_time import TimeReference, TimeValue, _local_time_range, _nearest_sample
 from wandas.frames.roughness import RoughnessFrame
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing import create_operation
@@ -613,27 +614,61 @@ class ChannelProcessingMixin:
             ),
         )
 
-    @recipe_operation("wandas.frame.time_slice")
+    @recipe_operation("wandas.frame.time_slice", version=2)
     def trim(
         self: T_Processing,
-        start: float = 0,
-        end: float | None = None,
+        start: TimeValue | None = None,
+        end: TimeValue | None = None,
+        *,
+        reference: TimeReference = "local",
     ) -> T_Processing:
-        """Trim the signal to the specified time range.
+        """Trim the signal to the half-open time range ``[start, end)``.
+
+        Times are seconds, or strings with the units ``h``, ``min``, ``s`` and
+        ``ms`` such as ``"1min30s"``. Each time is rounded to the nearest sample,
+        with halves rounded up.
 
         Args:
-            start: Start time (seconds)
-            end: End time (seconds)
+            start: Start time. None keeps the signal from its first sample.
+            end: End time, excluded. None keeps the signal to its end.
+            reference: ``"local"`` measures times from the first sample of this
+                frame, so ``trim(90, 120).trim(2, 5)`` is 92 s to 95 s of the
+                source. ``"source"`` measures them on the original source
+                timeline (``source_time``), which needs one source offset shared
+                by every channel.
 
         Returns:
             New ChannelFrame containing the trimmed signal. The operation is a
                 lazy structural time slice: channel labels, calibration, metadata,
                 and channel IDs are preserved, while source-time offsets advance
-                to the first selected sample.
+                to the first selected sample. A range reaching past the signal is
+                clipped to it.
 
         Raises:
-            ValueError: If either time is negative or end is earlier than start
+            TypeError: If a time string has no unit or an unknown one.
+            ValueError: If either time is negative, end is earlier than start, or
+                ``reference="source"`` is used on channels with different source
+                offsets.
+
+        Examples:
+            >>> frame.trim("1min30s", "2min")
+            >>> frame.trim(5, reference="source")
         """
+        local_start, local_end = _local_time_range(self, start, end, reference)
+        start_sample = 0 if local_start is None else _nearest_sample(local_start, self.sampling_rate, self.n_samples)
+        end_sample = (
+            self.n_samples if local_end is None else _nearest_sample(local_end, self.sampling_rate, self.n_samples)
+        )
+        result = cast(Any, self)[slice(None), slice(start_sample, end_sample)]
+        return cast(T_Processing, result)
+
+    @recipe_operation("wandas.frame.time_slice", version=1)
+    def _time_slice_recipe_v1(
+        self: T_Processing,
+        start: float = 0,
+        end: float | None = None,
+    ) -> T_Processing:
+        """Replay the released contract that truncated times to samples."""
         if start < 0 or (end is not None and end < 0):
             raise ValueError("Trim times must be non-negative")
         if end is not None and start > end:

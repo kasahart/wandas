@@ -8,7 +8,15 @@ from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
-from wandas.frames._frame_time import _normalize_frame_time_origin, _physical_frame_center_times
+from wandas.frames._frame_time import (
+    TimeReference,
+    TimeValue,
+    _frame_center_slice,
+    _local_frame_centers,
+    _nearest_frame_index,
+    _normalize_frame_time_origin,
+    _physical_frame_center_times,
+)
 from wandas.frames.mixins.spectral_properties_mixin import SpectralPropertiesMixin
 from wandas.pipeline.decorators import recipe_operation
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -493,7 +501,6 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         Raises:
             IndexError: If time_idx is out of range.
         """
-        from wandas.frames.spectral import SpectralFrame
 
         if time_idx < 0 or time_idx >= self.n_frames:
             raise IndexError(
@@ -503,16 +510,20 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 f"Use an index within the valid range for this spectrogram."
             )
 
-        frame_data = self._data[..., time_idx]
+        return self._spectral_frame_at(time_idx, f"Time {self.times[time_idx]:.3f}s")
+
+    def _spectral_frame_at(self, time_idx: int, time_label: str) -> "SpectralFrame":
+        """Return one time frame as a SpectralFrame whose immediate receiver is this spectrogram."""
+        from wandas.frames.spectral import SpectralFrame
 
         lineage = self._required_semantic_lineage()
         return SpectralFrame(
-            data=frame_data,
+            data=self._data[..., time_idx],
             sampling_rate=self.sampling_rate,
             n_fft=self.n_fft,
             window=self.window,
             win_length=self.win_length,
-            label=f"{self.label} (Frame {time_idx}, Time {self.times[time_idx]:.3f}s)",
+            label=f"{self.label} (Frame {time_idx}, {time_label})",
             metadata=self.metadata,
             channel_metadata=self._borrowed_channel_metadata_descriptors(),
             channel_ids=self._channel_ids,
@@ -520,6 +531,84 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             lineage=lineage,
             previous=self,
         )
+
+    @recipe_operation("wandas.spectrogram.trim")
+    def trim(
+        self,
+        start: TimeValue | None = None,
+        end: TimeValue | None = None,
+        *,
+        reference: TimeReference = "local",
+    ) -> "SpectrogramFrame":
+        """Keep the frames whose centers lie in the half-open range ``[start, end)``.
+
+        Times are seconds, or strings with the units ``h``, ``min``, ``s`` and
+        ``ms`` such as ``"1min30s"``. Frames are kept whole, so the first and
+        last windows can reach outside the range. ``frame.trim(10, 20).stft()``
+        instead analyses only the samples in the range, with the window padding
+        at its edges.
+
+        Args:
+            start: Start time. None keeps the frames from the first one, including
+                a first frame centered before 0 s by the STFT padding.
+            end: End time, excluded. None keeps the frames to the end.
+            reference: ``"local"`` measures times on the frame centers of this
+                spectrogram (``frame_center_times`` minus ``source_time_offset``).
+                ``"source"`` measures them on the original source timeline
+                (``frame_center_times``), which needs one source offset shared by
+                every channel.
+
+        Returns:
+            A lazy SpectrogramFrame with the selected frames. A range reaching past
+                the frames is clipped to them.
+
+        Raises:
+            TypeError: If a time string has no unit or an unknown one.
+            ValueError: If either time is negative, end is earlier than start, no
+                frame center lies in the range, the frame centers are unknown, or
+                ``reference="source"`` is used on channels with different source
+                offsets.
+
+        Examples:
+            >>> spectrogram.trim(10, 20).plot()
+        """
+        return self[:, :, _frame_center_slice(self, start, end, reference)]
+
+    @recipe_operation("wandas.spectrogram.at_time")
+    def at_time(
+        self,
+        time: TimeValue,
+        *,
+        reference: TimeReference = "local",
+        tolerance: TimeValue | None = None,
+    ) -> "SpectralFrame":
+        """Return the spectrum of the frame whose center is nearest ``time``.
+
+        This is the seconds version of :meth:`get_frame_at`. Ties go to the
+        earlier frame.
+
+        Args:
+            time: Time in seconds, or a string with units such as ``"1min30s"``.
+            reference: ``"local"`` or ``"source"``, as in :meth:`trim`.
+            tolerance: Largest allowed distance from ``time`` to the chosen frame
+                center. None accepts any frame center.
+
+        Returns:
+            A SpectralFrame of the chosen frame, as :meth:`get_frame_at` returns it,
+                labelled with the chosen frame center on the local axis.
+
+        Raises:
+            TypeError: If a time string has no unit or an unknown one.
+            ValueError: If ``time`` is more than half a hop outside the frame
+                centers, the nearest center is farther than ``tolerance``, or the
+                frame centers are unknown.
+
+        Examples:
+            >>> spectrogram.at_time(12.3).plot()
+        """
+        index = _nearest_frame_index(self, time, reference, tolerance)
+        center = float(_local_frame_centers(self)[index])
+        return self._spectral_frame_at(index, f"Center {center:.3f}s")
 
     @recipe_operation("wandas.spectrogram.to_channel_frame")
     def to_channel_frame(self) -> "ChannelFrame":
