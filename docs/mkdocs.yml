@@ -116,7 +116,6 @@ nav:
       - Spectral Numerical Contracts: explanation/spectral-numerical-contracts.md
   - Release Notes:
       - Unreleased: release-notes/unreleased.md
-      - Wandas 0.13.0: release-notes/v0.13.0.md
       - Wandas 0.12.0: release-notes/v0.12.0.md
       - Wandas 0.11.0: release-notes/v0.11.0.md
       - Wandas 0.10.0: release-notes/v0.10.0.md
