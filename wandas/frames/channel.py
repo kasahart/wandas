@@ -830,6 +830,63 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         crest = da.where(rms_vals != 0, peak / safe_rms, 1.0)
         return np.array(crest.compute())
 
+    @property
+    def peak(self) -> NDArrayReal:
+        """Calculate the peak absolute amplitude of each channel.
+
+        This is a scalar reduction like :attr:`rms`: it computes immediately and
+        returns a NumPy array, not a Frame, so no lineage entry is created.
+        Calibration is applied first, so each value is in that channel's
+        physical unit.
+
+        The peak is defined as::
+
+            peak[i] = max(|x[i]|)
+
+        Returns:
+            NDArrayReal of shape ``(n_channels,)`` containing the peak
+                absolute amplitude for each channel.
+
+        Examples:
+            >>> import wandas as wd
+            >>> cf = wd.read("audio.wav")
+            >>> peaks = cf.peak
+        """
+        return np.array(da.max(da.abs(self._float_data), axis=1).compute())
+
+    @property
+    def kurtosis(self) -> NDArrayReal:
+        """Calculate the kurtosis (Pearson definition) of each channel.
+
+        This is a scalar reduction like :attr:`rms`: it computes immediately and
+        returns a NumPy array, not a Frame, so no lineage entry is created.
+        Kurtosis measures how impulsive a signal is: Gaussian noise gives 3,
+        a sine gives 1.5, and impacts or clicks raise it well above 3. It does
+        not depend on the amplitude scale, so calibration does not change it.
+
+        The kurtosis is defined as::
+
+            m_k[i] = mean((x[i] - mean(x[i])) ** k)
+            kurtosis[i] = m_4[i] / m_2[i] ** 2
+
+        It is computed with ``dask.array.stats.kurtosis(..., fisher=False)``,
+        the Dask counterpart of ``scipy.stats.kurtosis``. Subtract 3 for the
+        excess (Fisher) kurtosis. A constant channel has no variance; the
+        result for it follows Dask, which returns 0.
+
+        Returns:
+            NDArrayReal of shape ``(n_channels,)`` containing the kurtosis for
+                each channel.
+
+        Examples:
+            >>> import wandas as wd
+            >>> cf = wd.read("bearing.wav")
+            >>> impulsive = cf[cf.kurtosis > 4.0]
+        """
+        from dask.array import stats
+
+        return np.array(stats.kurtosis(self._float_data, axis=1, fisher=False).compute())
+
     def leq(self, freq_weighting: Literal["A", "C", "Z"] | None = "Z") -> NDArrayReal:
         """Calculate the equivalent continuous level of each channel.
 
