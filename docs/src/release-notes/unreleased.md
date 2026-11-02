@@ -27,3 +27,18 @@ Changes after [Wandas 0.12.0](v0.12.0.md).
   Frameは元の録音の時間スライスとして自分のlineageを保ちます。`apply(func)`と
   Frameから直接作ったSegmentsは今までどおり保存できず、理由をメッセージで示します。Recipeの入力・
   出力・名前付きstepはFrameのままで、Segmentsはnodeの間にだけ現れます。
+
+## Changed / 変更
+
+- The `operation_history` of `ChannelFrameSegments` results (and the history a
+  WDF file stores for them) changes with
+  [#630](https://github.com/kasahart/wandas/issues/630): instead of
+  `wandas.segments.join` or `wandas.segments.average` with one input per segment
+  and an `event_ids` parameter, it lists `wandas.audio.trigger` or
+  `wandas.audio.segment`, then `wandas.segments.drop` or `wandas.segments.select`
+  for excluded or selected events, then `wandas.segments.average`,
+  `transfer_function` or `coherence`. The computed values do not change.
+  `ChannelFrameSegments`の結果の`operation_history`（WDFに保存される履歴も）が変わります。
+  セグメントごとの入力と`event_ids`を持つ`wandas.segments.join`/`average`の代わりに、
+  `wandas.audio.trigger`または`segment`、除外・選択の`wandas.segments.drop`/`select`、
+  `wandas.segments.average`・`transfer_function`・`coherence`が並びます。計算結果は変わりません。

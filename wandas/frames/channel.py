@@ -1108,6 +1108,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         trigger_channel: int | None,
     ) -> "ChannelFrameSegments":
         """Slice every event that fits inside this Frame into segments."""
+        from wandas.frames.pairwise import _caller_stacklevel
         from wandas.frames.segments import ChannelFrameSegments
 
         lineage = self._required_semantic_lineage()
@@ -1130,8 +1131,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             warnings.warn(
                 f"Skipped {len(skipped)} segment(s) that do not fit inside the signal: times {skipped} s",
                 UserWarning,
-                # caller -> recipe capture wrapper -> invoke_semantic -> trigger/segment -> here
-                stacklevel=5,
+                stacklevel=_caller_stacklevel(),
             )
         return ChannelFrameSegments(
             segments,
