@@ -1,6 +1,7 @@
 """Module providing mixins related to signal processing."""
 
 import logging
+import numbers
 import warnings
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, Literal, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
@@ -39,8 +40,8 @@ _INTEGRATION_UNIT_CHAIN = ("m/s^2", "m/s", "m")
 
 def _integrated_unit(channel: ChannelMetadata, order: object) -> str:
     """Move an SI motion unit along acceleration -> velocity -> displacement."""
-    if channel.unit in _INTEGRATION_UNIT_CHAIN and isinstance(order, int) and not isinstance(order, bool):
-        position = _INTEGRATION_UNIT_CHAIN.index(channel.unit) + order
+    if channel.unit in _INTEGRATION_UNIT_CHAIN and isinstance(order, numbers.Integral) and not isinstance(order, bool):
+        position = _INTEGRATION_UNIT_CHAIN.index(channel.unit) + int(order)
         if 0 <= position < len(_INTEGRATION_UNIT_CHAIN):
             return _INTEGRATION_UNIT_CHAIN[position]
     raise ValueError(

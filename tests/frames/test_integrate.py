@@ -61,6 +61,11 @@ def test_units_follow_motion_chain_and_calibration_is_applied() -> None:
     assert frame.integrate(unit="mm/s").channels[0].unit == "mm/s"
 
 
+def test_numpy_integer_order_infers_the_unit() -> None:
+    assert _accel(_tone(50.0)).integrate(order=np.int64(1)).channels[0].unit == "m/s"  # ty: ignore[invalid-argument-type]
+    assert _accel(_tone(50.0)).integrate(order=np.int32(2)).channels[0].unit == "m"  # ty: ignore[invalid-argument-type]
+
+
 @pytest.mark.parametrize(("unit", "order"), [("", 1), ("V", 1), ("m", 1), ("m/s", 2)])
 def test_unit_that_cannot_be_inferred_asks_for_unit(unit: str, order: int) -> None:
     frame = wd.from_numpy(_tone(50.0)[None, :], sampling_rate=_FS, ch_units=unit)
