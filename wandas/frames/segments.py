@@ -9,7 +9,6 @@ treating every segment as one non-overlapping Welch segment.
 
 from __future__ import annotations
 
-import functools
 import numbers
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast, overload
@@ -21,7 +20,13 @@ import numpy.typing as npt
 from wandas.core.base_frame import BaseFrame
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
-from wandas.processing.semantic import InputBinding
+from wandas.processing.semantic import (
+    InputBinding,
+    LineageNode,
+    SemanticOperation,
+    active_semantic_lineage,
+    freeze_params,
+)
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -31,51 +36,37 @@ if TYPE_CHECKING:
 F = TypeVar("F", bound=BaseFrame[Any])
 SegmentsT = TypeVar("SegmentsT", bound="FrameSegments[Any]")
 
-_NOT_IN_RECIPE = "Segments are tied to positions in one recording and cannot be replayed as a Recipe step"
+_APPLY_NOT_IN_RECIPE = "apply() runs a Python function, which a Recipe cannot store"
+_FRAMES_NOT_IN_RECIPE = "Segments built directly from Frames have no Recipe step that cuts them"
+_REORDER_NOT_IN_RECIPE = "Segments selected in another order than their events cannot be replayed as a Recipe step"
 
 
-def _capture_segments(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
-    """Record every segment as one input while rejecting the step as a Recipe."""
-    return OperationCapture(
-        tuple(InputBinding(f"segment_{index}", "frame") for index in range(len(args))),
-        tuple(frame.lineage for frame in args),
-        {"event_ids": list(params["event_ids"])},
-        recipe_error=_NOT_IN_RECIPE,
+def _segment_lineage(
+    operation_id: str, parents: Sequence[LineageNode], recipe_error: str, params: Mapping[str, Any] | None = None
+) -> LineageNode:
+    """Return a display-only lineage node for segments that a Recipe cannot replay."""
+    bindings = tuple(InputBinding(f"input_{index}", "frame") for index in range(len(parents)))
+    operation = SemanticOperation(operation_id, 1, bindings, freeze_params(params or {}))
+    return LineageNode(operation, tuple(parents), recipe_error=recipe_error)
+
+
+def _capture_drop(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Record the dropped event IDs as a list of integers."""
+    event_ids = params["event_ids"]
+    dropped = (
+        [int(event_ids)]
+        if isinstance(event_ids, numbers.Integral)
+        else [int(value) for value in cast(Sequence[int], event_ids)]
     )
+    return OperationCapture((InputBinding("segments", "frame"),), (args[0].lineage,), {"event_ids": dropped})
 
 
-def _reject_segments_recipe(*_args: Any) -> Any:
-    """Reject segment steps during Recipe validation and replay."""
-    raise ValueError(_NOT_IN_RECIPE)
-
-
-def _join_segments(first: ChannelFrame, *rest: ChannelFrame, event_ids: Sequence[int]) -> ChannelFrame:
-    """Place the segments end to end as one ChannelFrame."""
-    data = da.concatenate([frame._data for frame in (first, *rest)], axis=-1)
-    label = f"{len(rest) + 1} segments of {first.label}"
+def _join_segments(items: Sequence[ChannelFrame]) -> ChannelFrame:
+    """Place the segments end to end as one ChannelFrame, under the active lineage."""
+    first = items[0]
+    data = da.concatenate([frame._data for frame in items], axis=-1)
+    label = f"{len(items)} segments of {first.label}"
     return first._create_new_instance(data=data, label=label, lineage=first._required_semantic_lineage())
-
-
-def _average_segments(first: ChannelFrame, *rest: ChannelFrame, event_ids: Sequence[int]) -> ChannelFrame:
-    """Average the segments sample by sample."""
-    data = da.stack([frame._data for frame in (first, *rest)]).mean(axis=0)
-    label = f"average of {len(rest) + 1} segments"
-    return first._create_new_instance(data=data, label=label, lineage=first._required_semantic_lineage())
-
-
-_SEGMENT_STEPS = {"wandas.segments.join": _join_segments, "wandas.segments.average": _average_segments}
-
-
-@functools.cache
-def _segment_step(operation_id: str, n_segments: int) -> Callable[..., ChannelFrame]:
-    """Return the runtime-only public step over ``n_segments`` Frame inputs."""
-    return recipe_operation(
-        operation_id,
-        bindings=tuple(InputBinding(f"segment_{index}", "frame") for index in range(n_segments)),
-        capture=_capture_segments,
-        handler=_reject_segments_recipe,
-        validate_params=_reject_segments_recipe,
-    )(_SEGMENT_STEPS[operation_id])
 
 
 class FrameSegments(Generic[F]):
@@ -96,6 +87,9 @@ class FrameSegments(Generic[F]):
         event_ids: Unique integer ID of each segment.
         trigger_times: Event time in seconds of each segment, from the start of
             the Frame it was cut from.
+        lineage: Lineage node of the call that made the collection. ``None``
+            (default) records that it was built from these Frames, which a
+            Recipe cannot replay.
 
     Raises:
         TypeError: If the items are not Frames of one type.
@@ -108,6 +102,7 @@ class FrameSegments(Generic[F]):
         items: Sequence[F],
         event_ids: Sequence[int] | npt.NDArray[np.integer[Any]],
         trigger_times: Sequence[float] | npt.NDArray[np.floating[Any]],
+        lineage: LineageNode | None = None,
     ) -> None:
         frames = tuple(items)
         ids = np.array(event_ids, dtype=np.int64).reshape(-1)
@@ -140,6 +135,25 @@ class FrameSegments(Generic[F]):
         self._items = frames
         self._event_ids = ids
         self._trigger_times = times
+        self._lineage = (
+            lineage
+            if lineage is not None
+            else _segment_lineage(
+                "wandas.segments.from_frames", [frame.lineage for frame in frames], _FRAMES_NOT_IN_RECIPE
+            )
+        )
+
+    @property
+    def lineage(self) -> LineageNode:
+        """Lineage node of the call that made these segments.
+
+        Segments cut by :meth:`ChannelFrame.trigger` or
+        :meth:`ChannelFrame.segment`, and selections of them, record their
+        cutting conditions, so averages computed from them can be saved with
+        :meth:`RecipePlan.from_frame <wandas.pipeline.RecipePlan.from_frame>`.
+        Each segment's Frame keeps its own lineage (a time slice of the source).
+        """
+        return self._lineage
 
     @property
     def event_ids(self) -> npt.NDArray[np.int64]:
@@ -188,7 +202,7 @@ class FrameSegments(Generic[F]):
         if isinstance(key, numbers.Integral) and not isinstance(key, (bool, np.bool_)):
             return self._items[int(key)]
         if isinstance(key, slice):
-            return self._subset(list(range(len(self)))[key])
+            return self._select(list(range(len(self)))[key])
         selector = np.asarray(key)
         if selector.dtype == np.bool_:
             if selector.shape != (len(self),):
@@ -196,7 +210,7 @@ class FrameSegments(Generic[F]):
                     f"Segment mask length does not match the number of segments\n"
                     f"  Got: shape {selector.shape}\n  Expected: ({len(self)},)"
                 )
-            return self._subset(np.flatnonzero(selector).tolist())
+            return self._select(np.flatnonzero(selector).tolist())
         if selector.ndim == 1 and (selector.size == 0 or np.issubdtype(selector.dtype, np.integer)):
             positions = [int(value) for value in selector]
             normalized = [value + len(self) if value < 0 else value for value in positions]
@@ -204,14 +218,18 @@ class FrameSegments(Generic[F]):
                 raise IndexError(f"Segment position out of range\n  Got: {positions} for {len(self)} segments")
             if len(set(normalized)) != len(normalized):
                 raise ValueError(f"Segment positions must not repeat\n  Got: {positions}")
-            return self._subset(normalized)
+            return self._select(normalized)
         raise TypeError(
             "Segments are indexed by an integer, a slice, integer positions or a boolean mask\n"
             f"  Got: {type(key).__name__}"
         )
 
+    @recipe_operation("wandas.segments.drop", bindings=(InputBinding("segments", "frame"),), capture=_capture_drop)
     def drop(self: SegmentsT, event_ids: int | Sequence[int]) -> SegmentsT:
         """Return the segments without the given event IDs.
+
+        A Recipe records the dropped IDs, so replaying it on another recording
+        drops the events with the same IDs there.
 
         Args:
             event_ids: Event ID or IDs to exclude, as listed in
@@ -232,7 +250,7 @@ class FrameSegments(Generic[F]):
         if missing:
             raise KeyError(f"Unknown segment event IDs: {missing}; available: {self._event_ids.tolist()}")
         keep = ~np.isin(self._event_ids, dropped)
-        return self._subset(np.flatnonzero(keep).tolist())
+        return self._subset(np.flatnonzero(keep).tolist(), active_semantic_lineage())
 
     def apply(self, func: Callable[[F], BaseFrame[Any]]) -> FrameSegments[Any]:
         """Apply a function to every segment and keep the results as segments.
@@ -255,6 +273,7 @@ class FrameSegments(Generic[F]):
                 otherwise :class:`FrameSegments`.
         """
         results = [func(item) for item in self._items]
+        lineage = _segment_lineage("wandas.segments.apply", [self._lineage], _APPLY_NOT_IN_RECIPE)
         if (results and isinstance(results[0], ChannelFrame)) or (
             not results and isinstance(self, ChannelFrameSegments)
         ):
@@ -269,8 +288,9 @@ class FrameSegments(Generic[F]):
                 self._trigger_times,
                 pre=pre,
                 trigger_channel=trigger_channel,
+                lineage=lineage,
             )
-        return FrameSegments(results, self._event_ids, self._trigger_times)
+        return FrameSegments(results, self._event_ids, self._trigger_times, lineage=lineage)
 
     def to_numpy(self) -> npt.NDArray[Any]:
         """Compute every segment and stack them as ``(segment, channel, ...)``.
@@ -287,15 +307,34 @@ class FrameSegments(Generic[F]):
         stacked = da.stack([item._effective_data for item in self._items])
         return np.asarray(stacked.compute())
 
-    def _subset(self: SegmentsT, positions: Sequence[int]) -> SegmentsT:
+    def _select(self: SegmentsT, positions: Sequence[int]) -> SegmentsT:
+        """Return the segments at ``positions``, recorded as dropping the others when in order."""
+        if list(positions) == sorted(positions):
+            kept = set(positions)
+            return self.drop([int(self._event_ids[i]) for i in range(len(self)) if i not in kept])
+        lineage = _segment_lineage(
+            "wandas.segments.select",
+            [self._lineage],
+            _REORDER_NOT_IN_RECIPE,
+            {"event_ids": [int(self._event_ids[i]) for i in positions]},
+        )
+        return self._subset(positions, lineage)
+
+    def _subset(self: SegmentsT, positions: Sequence[int], lineage: LineageNode | None) -> SegmentsT:
         """Return the segments at ``positions`` with the same collection state."""
         index = np.asarray(positions, dtype=np.int64)
-        return self._rebuild([self._items[i] for i in positions], self._event_ids[index], self._trigger_times[index])
+        return self._rebuild(
+            [self._items[i] for i in positions], self._event_ids[index], self._trigger_times[index], lineage
+        )
 
     def _rebuild(
-        self: SegmentsT, items: Sequence[Any], event_ids: npt.NDArray[np.int64], trigger_times: npt.NDArray[np.float64]
+        self: SegmentsT,
+        items: Sequence[Any],
+        event_ids: npt.NDArray[np.int64],
+        trigger_times: npt.NDArray[np.float64],
+        lineage: LineageNode | None,
     ) -> SegmentsT:
-        return cast(SegmentsT, FrameSegments(items, event_ids, trigger_times))
+        return cast(SegmentsT, FrameSegments(items, event_ids, trigger_times, lineage=lineage))
 
     def __repr__(self) -> str:
         frame_type = type(self._items[0]).__name__ if self._items else "Frame"
@@ -323,6 +362,8 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
         pre: Time in seconds from the start of each segment to its event.
         trigger_channel: Index of the channel the events were detected on, or
             ``None`` when the times came from elsewhere.
+        lineage: Lineage node of the call that made the collection, as in
+            :class:`FrameSegments`.
 
     Raises:
         ValueError: If the segments differ in channels, units or calibration,
@@ -336,8 +377,9 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
         trigger_times: Sequence[float] | npt.NDArray[np.floating[Any]],
         pre: float = 0.0,
         trigger_channel: int | None = None,
+        lineage: LineageNode | None = None,
     ) -> None:
-        super().__init__(items, event_ids, trigger_times)
+        super().__init__(items, event_ids, trigger_times, lineage=lineage)
         if not (np.isfinite(pre) and pre >= 0):
             raise ValueError(f"Pre-trigger time must be finite and non-negative\n  Got: {pre} s")
         if self._items:
@@ -388,6 +430,7 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
         """Segment length in seconds."""
         return self.n_samples / self.sampling_rate
 
+    @recipe_operation("wandas.segments.transfer_function", bindings=(InputBinding("segments", "frame"),))
     def transfer_function(
         self,
         input: int | str | None = None,  # noqa: A002
@@ -436,6 +479,7 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
         )
         return result.select_pairs([row * n_channels for row in range(1, n_channels)])
 
+    @recipe_operation("wandas.segments.coherence", bindings=(InputBinding("segments", "frame"),))
     def coherence(
         self,
         input: int | str | None = None,  # noqa: A002
@@ -486,6 +530,7 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
         )
         return result.select_pairs([row * n_channels for row in range(1, n_channels)])
 
+    @recipe_operation("wandas.segments.average", bindings=(InputBinding("segments", "frame"),))
     def average(self) -> ChannelFrame:
         """Average the segments sample by sample, aligned on their events.
 
@@ -497,9 +542,10 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
         Raises:
             ValueError: If there are no segments.
         """
-        self._first()
-        step = _segment_step("wandas.segments.average", len(self))
-        return step(*self._items, event_ids=self._event_ids.tolist())
+        first = self._first()
+        data = da.stack([frame._data for frame in self._items]).mean(axis=0)
+        label = f"average of {len(self)} segments"
+        return first._create_new_instance(data=data, label=label, lineage=first._required_semantic_lineage())
 
     def plot(self, channel: int | str | None = None, ax: Axes | None = None) -> Axes | Iterator[Axes]:
         """Overlay every segment, one axes per channel, labelled by event ID.
@@ -629,15 +675,20 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
                 "n_fft must not be shorter than a segment\n"
                 f"  Got: {resolved_n_fft}\n  Expected: at least {self.n_samples} (the segment length)"
             )
-        step = _segment_step("wandas.segments.join", len(self))
-        joined = step(*self._items, event_ids=self._event_ids.tolist())
+        joined = _join_segments(self._items)
         channels = [input_index, *output_indices]
         return joined[channels], len(channels), resolved_n_fft
 
     def _rebuild(
-        self, items: Sequence[Any], event_ids: npt.NDArray[np.int64], trigger_times: npt.NDArray[np.float64]
+        self,
+        items: Sequence[Any],
+        event_ids: npt.NDArray[np.int64],
+        trigger_times: npt.NDArray[np.float64],
+        lineage: LineageNode | None,
     ) -> ChannelFrameSegments:
-        return ChannelFrameSegments(items, event_ids, trigger_times, pre=self._pre, trigger_channel=self._trigger_index)
+        return ChannelFrameSegments(
+            items, event_ids, trigger_times, pre=self._pre, trigger_channel=self._trigger_index, lineage=lineage
+        )
 
     def __repr__(self) -> str:
         if not self._items:
