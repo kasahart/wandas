@@ -391,6 +391,12 @@ class TestRecipe:
         assert [node.operation for node in plan.nodes] == ["wandas.frame.index"]
         np.testing.assert_allclose(reordered[0].data, values[2])
 
+    def test_kept_event_ids_must_not_repeat(self) -> None:
+        # Indexing already rejects repeated positions; this guards an edited Recipe.
+        hits, _ = _hits()
+        with pytest.raises(ValueError, match="must not repeat"):
+            hits._keep([0, 0])
+
     def test_apply_is_not_a_recipe(self) -> None:
         hits, _ = _hits()
         with pytest.raises(RecipeExtractionError, match="Python function"):
