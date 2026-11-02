@@ -1241,11 +1241,15 @@ class TestChannelFramePeakAndKurtosis:
         np.testing.assert_allclose(cf.kurtosis, ChannelFrame.from_numpy(data, sampling_rate=100).kurtosis, rtol=1e-12)
 
     def test_integer_input_and_constant_channel(self) -> None:
+        from dask.array import stats
+
         data: NDArrayReal = np.array([[-32768, 0, 32767, 0], [5, 5, 5, 5]], dtype=np.int16)
         cf = ChannelFrame.from_numpy(data, sampling_rate=100)
 
         np.testing.assert_allclose(cf.peak, [32768.0, 5.0], rtol=1e-12)  # no int16 overflow in abs()
-        assert cf.kurtosis[1] == 0.0  # no variance: Dask returns 0, wandas passes it through
+        # No variance: kurtosis is undefined, and wandas passes Dask's result through unchanged.
+        expected = stats.kurtosis(da.from_array(data[1:].astype(np.float64)), axis=1, fisher=False).compute()
+        np.testing.assert_array_equal(cf.kurtosis[1:], expected)
 
 
 class TestChannelFrameValidationMessages:

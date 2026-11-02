@@ -1,4 +1,13 @@
 # Unreleased changes
 
-No changes are currently pending after 0.12.0. See [Wandas 0.12.0](v0.12.0.md)
-for the level trigger, time selection by seconds and the A/B/C weighting fix.
+Changes after [Wandas 0.12.0](v0.12.0.md).
+
+0.12.0以降の変更です。
+
+## New features / 新機能
+
+- `ChannelFrame.peak` and `ChannelFrame.kurtosis` return the peak absolute
+  value and the Pearson kurtosis of each channel as NumPy arrays, like `rms`.
+  `kurtosis` uses `dask.array.stats.kurtosis`.
+  `ChannelFrame.peak`と`ChannelFrame.kurtosis`は、`rms`と同じように各チャンネルの絶対値の最大と
+  ピアソンの尖度をNumPy配列で返します。`kurtosis`は`dask.array.stats.kurtosis`で計算します。

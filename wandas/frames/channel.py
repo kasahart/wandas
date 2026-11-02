@@ -871,8 +871,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         It is computed with ``dask.array.stats.kurtosis(..., fisher=False)``,
         the Dask counterpart of ``scipy.stats.kurtosis``. Subtract 3 for the
-        excess (Fisher) kurtosis. A constant channel has no variance; the
-        result for it follows Dask, which returns 0.
+        excess (Fisher) kurtosis. Kurtosis is undefined for a channel without
+        variance (a constant or a single sample); wandas passes on Dask's
+        result there unchanged, which is not a meaningful value: Dask returns
+        0 when the deviations are exactly zero, and rounding of the mean can
+        leave tiny deviations that give a finite value such as 1. Check
+        :attr:`rms` of the AC part or :meth:`remove_dc` first when a channel
+        may be a pure offset.
 
         Returns:
             NDArrayReal of shape ``(n_channels,)`` containing the kurtosis for
