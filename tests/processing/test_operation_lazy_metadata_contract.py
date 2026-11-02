@@ -25,7 +25,7 @@ from wandas.processing.cepstral import (
 from wandas.processing.conversion import Astype
 from wandas.processing.custom import CustomOperation
 from wandas.processing.effects import AddWithSNR, Envelope, Fade, HpssHarmonic, HpssPercussive, Normalize, RemoveDC
-from wandas.processing.filters import AWeighting, BandPassFilter, HighPassFilter, LowPassFilter
+from wandas.processing.filters import AWeighting, BandPassFilter, HighPassFilter, Integrate, LowPassFilter
 from wandas.processing.psychoacoustic import (
     LoudnessZwst,
     LoudnessZwtv,
@@ -245,6 +245,7 @@ def _operation_cases() -> list[OperationCase]:
         OperationCase("highpass_filter", lambda: HighPassFilter(SR, cutoff=200.0), real),
         OperationCase("lowpass_filter", lambda: LowPassFilter(SR, cutoff=2000.0), real),
         OperationCase("bandpass_filter", lambda: BandPassFilter(SR, low_cutoff=200.0, high_cutoff=2000.0), real),
+        OperationCase("integrate", lambda: Integrate(SR, order=1, fmin=50.0, fmax=2000.0), real),
         OperationCase("a_weighting", lambda: AWeighting(SR), real),
         OperationCase("cepstrum", lambda: Cepstrum(SR, n_fft=64), real),
         OperationCase(

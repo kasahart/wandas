@@ -277,4 +277,92 @@ class _RecipeAWeightingV1(AWeighting):
         return _apply_weighting(x, self.sampling_rate, "A", bilinear=True)
 
 
+class Integrate(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
+    """Band-limited integration in the frequency domain.
+
+    The spectrum of each whole channel is divided by ``(j 2 pi f) ** order``
+    and the bins outside ``[fmin, fmax]`` are set to zero, together with 0 Hz,
+    which has no finite integral. The inverse FFT treats the channel as one
+    period, so the result has no drift but its ends wrap around. Typical use
+    is acceleration to velocity (``order=1``) or displacement (``order=2``)
+    within the band of a vibration standard.
+    """
+
+    name = "integrate"
+    _display = "int"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        order: int = 1,
+        fmin: float | None = None,
+        fmax: float | None = None,
+    ):
+        """
+        Initialize integration
+
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            order: int, optional. Number of integrations, at least 1. Default is 1.
+            fmin: float, optional. Lowest frequency kept (Hz). ``None`` keeps
+                every bin above 0 Hz.
+            fmax: float, optional. Highest frequency kept (Hz). ``None`` keeps
+                every bin up to Nyquist.
+
+        Raises:
+            ValueError: If ``order`` is not an integer of at least 1, a band
+                edge is not between 0 and Nyquist, or ``fmin >= fmax``.
+        """
+        super().__init__(sampling_rate, order=order, fmin=fmin, fmax=fmax)
+
+    @property
+    def order(self) -> int:
+        """Number of integrations captured at operation construction time."""
+        return self._config_value("order")
+
+    @property
+    def fmin(self) -> float | None:
+        """Lowest kept frequency captured at operation construction time."""
+        return self._config_value("fmin")
+
+    @property
+    def fmax(self) -> float | None:
+        """Highest kept frequency captured at operation construction time."""
+        return self._config_value("fmax")
+
+    def validate_params(self) -> None:
+        order = self.order
+        if isinstance(order, bool) or not isinstance(order, int | np.integer) or order < 1:
+            raise ValueError(f"Invalid integration order\n  Got: {order!r}\n  Expected: an integer of at least 1")
+        if self.fmin is not None:
+            _validate_cutoff(self.fmin, self.sampling_rate, "Lower band edge")
+        if self.fmax is not None:
+            _validate_cutoff(self.fmax, self.sampling_rate, "Upper band edge")
+        if self.fmin is not None and self.fmax is not None and self.fmin >= self.fmax:
+            raise ValueError(
+                "Invalid integration band\n"
+                f"  Lower band edge: {self.fmin} Hz\n"
+                f"  Upper band edge: {self.fmax} Hz\n"
+                "Ensure fmin < fmax."
+            )
+
+    _keeps_input_precision = True
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return precision_real_dtype(input_dtype)
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        n_samples = x.shape[-1]
+        freqs = np.fft.rfftfreq(n_samples, 1.0 / self.sampling_rate)
+        keep = freqs > 0
+        if self.fmin is not None:
+            keep &= freqs >= self.fmin
+        if self.fmax is not None:
+            keep &= freqs <= self.fmax
+        gain = np.zeros(freqs.shape, dtype=np.complex128)
+        gain[keep] = (2j * np.pi * freqs[keep]) ** (-int(self.order))
+        result: NDArrayReal = np.fft.irfft(np.fft.rfft(x, axis=-1) * gain, n_samples, axis=-1)
+        return result.astype(precision_real_dtype(x.dtype), copy=False)
+
+
 _register_module_operations(__name__)
