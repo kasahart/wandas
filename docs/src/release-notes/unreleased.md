@@ -1,44 +1,4 @@
 # Unreleased changes
 
-Changes after [Wandas 0.12.0](v0.12.0.md).
-
-## Added / 追加
-
-- Level-trigger workflows can be saved and replayed as Recipes
-  ([#630](https://github.com/kasahart/wandas/issues/630)). `ChannelFrame.trigger()`
-  and `segment()`, `drop()`, selections by index, slice or mask (recorded as
-  the event IDs they keep), and `average()`, `transfer_function()` and `coherence()` of
-  `ChannelFrameSegments` are Recipe steps, so
-  `RecipePlan.from_frame(cf.trigger(10.0, duration=1.0, pre=0.01).drop([2]).transfer_function())`
-  works. A Recipe records the trigger conditions, not the detected positions:
-  replaying it on another recording detects that recording's events again, and
-  drops or keeps the events with the same IDs there. Segments now carry a `lineage` like
-  a Frame, and each segment's Frame keeps its own lineage as a time slice of the
-  source. `apply(func)` and segments built
-  directly from Frames still cannot be saved, with a message that says why. A
-  Recipe's inputs, output and named steps stay Frames; segments only appear
-  between its nodes. `default_recipe_registry().describe()` lists the new steps
-  with `ChannelFrameSegments` or `FrameSegments` as their receiver or result.
-  レベルトリガーの処理をRecipeとして保存・再生できるようになりました。
-  `ChannelFrame.trigger()`と`segment()`、`drop()`、位置・スライス・マスクによる選択（残すイベントIDとして記録）、
-  `ChannelFrameSegments`の`average()`・`transfer_function()`・`coherence()`がRecipeのstepになります。
-  Recipeには検出した位置ではなくトリガーの条件を記録するので、別の録音で再生するとその録音で
-  検出し直し、同じIDのイベントを除く・残します。Segmentsも Frame と同じく`lineage`を持ち、各セグメントの
-  Frameは元の録音の時間スライスとして自分のlineageを保ちます。`apply(func)`と
-  Frameから直接作ったSegmentsは今までどおり保存できず、理由をメッセージで示します。Recipeの入力・
-  出力・名前付きstepはFrameのままで、Segmentsはnodeの間にだけ現れます。
-
-## Changed / 変更
-
-- The `operation_history` of `ChannelFrameSegments` results (and the history a
-  WDF file stores for them) changes with
-  [#630](https://github.com/kasahart/wandas/issues/630): instead of
-  `wandas.segments.join` or `wandas.segments.average` with one input per segment
-  and an `event_ids` parameter, it lists `wandas.audio.trigger` or
-  `wandas.audio.segment`, then `wandas.segments.drop` or `wandas.segments.select`
-  for excluded or selected events, then `wandas.segments.average`,
-  `transfer_function` or `coherence`. The computed values do not change.
-  `ChannelFrameSegments`の結果の`operation_history`（WDFに保存される履歴も）が変わります。
-  セグメントごとの入力と`event_ids`を持つ`wandas.segments.join`/`average`の代わりに、
-  `wandas.audio.trigger`または`segment`、除外・選択の`wandas.segments.drop`/`select`、
-  `wandas.segments.average`・`transfer_function`・`coherence`が並びます。計算結果は変わりません。
+No changes are currently pending after 0.13.0. See [Wandas 0.13.0](v0.13.0.md)
+for level-trigger Recipes.
