@@ -289,6 +289,36 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """Get frame times relative to the original source timeline."""
         return self.source_time_offset[:, None] + self.times[None, :]
 
+    @property
+    def spectral_kurtosis(self) -> NDArrayReal:
+        """Calculate the spectral kurtosis of each channel over time.
+
+        The spectral kurtosis of a frequency bin is::
+
+            SK(f) = mean(|X(f, t)| ** 4) / mean(|X(f, t)| ** 2) ** 2 - 2
+
+        where the means run over the STFT frames. It is 0 for stationary
+        Gaussian noise and rises in bands where the signal is impulsive, so
+        its maximum points to the band to filter for an envelope analysis of
+        bearing or gear faults. Real-valued bins (0 Hz and Nyquist) have the
+        Gaussian reference value 1 instead of 0, and a bin with no energy
+        gives NaN. Short STFT frames respond better to short impulses.
+
+        This is a reduction like :attr:`ChannelFrame.rms`: it computes
+        immediately and returns a NumPy array, not a Frame, so no lineage
+        entry is created. The value does not depend on calibration.
+
+        Returns:
+            NDArrayReal of shape ``(n_channels, n_freq_bins)``, aligned with
+                :attr:`freqs`.
+
+        Examples:
+            >>> sk = cf.stft(n_fft=256, hop_length=64).spectral_kurtosis
+        """
+        from wandas.processing.stats import spectral_kurtosis
+
+        return np.array(spectral_kurtosis(self._data).compute())
+
     def plot(
         self,
         plot_type: str = "spectrogram",

@@ -9,6 +9,7 @@ from wandas.processing.stats import (
     Mean,
     Power,
     Sum,
+    spectral_kurtosis,
 )
 from wandas.utils.dask_helpers import da_from_array
 
@@ -408,3 +409,20 @@ class TestChannelDifference:
         np.testing.assert_allclose(result[1], -2 * np.ones(_SR))  # 0 - 2 = -2
         np.testing.assert_allclose(result[2], np.zeros(_SR))  # 2 - 2 = 0
         np.testing.assert_allclose(result[3], -3 * np.ones(_SR))  # -1 - 2 = -3
+
+
+class TestSpectralKurtosis:
+    """spectral_kurtosis against closed-form moment ratios."""
+
+    def test_constant_modulus_gives_minus_one(self) -> None:
+        # |X| constant over time: mean(|X|^4) / mean(|X|^2)^2 = 1, so SK = -1.
+        stft = da_from_array(np.exp(1j * np.linspace(0.0, 6.0, 8))[None, None, :] * 3.0, chunks=-1)
+        np.testing.assert_allclose(spectral_kurtosis(stft).compute(), [[-1.0]], rtol=1e-12)
+
+    def test_single_burst_gives_moment_ratio(self) -> None:
+        # Power [4, 0, 0, 0]: mean(p^2) = 4 and mean(p)^2 = 1, so SK = 4 - 2 = 2.
+        stft = da_from_array(np.array([[[2.0j, 0.0, 0.0, 0.0], [1.0, 1.0, -1.0, -1.0]]]), chunks=-1)
+        result = spectral_kurtosis(stft)
+
+        assert isinstance(result, DaArray)
+        np.testing.assert_allclose(result.compute(), [[2.0, -1.0]], rtol=1e-12)

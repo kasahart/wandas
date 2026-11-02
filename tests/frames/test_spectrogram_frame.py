@@ -1057,3 +1057,56 @@ def test_spectrogram_sparse_constructor_requires_bool(invalid: Any) -> None:
             hop_length=128,
             allow_sparse=invalid,
         )
+
+
+class TestSpectrogramFrameSpectralKurtosis:
+    """spectral_kurtosis: reduction contract and reference values of the moment ratio."""
+
+    def setup_method(self) -> None:
+        self.fs = 8000
+        rng = np.random.default_rng(0)
+        noise = rng.standard_normal((2, self.fs * 10))
+        # Channel 1: short 2.2 kHz bursts every 0.1 s on top of the noise.
+        t = np.arange(40) / self.fs
+        burst = 20.0 * np.sin(2 * np.pi * 2200.0 * t) * np.hanning(40)
+        for start in range(0, noise.shape[1] - 40, 800):
+            noise[1, start : start + 40] += burst
+        self.cf = ChannelFrame.from_numpy(noise, sampling_rate=self.fs)
+        self.spectrogram = self.cf.stft(n_fft=256, hop_length=64)
+
+    def test_returns_array_aligned_with_freqs_without_lineage(self) -> None:
+        history_before = list(self.spectrogram.operation_history)
+
+        sk = self.spectrogram.spectral_kurtosis
+
+        assert isinstance(sk, np.ndarray)
+        assert sk.shape == (2, self.spectrogram.freqs.shape[0])
+        assert self.spectrogram.operation_history == history_before
+
+    def test_matches_moment_ratio_of_stft_magnitude(self) -> None:
+        power = np.abs(np.asarray(self.spectrogram._data)) ** 2
+        expected = np.mean(power**2, axis=-1) / np.mean(power, axis=-1) ** 2 - 2.0
+        np.testing.assert_allclose(self.spectrogram.spectral_kurtosis, expected, rtol=1e-10)
+
+    def test_gaussian_noise_is_near_zero_and_real_bins_near_one(self) -> None:
+        sk = self.spectrogram.spectral_kurtosis[0]
+        # About 1250 frames: the estimate scatters by roughly 0.1 around the reference.
+        assert abs(np.mean(sk[1:-1])) < 0.05
+        np.testing.assert_allclose(sk[[0, -1]], [1.0, 1.0], atol=0.3)
+
+    def test_maximum_points_to_the_impulsive_band(self) -> None:
+        sk = self.spectrogram.spectral_kurtosis[1]
+        assert abs(self.spectrogram.freqs[np.argmax(sk)] - 2200.0) < 200.0
+        assert sk.max() > 1.0
+
+    def test_constant_modulus_tone_gives_minus_one(self) -> None:
+        # A tone on an exact bin (fs / n_fft * 32 = 1000 Hz) has the same |X| in every
+        # full frame; only the padded first and last frames see part of it.
+        t = np.arange(self.fs * 2) / self.fs
+        tone = ChannelFrame.from_numpy(np.sin(2 * np.pi * 1000.0 * t)[None, :], sampling_rate=self.fs)
+        sk = tone.stft(n_fft=256, hop_length=64).spectral_kurtosis
+        np.testing.assert_allclose(sk[0, 32], -1.0, atol=0.02)
+
+    def test_calibration_does_not_change_the_result(self) -> None:
+        scaled = self.cf.with_calibration([3.0, 0.5]).stft(n_fft=256, hop_length=64)
+        np.testing.assert_allclose(scaled.spectral_kurtosis, self.spectrogram.spectral_kurtosis, rtol=1e-9)

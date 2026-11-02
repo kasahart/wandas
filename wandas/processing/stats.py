@@ -110,4 +110,25 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         return values - values[other_channel]
 
 
+def spectral_kurtosis(stft: DaArray) -> DaArray:
+    """Return the spectral kurtosis of STFT data over its last (time) axis.
+
+    The spectral kurtosis of a frequency bin is::
+
+        SK(f) = mean(|X(f, t)| ** 4) / mean(|X(f, t)| ** 2) ** 2 - 2
+
+    It is 0 for stationary Gaussian noise and rises in bins where the signal
+    is impulsive. Real-valued bins (0 Hz and Nyquist) have the Gaussian
+    reference value 1 instead of 0. A bin with no energy gives NaN.
+
+    Args:
+        stft: Complex STFT data whose last axis is time.
+
+    Returns:
+        Real array with the time axis removed.
+    """
+    power = da.abs(stft) ** 2
+    return da.mean(power**2, axis=-1) / da.mean(power, axis=-1) ** 2 - 2.0
+
+
 _register_module_operations(__name__)
