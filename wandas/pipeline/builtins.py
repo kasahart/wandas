@@ -37,16 +37,21 @@ def builtin_recipe_owners() -> tuple[type[Any], ...]:
 
     The owners are found from the public Frame types exported by
     :mod:`wandas.frames`, walked in export order, so a new Frame type or mixin
-    contributes its operations without being listed here.
+    contributes its operations without being listed here. The segment
+    collections that ``ChannelFrame.trigger()`` and ``segment()`` return follow,
+    base class first.
     """
     import wandas.frames as public_frames
     from wandas.core.base_frame import BaseFrame
+    from wandas.frames.segments import ChannelFrameSegments, FrameSegments
 
     owners: dict[type[Any], None] = {}
     for export_name in public_frames.__all__:
         for owner in _frame_owners(getattr(public_frames, export_name), BaseFrame):
             if owner not in owners and any(True for _ in _declared_operations(owner)):
                 owners[owner] = None
+    for owner in (FrameSegments, ChannelFrameSegments):
+        owners[owner] = None
     return tuple(owners)
 
 
