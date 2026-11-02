@@ -404,6 +404,16 @@ class TestRecipe:
             assert isinstance(filtered, ChannelFrameSegments)
             RecipePlan.from_frame(filtered.average())
 
+    def test_apply_keeps_the_processing_in_the_history(self) -> None:
+        hits, _ = _hits()
+        filtered = hits.apply(lambda hit: hit.high_pass_filter(cutoff=20))
+        assert isinstance(filtered, ChannelFrameSegments)
+        history = filtered.average().operation_history
+        filters = [step for step in history if step["operation"] == "wandas.audio.highpass_filter"]
+        assert len(filters) == len(hits)
+        assert all(step["params"]["cutoff"] == 20 for step in filters)
+        assert [step["operation"] for step in history[-2:]] == ["wandas.segments.apply", "wandas.segments.average"]
+
     def test_segments_built_from_frames_are_not_a_recipe(self) -> None:
         hits = _with_trigger_channel(_hits()[0])
         with pytest.raises(RecipeExtractionError, match="built directly from Frames"):

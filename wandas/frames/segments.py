@@ -274,7 +274,9 @@ class FrameSegments(Generic[F]):
                 otherwise :class:`FrameSegments`.
         """
         results = [func(item) for item in self._items]
-        lineage = _segment_lineage("wandas.segments.apply", [self._lineage], _APPLY_NOT_IN_RECIPE)
+        lineage = _segment_lineage(
+            "wandas.segments.apply", [self._lineage, *(result.lineage for result in results)], _APPLY_NOT_IN_RECIPE
+        )
         if (results and isinstance(results[0], ChannelFrame)) or (
             not results and isinstance(self, ChannelFrameSegments)
         ):
