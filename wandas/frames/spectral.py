@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     import pandas as pd
     from matplotlib.axes import Axes
 
+    from ..processing.peaks import PeakInterpolation
     from ..processing.spectral import IFFT
     from ..visualization.plotting import PlotStrategy
     from .channel import ChannelFrame
@@ -234,6 +235,78 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         """
         return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
+
+    def find_peaks(
+        self,
+        min_prominence_db: float = 10.0,
+        *,
+        fmin: float | None = None,
+        fmax: float | None = None,
+        max_peaks: int | None = None,
+        interpolation: PeakInterpolation = "none",
+    ) -> pd.DataFrame:
+        """Find the spectral peaks of each channel.
+
+        Peaks are found on :attr:`dB` (the level relative to each channel's
+        reference) with ``scipy.signal.find_peaks``, keeping peaks whose
+        prominence over their surroundings is at least ``min_prominence_db``.
+        This computes the data and returns a table, not a Frame, so no lineage
+        entry is created.
+
+        Args:
+            min_prominence_db: Minimum prominence of a peak in dB.
+            fmin: Lowest peak frequency to keep in Hz. ``None`` keeps all.
+            fmax: Highest peak frequency to keep in Hz. ``None`` keeps all.
+                Prominence is still measured on the whole spectrum.
+            max_peaks: Number of highest peaks to keep per channel. ``None``
+                keeps all.
+            interpolation: ``"none"`` returns bin values. ``"parabolic"`` fits
+                a parabola to the level of the peak bin and its two neighbours
+                to refine the frequency and level between bins.
+
+        Returns:
+            pandas DataFrame with one row per peak, sorted by channel and then
+            frequency, and the columns ``channel`` (label), ``frequency`` [Hz],
+            ``level_db`` [dB re channel reference], ``amplitude`` (the level
+            converted back to the channel's unit, ``ref * 10 ** (level_db / 20)``)
+            and ``prominence_db`` [dB].
+
+        Raises:
+            ValueError: If ``interpolation`` is unknown or ``max_peaks`` is
+                below 1.
+
+        Examples:
+            >>> spectrum = cf.welch(n_fft=4096)
+            >>> peaks = spectrum.find_peaks(min_prominence_db=10, fmax=2000)
+        """
+        from ..processing.peaks import find_spectral_peaks
+
+        pd = require_pandas("SpectralFrame.find_peaks")
+        freqs = self.freqs
+        levels = np.atleast_2d(self.dB)
+        tables = []
+        for channel, level in zip(self.channels, levels):
+            peaks = find_spectral_peaks(
+                level,
+                freqs,
+                min_prominence_db=min_prominence_db,
+                fmin=fmin,
+                fmax=fmax,
+                max_peaks=max_peaks,
+                interpolation=interpolation,
+            )
+            tables.append(
+                pd.DataFrame(
+                    {
+                        "channel": channel.label,
+                        "frequency": peaks["frequency"],
+                        "level_db": peaks["level_db"],
+                        "amplitude": channel.ref * 10.0 ** (peaks["level_db"] / 20.0),
+                        "prominence_db": peaks["prominence_db"],
+                    }
+                )
+            )
+        return pd.concat(tables, ignore_index=True)
 
     def plot(
         self,

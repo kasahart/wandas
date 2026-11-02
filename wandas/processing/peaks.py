@@ -1,0 +1,95 @@
+"""Peak picking on one spectrum level curve."""
+
+from typing import Literal
+
+import numpy as np
+import numpy.typing as npt
+from scipy.signal import find_peaks
+
+from wandas.utils.types import NDArrayReal
+
+PeakInterpolation = Literal["none", "parabolic"]
+
+
+def find_spectral_peaks(
+    level_db: NDArrayReal,
+    freqs: NDArrayReal,
+    min_prominence_db: float = 10.0,
+    fmin: float | None = None,
+    fmax: float | None = None,
+    max_peaks: int | None = None,
+    interpolation: PeakInterpolation = "none",
+) -> dict[str, npt.NDArray[np.float64]]:
+    """Return the peaks of one spectrum level curve.
+
+    Peaks are found with ``scipy.signal.find_peaks(level_db,
+    prominence=min_prominence_db)`` on the whole curve, so the prominence of a
+    peak near ``fmin`` or ``fmax`` still sees the bins outside that range. Peaks
+    outside ``[fmin, fmax]`` are then dropped, and ``max_peaks`` keeps the
+    highest levels.
+
+    With ``interpolation="parabolic"``, a parabola through the level of the
+    peak bin and its two neighbours refines the frequency and the level. A
+    peak on the first or last bin, or on a flat top, keeps its bin values.
+
+    Args:
+        level_db: 1-D level curve in dB.
+        freqs: Frequency of each bin in Hz, evenly spaced, same length as
+            ``level_db``.
+        min_prominence_db: Minimum prominence of a peak in dB.
+        fmin: Lowest peak frequency to keep in Hz. ``None`` keeps all.
+        fmax: Highest peak frequency to keep in Hz. ``None`` keeps all.
+        max_peaks: Number of highest peaks to keep. ``None`` keeps all.
+        interpolation: ``"none"`` or ``"parabolic"``.
+
+    Returns:
+        ``frequency``, ``level_db`` and ``prominence_db`` arrays of the kept
+        peaks, sorted by frequency.
+
+    Raises:
+        ValueError: If the inputs are not matching 1-D arrays,
+            ``interpolation`` is unknown, or ``max_peaks`` is below 1.
+    """
+    if level_db.ndim != 1 or freqs.shape != level_db.shape:
+        raise ValueError(
+            "Peak picking needs a 1-D level curve and one frequency per bin\n"
+            f"  Got: level shape {level_db.shape}, frequency shape {freqs.shape}"
+        )
+    if interpolation not in ("none", "parabolic"):
+        raise ValueError(f"Unknown peak interpolation\n  Got: {interpolation!r}\n  Expected: 'none' or 'parabolic'")
+    if max_peaks is not None and max_peaks < 1:
+        raise ValueError(f"max_peaks must be at least 1 or None\n  Got: {max_peaks}")
+
+    indices, properties = find_peaks(level_db, prominence=min_prominence_db)
+    prominences = np.asarray(properties["prominences"], dtype=np.float64)
+    keep = np.ones(indices.shape, dtype=bool)
+    if fmin is not None:
+        keep &= freqs[indices] >= fmin
+    if fmax is not None:
+        keep &= freqs[indices] <= fmax
+    indices, prominences = indices[keep], prominences[keep]
+    if max_peaks is not None:
+        highest = np.argsort(level_db[indices], kind="stable")[::-1][:max_peaks]
+        indices, prominences = indices[highest], prominences[highest]
+
+    frequency = freqs[indices].astype(np.float64)
+    level = level_db[indices].astype(np.float64)
+    if interpolation == "parabolic" and len(freqs) > 1:
+        bin_width = float(freqs[1] - freqs[0])
+        for k, index in enumerate(indices):
+            if not 0 < index < len(level_db) - 1:
+                continue
+            left, centre, right = (float(v) for v in level_db[index - 1 : index + 2])
+            curvature = left - 2.0 * centre + right
+            if curvature == 0.0:
+                continue
+            offset = 0.5 * (left - right) / curvature
+            frequency[k] += offset * bin_width
+            level[k] = centre - 0.25 * (left - right) * offset
+
+    order = np.argsort(frequency, kind="stable")
+    return {
+        "frequency": frequency[order],
+        "level_db": level[order],
+        "prominence_db": prominences[order],
+    }
