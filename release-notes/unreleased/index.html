@@ -1212,6 +1212,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Unreleased
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1223,6 +1236,43 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added / 追加
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed / 変更
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1699,6 +1749,32 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added / 追加
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed / 変更
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1722,8 +1798,48 @@
 
 
 <h1 id="unreleased-changes">Unreleased changes<a class="headerlink" href="#unreleased-changes" title="Permanent link">&para;</a></h1>
-<p>No changes are currently pending after 0.12.0. See <a href="../v0.12.0/">Wandas 0.12.0</a>
-for the level trigger, time selection by seconds and the A/B/C weighting fix.</p>
+<p>Changes after <a href="../v0.12.0/">Wandas 0.12.0</a>.</p>
+<h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Level-trigger workflows can be saved and replayed as Recipes
+  (<a href="https://github.com/kasahart/wandas/issues/630">#630</a>). <code>ChannelFrame.trigger()</code>
+  and <code>segment()</code>, <code>drop()</code>, selections by index, slice or mask (recorded as
+  the event IDs they keep), and <code>average()</code>, <code>transfer_function()</code> and <code>coherence()</code> of
+  <code>ChannelFrameSegments</code> are Recipe steps, so
+  <code>RecipePlan.from_frame(cf.trigger(10.0, duration=1.0, pre=0.01).drop([2]).transfer_function())</code>
+  works. A Recipe records the trigger conditions, not the detected positions:
+  replaying it on another recording detects that recording's events again, and
+  drops or keeps the events with the same IDs there. Segments now carry a <code>lineage</code> like
+  a Frame, and each segment's Frame keeps its own lineage as a time slice of the
+  source. <code>apply(func)</code> and segments built
+  directly from Frames still cannot be saved, with a message that says why. A
+  Recipe's inputs, output and named steps stay Frames; segments only appear
+  between its nodes. <code>default_recipe_registry().describe()</code> lists the new steps
+  with <code>ChannelFrameSegments</code> or <code>FrameSegments</code> as their receiver or result.
+  レベルトリガーの処理をRecipeとして保存・再生できるようになりました。
+  <code>ChannelFrame.trigger()</code>と<code>segment()</code>、<code>drop()</code>、位置・スライス・マスクによる選択（残すイベントIDとして記録）、
+  <code>ChannelFrameSegments</code>の<code>average()</code>・<code>transfer_function()</code>・<code>coherence()</code>がRecipeのstepになります。
+  Recipeには検出した位置ではなくトリガーの条件を記録するので、別の録音で再生するとその録音で
+  検出し直し、同じIDのイベントを除く・残します。Segmentsも Frame と同じく<code>lineage</code>を持ち、各セグメントの
+  Frameは元の録音の時間スライスとして自分のlineageを保ちます。<code>apply(func)</code>と
+  Frameから直接作ったSegmentsは今までどおり保存できず、理由をメッセージで示します。Recipeの入力・
+  出力・名前付きstepはFrameのままで、Segmentsはnodeの間にだけ現れます。</li>
+</ul>
+<h2 id="changed">Changed / 変更<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
+<ul>
+<li>The <code>operation_history</code> of <code>ChannelFrameSegments</code> results (and the history a
+  WDF file stores for them) changes with
+  <a href="https://github.com/kasahart/wandas/issues/630">#630</a>: instead of
+  <code>wandas.segments.join</code> or <code>wandas.segments.average</code> with one input per segment
+  and an <code>event_ids</code> parameter, it lists <code>wandas.audio.trigger</code> or
+  <code>wandas.audio.segment</code>, then <code>wandas.segments.drop</code> or <code>wandas.segments.select</code>
+  for excluded or selected events, then <code>wandas.segments.average</code>,
+  <code>transfer_function</code> or <code>coherence</code>. The computed values do not change.
+  <code>ChannelFrameSegments</code>の結果の<code>operation_history</code>（WDFに保存される履歴も）が変わります。
+  セグメントごとの入力と<code>event_ids</code>を持つ<code>wandas.segments.join</code>/<code>average</code>の代わりに、
+  <code>wandas.audio.trigger</code>または<code>segment</code>、除外・選択の<code>wandas.segments.drop</code>/<code>select</code>、
+  <code>wandas.segments.average</code>・<code>transfer_function</code>・<code>coherence</code>が並びます。計算結果は変わりません。</li>
+</ul>
 
 
 
@@ -1744,7 +1860,7 @@ for the level trigger, time selection by seconds and the A/B/C weighting fix.</p
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 31, 2026 01:03:38 UTC">October 31, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 2, 2026 16:15:08 UTC">November 2, 2026</span>
   </span>
 
     
