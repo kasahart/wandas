@@ -372,17 +372,24 @@ class TestRecipe:
         assert node.operation == "wandas.audio.segment"
         np.testing.assert_allclose(plan.apply(cf).data, coherence.data)
 
-    def test_selection_in_event_order_is_recorded_as_drop(self) -> None:
-        hits, _ = _hits()
-        mask = np.array([True, False, True, True, False])
-        average = hits[mask].average()
-        drop = next(node for node in RecipePlan.from_frame(average).nodes if node.operation == "wandas.segments.drop")
-        assert thaw_params(drop.params) == {"event_ids": [1, 4]}
+    def test_selection_is_recorded_by_the_kept_event_ids(self) -> None:
+        hits = _impacts().trigger(4.0, duration=0.15, pre=0.01)
+        plan = RecipePlan.from_frame(hits[0:3].average())
+        select = next(node for node in plan.nodes if node.operation == "wandas.segments.select")
+        assert thaw_params(select.params) == {"event_ids": [0, 1, 2]}
+        more = _impacts(1, n_hits=8)
+        expected = more.trigger(4.0, duration=0.15, pre=0.01)[0:3].average()
+        np.testing.assert_allclose(plan.apply(more).data, expected.data)
+        with pytest.raises(RecipeExecutionError, match="Unknown segment event IDs"):
+            plan.apply(_impacts(2, n_hits=2))
 
-    def test_reordered_selection_is_not_a_recipe(self) -> None:
-        hits, _ = _hits()
-        with pytest.raises(RecipeExtractionError, match="another order"):
-            RecipePlan.from_frame(hits[[2, 0]].average())
+    def test_reordered_selection_keeps_its_order(self) -> None:
+        hits, values = _hits()
+        reordered = hits[[2, 0]]
+        np.testing.assert_array_equal(reordered.event_ids, [2, 0])
+        plan = RecipePlan.from_frame(reordered[0])
+        assert [node.operation for node in plan.nodes] == ["wandas.frame.index"]
+        np.testing.assert_allclose(reordered[0].data, values[2])
 
     def test_apply_is_not_a_recipe(self) -> None:
         hits, _ = _hits()

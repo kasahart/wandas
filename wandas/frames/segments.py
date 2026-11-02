@@ -38,7 +38,6 @@ SegmentsT = TypeVar("SegmentsT", bound="FrameSegments[Any]")
 
 _APPLY_NOT_IN_RECIPE = "apply() runs a Python function, which a Recipe cannot store"
 _FRAMES_NOT_IN_RECIPE = "Segments built directly from Frames have no Recipe step that cuts them"
-_REORDER_NOT_IN_RECIPE = "Segments selected in another order than their events cannot be replayed as a Recipe step"
 
 
 def _segment_lineage(
@@ -50,8 +49,8 @@ def _segment_lineage(
     return LineageNode(operation, tuple(parents), recipe_error=recipe_error)
 
 
-def _capture_drop(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
-    """Record the dropped event IDs as a list of integers."""
+def _capture_event_ids(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Record the dropped or kept event IDs as a list of integers."""
     event_ids = params["event_ids"]
     dropped = (
         [int(event_ids)]
@@ -192,7 +191,9 @@ class FrameSegments(Generic[F]):
             key: Integer position for one Frame; a slice, a sequence of integer
                 positions or a boolean mask of length ``len(self)`` for a subset.
                 Positions count the segments currently held, not event IDs; use
-                :meth:`drop` to exclude segments by event ID.
+                :meth:`drop` to exclude segments by event ID. A Recipe records a
+                subset by the event IDs it keeps, so replaying it on another
+                recording keeps the events with those IDs there.
 
         Raises:
             IndexError: If a position is out of range.
@@ -224,7 +225,7 @@ class FrameSegments(Generic[F]):
             f"  Got: {type(key).__name__}"
         )
 
-    @recipe_operation("wandas.segments.drop", bindings=(InputBinding("segments", "frame"),), capture=_capture_drop)
+    @recipe_operation("wandas.segments.drop", bindings=(InputBinding("segments", "frame"),), capture=_capture_event_ids)
     def drop(self: SegmentsT, event_ids: int | Sequence[int]) -> SegmentsT:
         """Return the segments without the given event IDs.
 
@@ -308,17 +309,27 @@ class FrameSegments(Generic[F]):
         return np.asarray(stacked.compute())
 
     def _select(self: SegmentsT, positions: Sequence[int]) -> SegmentsT:
-        """Return the segments at ``positions``, recorded as dropping the others when in order."""
-        if list(positions) == sorted(positions):
-            kept = set(positions)
-            return self.drop([int(self._event_ids[i]) for i in range(len(self)) if i not in kept])
-        lineage = _segment_lineage(
-            "wandas.segments.select",
-            [self._lineage],
-            _REORDER_NOT_IN_RECIPE,
-            {"event_ids": [int(self._event_ids[i]) for i in positions]},
-        )
-        return self._subset(positions, lineage)
+        """Return the segments at ``positions``, recorded as keeping their event IDs."""
+        return self._keep([int(self._event_ids[i]) for i in positions])
+
+    @recipe_operation(
+        "wandas.segments.select", bindings=(InputBinding("segments", "frame"),), capture=_capture_event_ids
+    )
+    def _keep(self: SegmentsT, event_ids: Sequence[int]) -> SegmentsT:
+        """Return the segments with the given event IDs, in that order.
+
+        Indexing with a slice, positions or a mask records this step, so a
+        Recipe keeps the same event IDs when it is replayed; an ID missing from
+        the replayed recording raises ``KeyError``.
+        """
+        kept = [int(i) for i in event_ids]
+        if len(set(kept)) != len(kept):
+            raise ValueError(f"Event IDs to keep must not repeat\n  Got: {kept}")
+        positions = {int(event_id): position for position, event_id in enumerate(self._event_ids)}
+        missing = [event_id for event_id in kept if event_id not in positions]
+        if missing:
+            raise KeyError(f"Unknown segment event IDs: {missing}; available: {self._event_ids.tolist()}")
+        return self._subset([positions[event_id] for event_id in kept], active_semantic_lineage())
 
     def _subset(self: SegmentsT, positions: Sequence[int], lineage: LineageNode | None) -> SegmentsT:
         """Return the segments at ``positions`` with the same collection state."""
