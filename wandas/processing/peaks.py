@@ -26,11 +26,13 @@ def find_spectral_peaks(
     prominence=min_prominence_db)`` on the whole curve, so the prominence of a
     peak near ``fmin`` or ``fmax`` still sees the bins outside that range. Peaks
     outside ``[fmin, fmax]`` are then dropped, and ``max_peaks`` keeps the
-    highest levels.
+    highest levels. As in SciPy, the first and last bins (0 Hz and Nyquist for
+    a one-sided spectrum) are never peaks, because they have only one
+    neighbour.
 
     With ``interpolation="parabolic"``, a parabola through the level of the
     peak bin and its two neighbours refines the frequency and the level. A
-    peak on the first or last bin, or on a flat top, keeps its bin values.
+    peak on a flat top keeps its bin values.
 
     Args:
         level_db: 1-D level curve in dB.
@@ -39,7 +41,8 @@ def find_spectral_peaks(
         min_prominence_db: Minimum prominence of a peak in dB.
         fmin: Lowest peak frequency to keep in Hz. ``None`` keeps all.
         fmax: Highest peak frequency to keep in Hz. ``None`` keeps all.
-        max_peaks: Number of highest peaks to keep. ``None`` keeps all.
+        max_peaks: Number of highest peaks to keep; peaks of equal level keep
+            the lower frequency first. ``None`` keeps all.
         interpolation: ``"none"`` or ``"parabolic"``.
 
     Returns:
@@ -57,8 +60,10 @@ def find_spectral_peaks(
         )
     if interpolation not in ("none", "parabolic"):
         raise ValueError(f"Unknown peak interpolation\n  Got: {interpolation!r}\n  Expected: 'none' or 'parabolic'")
-    if max_peaks is not None and max_peaks < 1:
-        raise ValueError(f"max_peaks must be at least 1 or None\n  Got: {max_peaks}")
+    if max_peaks is not None and (
+        isinstance(max_peaks, bool) or not isinstance(max_peaks, int | np.integer) or max_peaks < 1
+    ):
+        raise ValueError(f"max_peaks must be an integer of at least 1, or None\n  Got: {max_peaks!r}")
 
     indices, properties = find_peaks(level_db, prominence=min_prominence_db)
     prominences = np.asarray(properties["prominences"], dtype=np.float64)
@@ -69,16 +74,15 @@ def find_spectral_peaks(
         keep &= freqs[indices] <= fmax
     indices, prominences = indices[keep], prominences[keep]
     if max_peaks is not None:
-        highest = np.argsort(level_db[indices], kind="stable")[::-1][:max_peaks]
+        highest = np.argsort(-level_db[indices], kind="stable")[:max_peaks]
         indices, prominences = indices[highest], prominences[highest]
 
     frequency = freqs[indices].astype(np.float64)
     level = level_db[indices].astype(np.float64)
-    if interpolation == "parabolic" and len(freqs) > 1:
+    if interpolation == "parabolic" and indices.size:
         bin_width = float(freqs[1] - freqs[0])
         for k, index in enumerate(indices):
-            if not 0 < index < len(level_db) - 1:
-                continue
+            # find_peaks never returns the first or last bin, so both neighbours exist.
             left, centre, right = (float(v) for v in level_db[index - 1 : index + 2])
             curvature = left - 2.0 * centre + right
             if curvature == 0.0:

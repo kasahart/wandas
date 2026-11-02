@@ -258,6 +258,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             fmin: Lowest peak frequency to keep in Hz. ``None`` keeps all.
             fmax: Highest peak frequency to keep in Hz. ``None`` keeps all.
                 Prominence is still measured on the whole spectrum.
+                The first and last bins (0 Hz and Nyquist) are never peaks,
+                as in ``scipy.signal.find_peaks``.
             max_peaks: Number of highest peaks to keep per channel. ``None``
                 keeps all.
             interpolation: ``"none"`` returns bin values. ``"parabolic"`` fits
@@ -284,6 +286,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         pd = require_pandas("SpectralFrame.find_peaks")
         freqs = self.freqs
         levels = np.atleast_2d(self.dB)
+        columns = ["channel", "frequency", "level_db", "amplitude", "prominence_db"]
         tables = []
         for channel, level in zip(self.channels, levels):
             peaks = find_spectral_peaks(
@@ -306,6 +309,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                     }
                 )
             )
+        if not tables:
+            return pd.DataFrame(columns=columns)
         return pd.concat(tables, ignore_index=True)
 
     def plot(

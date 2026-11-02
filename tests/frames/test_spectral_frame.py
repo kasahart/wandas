@@ -920,9 +920,25 @@ class TestSpectralFrameFindPeaks:
         peaks = self.spectrum.find_peaks(min_prominence_db=20.0, fmin=800.0, max_peaks=1)
         np.testing.assert_allclose(peaks["frequency"], [1500.0, 1000.0])
 
-        refined = self.spectrum.find_peaks(min_prominence_db=20.0, interpolation="parabolic")
-        # On-bin tones stay on their bin: the neighbouring levels are symmetric.
-        np.testing.assert_allclose(refined["frequency"], [500.0, 1500.0, 1000.0], atol=0.01)
+    def test_parabolic_interpolation_moves_an_off_bin_tone_towards_its_frequency(self) -> None:
+        fs, true_freq = 8000, 1003.0  # bin width 7.8125 Hz: 1003 Hz lies between bins
+        t = np.arange(fs * 2) / fs
+        spectrum = ChannelFrame.from_numpy(np.sin(2 * np.pi * true_freq * t)[None, :], sampling_rate=fs).welch(
+            n_fft=1024
+        )
+
+        on_bin = spectrum.find_peaks(min_prominence_db=20.0, max_peaks=1)["frequency"].iloc[0]
+        refined = spectrum.find_peaks(min_prominence_db=20.0, max_peaks=1, interpolation="parabolic")
+        refined_freq = refined["frequency"].iloc[0]
+
+        assert abs(refined_freq - true_freq) < abs(on_bin - true_freq)
+        assert abs(refined_freq - true_freq) < 0.5
+
+    def test_zero_channel_frame_gives_empty_table_with_columns(self) -> None:
+        empty = SpectralFrame(da.zeros((0, 513), dtype=complex, chunks=-1), sampling_rate=8000, n_fft=1024)
+        peaks = empty.find_peaks()
+        assert peaks.empty
+        assert list(peaks.columns) == ["channel", "frequency", "level_db", "amplitude", "prominence_db"]
 
     def test_no_peaks_gives_empty_table_with_columns(self) -> None:
         peaks = self.spectrum.find_peaks(min_prominence_db=1e6)

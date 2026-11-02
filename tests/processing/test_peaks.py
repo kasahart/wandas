@@ -55,6 +55,16 @@ class TestFindSpectralPeaks:
         bin_values = find_spectral_peaks(level, freqs, min_prominence_db=1.0)
         np.testing.assert_array_equal(bin_values["frequency"], [12.5])
 
+    def test_max_peaks_keeps_lower_frequency_among_equal_levels(self) -> None:
+        level = np.array([0.0, 5.0, 0.0, 5.0, 0.0, 5.0, 0.0])
+        peaks = find_spectral_peaks(level, np.arange(7.0), min_prominence_db=1.0, max_peaks=1)
+        np.testing.assert_array_equal(peaks["frequency"], [1.0])
+
+    def test_edge_bins_are_never_peaks(self) -> None:
+        level = np.array([10.0, -40.0, -40.0, -10.0, -40.0, -40.0, 10.0])
+        peaks = find_spectral_peaks(level, np.arange(7.0), min_prominence_db=1.0, interpolation="parabolic")
+        np.testing.assert_array_equal(peaks["frequency"], [3.0])
+
     def test_no_peak_returns_empty_arrays(self) -> None:
         peaks = find_spectral_peaks(np.zeros(16), np.arange(16.0))
         for values in peaks.values():
@@ -69,7 +79,9 @@ class TestFindSpectralPeaks:
         ("kwargs", "message"),
         [
             ({"interpolation": "cubic"}, "Unknown peak interpolation"),
-            ({"max_peaks": 0}, "max_peaks must be at least 1"),
+            ({"max_peaks": 0}, "max_peaks must be an integer of at least 1"),
+            ({"max_peaks": 1.5}, "max_peaks must be an integer of at least 1"),
+            ({"max_peaks": True}, "max_peaks must be an integer of at least 1"),
         ],
     )
     def test_invalid_options_raise(self, kwargs: dict[str, object], message: str) -> None:
