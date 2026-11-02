@@ -82,6 +82,8 @@ def test_unit_that_cannot_be_inferred_asks_for_unit(unit: str, order: int) -> No
         ({"fmin": 0.0}, "Lower band edge"),
         ({"fmax": 600.0}, "Upper band edge"),
         ({"fmin": 100.0, "fmax": 50.0}, "Invalid integration band"),
+        ({"fmin": float("nan")}, "Lower band edge frequency must be finite"),
+        ({"fmax": float("nan")}, "Upper band edge frequency must be finite"),
     ],
 )
 def test_invalid_parameters_raise(kwargs: dict[str, float], message: str) -> None:

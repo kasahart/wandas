@@ -334,6 +334,9 @@ class Integrate(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         order = self.order
         if isinstance(order, bool) or not isinstance(order, int | np.integer) or order < 1:
             raise ValueError(f"Invalid integration order\n  Got: {order!r}\n  Expected: an integer of at least 1")
+        for label, edge in (("Lower band edge", self.fmin), ("Upper band edge", self.fmax)):
+            if edge is not None and not np.isfinite(edge):
+                raise ValueError(f"{label} frequency must be finite\n  Got: {edge!r}")
         if self.fmin is not None:
             _validate_cutoff(self.fmin, self.sampling_rate, "Lower band edge")
         if self.fmax is not None:
