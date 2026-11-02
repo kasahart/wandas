@@ -302,7 +302,10 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         its maximum points to the band to filter for an envelope analysis of
         bearing or gear faults. Real-valued bins (0 Hz and Nyquist) have the
         Gaussian reference value 1 instead of 0, and a bin with no energy
-        gives NaN. Short STFT frames respond better to short impulses.
+        gives NaN. Short STFT frames respond better to short impulses. The
+        padded first and last frames carry less energy and raise the value a
+        little, so use at least a few hundred frames: with 35 frames, Gaussian
+        noise reads about +0.07 instead of 0.
 
         This is a reduction like :attr:`ChannelFrame.rms`: it computes
         immediately and returns a NumPy array, not a Frame, so no lineage
@@ -317,7 +320,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         from wandas.processing.stats import spectral_kurtosis
 
-        return np.array(spectral_kurtosis(self._data).compute())
+        return np.asarray(spectral_kurtosis(self._data).compute())
 
     def plot(
         self,

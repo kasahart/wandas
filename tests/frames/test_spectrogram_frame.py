@@ -1084,7 +1084,7 @@ class TestSpectrogramFrameSpectralKurtosis:
         assert self.spectrogram.operation_history == history_before
 
     def test_matches_moment_ratio_of_stft_magnitude(self) -> None:
-        power = np.abs(np.asarray(self.spectrogram._data)) ** 2
+        power = np.abs(self.spectrogram.data) ** 2
         expected = np.mean(power**2, axis=-1) / np.mean(power, axis=-1) ** 2 - 2.0
         np.testing.assert_allclose(self.spectrogram.spectral_kurtosis, expected, rtol=1e-10)
 
@@ -1106,6 +1106,13 @@ class TestSpectrogramFrameSpectralKurtosis:
         tone = ChannelFrame.from_numpy(np.sin(2 * np.pi * 1000.0 * t)[None, :], sampling_rate=self.fs)
         sk = tone.stft(n_fft=256, hop_length=64).spectral_kurtosis
         np.testing.assert_allclose(sk[0, 32], -1.0, atol=0.02)
+
+    @pytest.mark.parametrize("scale", [1e-12, 1e12])
+    def test_single_precision_extreme_amplitudes_stay_finite(self, scale: float) -> None:
+        # |X|^4 of these amplitudes is outside the float32 range.
+        data = (np.asarray(self.cf.data) * scale).astype(np.float32)
+        spectrogram = ChannelFrame.from_numpy(data, sampling_rate=self.fs).stft(n_fft=256, hop_length=64)
+        np.testing.assert_allclose(spectrogram.spectral_kurtosis, self.spectrogram.spectral_kurtosis, atol=1e-3)
 
     def test_calibration_does_not_change_the_result(self) -> None:
         scaled = self.cf.with_calibration([3.0, 0.5]).stft(n_fft=256, hop_length=64)

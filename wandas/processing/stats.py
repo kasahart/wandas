@@ -127,8 +127,11 @@ def spectral_kurtosis(stft: DaArray) -> DaArray:
     Returns:
         Real array with the time axis removed.
     """
-    power = da.abs(stft) ** 2
-    return da.mean(power**2, axis=-1) / da.mean(power, axis=-1) ** 2 - 2.0
+    power = da.real(stft) ** 2 + da.imag(stft) ** 2
+    # Normalise by the mean power of each bin first: the moment ratio is the
+    # same, and |X|^4 cannot overflow or underflow in single precision.
+    normalized = power / da.mean(power, axis=-1, keepdims=True)
+    return da.mean(normalized**2, axis=-1) - 2.0
 
 
 _register_module_operations(__name__)
