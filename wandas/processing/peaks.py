@@ -67,16 +67,6 @@ def find_spectral_peaks(
 
     indices, properties = find_peaks(level_db, prominence=min_prominence_db)
     prominences = np.asarray(properties["prominences"], dtype=np.float64)
-    keep = np.ones(indices.shape, dtype=bool)
-    if fmin is not None:
-        keep &= freqs[indices] >= fmin
-    if fmax is not None:
-        keep &= freqs[indices] <= fmax
-    indices, prominences = indices[keep], prominences[keep]
-    if max_peaks is not None:
-        highest = np.argsort(-level_db[indices], kind="stable")[:max_peaks]
-        indices, prominences = indices[highest], prominences[highest]
-
     frequency = freqs[indices].astype(np.float64)
     level = level_db[indices].astype(np.float64)
     if interpolation == "parabolic" and indices.size:
@@ -84,12 +74,22 @@ def find_spectral_peaks(
         for k, index in enumerate(indices):
             # find_peaks never returns the first or last bin, so both neighbours exist.
             left, centre, right = (float(v) for v in level_db[index - 1 : index + 2])
-            curvature = left - 2.0 * centre + right
-            if curvature == 0.0:
-                continue
-            offset = 0.5 * (left - right) / curvature
+            if left == centre or right == centre:
+                continue  # flat top: no single vertex to refine
+            offset = 0.5 * (left - right) / (left - 2.0 * centre + right)
             frequency[k] += offset * bin_width
             level[k] = centre - 0.25 * (left - right) * offset
+
+    # The range and max_peaks apply to the returned (possibly refined) values.
+    keep = np.ones(indices.shape, dtype=bool)
+    if fmin is not None:
+        keep &= frequency >= fmin
+    if fmax is not None:
+        keep &= frequency <= fmax
+    frequency, level, prominences = frequency[keep], level[keep], prominences[keep]
+    if max_peaks is not None:
+        highest = np.argsort(-level, kind="stable")[:max_peaks]
+        frequency, level, prominences = frequency[highest], level[highest], prominences[highest]
 
     order = np.argsort(frequency, kind="stable")
     return {

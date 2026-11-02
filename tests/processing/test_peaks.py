@@ -60,6 +60,23 @@ class TestFindSpectralPeaks:
         peaks = find_spectral_peaks(level, np.arange(7.0), min_prominence_db=1.0, max_peaks=1)
         np.testing.assert_array_equal(peaks["frequency"], [1.0])
 
+    @pytest.mark.parametrize("level", [[0.0, 10.0, 10.0, 0.0], [0.0, 10.0, 10.0, 10.0, 0.0]])
+    def test_parabolic_keeps_flat_tops_on_their_bin(self, level: list[float]) -> None:
+        curve = np.array(level)
+        peaks = find_spectral_peaks(
+            curve, np.arange(float(len(curve))), min_prominence_db=1.0, interpolation="parabolic"
+        )
+        bin_values = find_spectral_peaks(curve, np.arange(float(len(curve))), min_prominence_db=1.0)
+        np.testing.assert_array_equal(peaks["frequency"], bin_values["frequency"])
+        np.testing.assert_array_equal(peaks["level_db"], [10.0])
+
+    def test_range_applies_to_refined_frequency(self) -> None:
+        freqs = np.arange(0.0, 6.0)
+        level = -((freqs - 2.3) ** 2)  # bin 2 refines to 2.3 Hz
+        kwargs: dict = {"min_prominence_db": 0.1, "interpolation": "parabolic"}
+        assert find_spectral_peaks(level, freqs, fmax=2.1, **kwargs)["frequency"].size == 0
+        np.testing.assert_allclose(find_spectral_peaks(level, freqs, fmin=2.1, **kwargs)["frequency"], [2.3])
+
     def test_edge_bins_are_never_peaks(self) -> None:
         level = np.array([10.0, -40.0, -40.0, -10.0, -40.0, -40.0, 10.0])
         peaks = find_spectral_peaks(level, np.arange(7.0), min_prominence_db=1.0, interpolation="parabolic")
