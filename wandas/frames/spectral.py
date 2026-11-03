@@ -253,6 +253,12 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         This computes the data and returns a table, not a Frame, so no lineage
         entry is created.
 
+        Use an averaged spectrum such as :meth:`ChannelFrame.welch`. In a single
+        FFT the noise floor scatters by several dB from bin to bin, so many
+        noise bins pass the prominence threshold: on one second of tones in
+        weak noise, a single FFT gave hundreds of peaks where a Welch spectrum
+        gave only the tones.
+
         Args:
             min_prominence_db: Minimum prominence of a peak in dB.
             fmin: Lowest peak frequency to keep in Hz. ``None`` keeps all.
