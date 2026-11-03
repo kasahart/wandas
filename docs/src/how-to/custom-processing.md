@@ -249,7 +249,8 @@ returns a new registry with your entry added, leaving the original unchanged.
 This does not add `.gain()` to ordinary `ChannelFrame` objects: create your inputs
 with `ProjectFrame.from_numpy()`, `ProjectFrame.read_wav()`, `ProjectFrame.read_csv()`
 or `ProjectFrame.from_file()` to call your new method. Processing methods and
-channel changes such as `add_channel()` keep returning `ProjectFrame`.
+channel changes such as `add_channel()` keep returning `ProjectFrame`. `save()` to WDF
+supports only the built-in Frame classes, so it rejects a `ProjectFrame`.
 
 この例は`Gain(...)`で処理を直接作るため、数値処理を名前から探すための別の登録関数
 `register_operation()`は不要です。ここで作るRecipe registryは、**Recipeに保存した処理名**を
@@ -258,7 +259,7 @@ channel changes such as `add_channel()` keep returning `ProjectFrame`.
 通常の`ChannelFrame`に`.gain()`が追加されるわけではないので、自分のメソッドを使う入力は
 `ProjectFrame.from_numpy()`・`ProjectFrame.read_wav()`・`ProjectFrame.read_csv()`・
 `ProjectFrame.from_file()`で作ります。処理メソッドや`add_channel()`などのチャンネル操作の結果も
-`ProjectFrame`のままです。
+`ProjectFrame`のままです。WDFへの`save()`は組み込みのFrameクラスだけに対応しているため、`ProjectFrame`は保存できません。
 
 ## Extract, save, and replay / 処理手順を取り出して保存・再実行する
 

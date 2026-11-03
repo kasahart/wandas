@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
+from typing import Any
 
+import dask.array as da
 import numpy as np
 import pytest
 
@@ -79,3 +81,25 @@ def test_operations_and_channel_updates_keep_subclass(samples: np.ndarray) -> No
     assert [ch.label for ch in stacked.channels] == ["a", "b", "c", "d"]
     np.testing.assert_allclose(removed.to_numpy(), samples)
     np.testing.assert_allclose(frame.to_numpy(), samples)
+
+
+class TaggedFrame(ChannelFrame):
+    """A subclass with its own required constructor state."""
+
+    def __init__(self, *args: Any, tag: str, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.tag = tag
+
+    def _get_additional_init_kwargs(self) -> dict[str, Any]:
+        return {"tag": self.tag}
+
+
+def test_channel_updates_keep_subclass_constructor_state(samples: np.ndarray) -> None:
+    frame = TaggedFrame(data=da.from_array(samples, chunks=(1, -1)), sampling_rate=8_000, tag="custom")
+
+    added = frame.add_channel(samples[0], label="extra")
+    results = (frame * 2.0, added, added.remove_channel("extra"), frame.concat_frame(frame, suffix_on_dup="_2"))
+
+    for result in results:
+        assert type(result) is TaggedFrame
+        assert result.tag == "custom"

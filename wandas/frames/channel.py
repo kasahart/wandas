@@ -497,16 +497,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     ) -> CF:
         """Return an immutable channel update of the same Frame class."""
         offsets = self.source_time_offset if source_time_offset is None else source_time_offset
-        return type(self)(
-            data=new_data,
-            sampling_rate=self.sampling_rate,
-            label=self.label,
-            metadata=self.metadata,
-            channel_metadata=new_chmeta,
+        return self._create_new_instance(
+            new_data,
+            channel_metadata=list(new_chmeta),
             channel_ids=channel_ids,
             source_time_offset=offsets,
             lineage=self.lineage if lineage is None else lineage,
-            previous=self,
         )
 
     @property
@@ -1641,14 +1637,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     @classmethod
     def from_ndarray(
-        cls,
+        cls: type[CF],
         array: NDArrayReal,
         sampling_rate: float,
         labels: list[str] | None = None,
         unit: list[str] | str | None = None,
         frame_label: str | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> "ChannelFrame":
+    ) -> CF:
         """Create a ChannelFrame from a NumPy array.
 
         This method is deprecated. Use from_numpy instead.
@@ -2060,13 +2056,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         validate_params=_validate_add_channel_recipe,
     )
     def add_channel(
-        self,
+        self: CF,
         data: "np.ndarray[Any, Any] | DaArray",
         label: str | None = None,
         align: Literal["strict", "pad", "truncate"] = "strict",
         suffix_on_dup: str | None = None,
         source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
-    ) -> "ChannelFrame":
+    ) -> CF:
         """Add a new channel to the frame.
 
         Args:
@@ -2167,12 +2163,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         validate_params=_validate_concat_frame_recipe,
     )
     def concat_frame(
-        self,
+        self: CF,
         other: "ChannelFrame",
         label_prefix: str | None = None,
         align: Literal["strict", "pad", "truncate"] = "strict",
         suffix_on_dup: str | None = None,
-    ) -> "ChannelFrame":
+    ) -> CF:
         """Concatenate all channels from another frame along the channel axis.
 
         The result preserves ``other`` channel metadata, calibration, and
@@ -2240,7 +2236,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         )
 
     @recipe_operation("wandas.channel.remove_channel")
-    def remove_channel(self, key: int | str) -> "ChannelFrame":
+    def remove_channel(self: CF, key: int | str) -> CF:
         """Return a new frame without one channel.
 
         Args:
