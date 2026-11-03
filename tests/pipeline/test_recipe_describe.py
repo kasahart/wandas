@@ -66,7 +66,7 @@ def test_describe_reports_public_parameters_and_literal_choices() -> None:
 
 
 def test_describe_does_not_change_capture_or_replay() -> None:
-    source = cast(_DescribedFrame, _DescribedFrame.from_numpy(np.ones((1, 8)), sampling_rate=8000))
+    source = _DescribedFrame.from_numpy(np.ones((1, 8)), sampling_rate=8000)
     result = source.gain(2.0, mode="rms")
     registry = default_recipe_registry().with_operation(recipe_definition(_DescribedFrame.gain))
     plan = RecipePlan.from_frame(result, input_names=("signal",), registry=registry)

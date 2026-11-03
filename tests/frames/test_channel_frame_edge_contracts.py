@@ -549,7 +549,11 @@ def test_from_file_url_cleans_download_when_dask_setup_fails(monkeypatch, tmp_pa
 
 def test_from_file_url_cleans_download_when_frame_construction_fails(monkeypatch, tmp_path: Path) -> None:
     owner = _url_download_owner(tmp_path)
-    from_file = ChannelFrame.from_file
+
+    class FailingFrame(ChannelFrame):
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            raise RuntimeError("bad frame")
+
     monkeypatch.setattr(
         channel_mod,
         "_download_url",
@@ -560,10 +564,9 @@ def test_from_file_url_cleans_download_when_frame_construction_fails(monkeypatch
         "_resolve_source",
         lambda *_args: (owner.path, owner.path, FakeReader(), ".wav"),
     )
-    monkeypatch.setattr(channel_mod, "ChannelFrame", MagicMock(side_effect=RuntimeError("bad frame")))
 
     with pytest.raises(RuntimeError, match="bad frame"):
-        from_file("https://example.com/audio.wav")
+        FailingFrame.from_file("https://example.com/audio.wav")
 
     owner.cleanup.assert_called_once_with()
 

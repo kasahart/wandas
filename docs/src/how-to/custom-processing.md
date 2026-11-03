@@ -247,14 +247,18 @@ Operations by name). The Recipe registry is for looking up **Recipe IDs**.
 `default_recipe_registry()` provides the standard entries, and `with_operation()`
 returns a new registry with your entry added, leaving the original unchanged.
 This does not add `.gain()` to ordinary `ChannelFrame` objects: create your inputs
-with `ProjectFrame.from_numpy()` to call your new method.
+with `ProjectFrame.from_numpy()`, `ProjectFrame.read_wav()`, `ProjectFrame.read_csv()`
+or `ProjectFrame.from_file()` to call your new method. Processing methods and
+channel changes such as `add_channel()` keep returning `ProjectFrame`.
 
 この例は`Gain(...)`で処理を直接作るため、数値処理を名前から探すための別の登録関数
 `register_operation()`は不要です。ここで作るRecipe registryは、**Recipeに保存した処理名**を
 探すためのものです。`default_recipe_registry()`で標準の対応表を取得し、`with_operation()`で
 自分の処理を加えた新しい対応表を作ります。元の対応表は変更しません。
 通常の`ChannelFrame`に`.gain()`が追加されるわけではないので、自分のメソッドを使う入力は
-`ProjectFrame.from_numpy()`で作ります。
+`ProjectFrame.from_numpy()`・`ProjectFrame.read_wav()`・`ProjectFrame.read_csv()`・
+`ProjectFrame.from_file()`で作ります。処理メソッドや`add_channel()`などのチャンネル操作の結果も
+`ProjectFrame`のままです。
 
 ## Extract, save, and replay / 処理手順を取り出して保存・再実行する
 
