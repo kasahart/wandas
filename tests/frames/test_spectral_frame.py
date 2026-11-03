@@ -866,3 +866,85 @@ def test_empty_input_with_explicit_n_fft_records_no_analysis_window(method: str,
 
     with pytest.raises(ValueError, match=rf"Invalid win_length for {frame_name}\n  Got: 0"):
         getattr(source, method)(n_fft=8)
+
+
+class TestSpectralFrameFindPeaks:
+    """find_peaks: table contract, channel reference, and the scipy peak picker it wraps."""
+
+    def setup_method(self) -> None:
+        fs, n = 8000, 16000
+        t = np.arange(n) / fs
+        # Tones on exact Welch bins (fs / n_fft = 1.953125 Hz) with a little noise.
+        rng = np.random.default_rng(0)
+        data: NDArrayReal = np.vstack(
+            [
+                2.0 * np.sin(2 * np.pi * 500.0 * t) + 0.5 * np.sin(2 * np.pi * 1500.0 * t),
+                1.0 * np.sin(2 * np.pi * 1000.0 * t),
+            ]
+        ) + 1e-4 * rng.standard_normal((2, n))
+        self.cf = ChannelFrame.from_numpy(data, sampling_rate=fs, ch_labels=["a", "b"], ch_units="Pa")
+        self.spectrum = self.cf.welch(n_fft=4096)
+
+    def test_returns_table_without_touching_the_frame(self) -> None:
+        history_before = list(self.spectrum.operation_history)
+        data_before = np.array(self.spectrum.data)
+
+        peaks = self.spectrum.find_peaks()
+
+        assert isinstance(peaks, pd.DataFrame)
+        assert list(peaks.columns) == ["channel", "frequency", "level_db", "amplitude", "prominence_db"]
+        assert self.spectrum.operation_history == history_before
+        np.testing.assert_array_equal(np.array(self.spectrum.data), data_before)
+
+    def test_finds_tones_with_welch_amplitude_and_channel_reference(self) -> None:
+        peaks = self.spectrum.find_peaks(min_prominence_db=20.0)
+
+        assert list(peaks["channel"]) == ["a", "a", "b"]
+        np.testing.assert_allclose(peaks["frequency"], [500.0, 1500.0, 1000.0])
+        # welch() gives the peak amplitude of a tone; the noise floor shifts it slightly.
+        np.testing.assert_allclose(peaks["amplitude"], [2.0, 0.5, 1.0], rtol=1e-3)
+        np.testing.assert_allclose(peaks["level_db"], 20 * np.log10(peaks["amplitude"] / 2e-5), rtol=1e-12)
+
+    def test_rows_match_scipy_find_peaks_on_db(self) -> None:
+        from scipy.signal import find_peaks
+
+        peaks = self.spectrum.find_peaks(min_prominence_db=3.0)
+
+        for label, level in zip(["a", "b"], self.spectrum.dB):
+            indices, properties = find_peaks(level, prominence=3.0)
+            rows = peaks[peaks["channel"] == label]
+            np.testing.assert_array_equal(rows["frequency"], self.spectrum.freqs[indices])
+            np.testing.assert_array_equal(rows["prominence_db"], properties["prominences"])
+
+    def test_options_are_forwarded_per_channel(self) -> None:
+        peaks = self.spectrum.find_peaks(min_prominence_db=20.0, fmin=800.0, max_peaks=1)
+        np.testing.assert_allclose(peaks["frequency"], [1500.0, 1000.0])
+
+    def test_parabolic_interpolation_moves_an_off_bin_tone_towards_its_frequency(self) -> None:
+        fs, true_freq = 8000, 1003.0  # bin width 7.8125 Hz: 1003 Hz lies between bins
+        t = np.arange(fs * 2) / fs
+        spectrum = ChannelFrame.from_numpy(np.sin(2 * np.pi * true_freq * t)[None, :], sampling_rate=fs).welch(
+            n_fft=1024
+        )
+
+        on_bin = spectrum.find_peaks(min_prominence_db=20.0, max_peaks=1)["frequency"].iloc[0]
+        refined = spectrum.find_peaks(min_prominence_db=20.0, max_peaks=1, interpolation="parabolic")
+        refined_freq = refined["frequency"].iloc[0]
+
+        assert abs(refined_freq - true_freq) < abs(on_bin - true_freq)
+        assert abs(refined_freq - true_freq) < 0.5
+
+    def test_zero_channel_frame_gives_empty_table_with_columns(self) -> None:
+        empty = SpectralFrame(da.zeros((0, 513), dtype=complex, chunks=-1), sampling_rate=8000, n_fft=1024)
+        peaks = empty.find_peaks()
+        assert peaks.empty
+        assert list(peaks.columns) == ["channel", "frequency", "level_db", "amplitude", "prominence_db"]
+
+    def test_no_peaks_gives_empty_table_with_columns(self) -> None:
+        peaks = self.spectrum.find_peaks(min_prominence_db=1e6)
+        assert peaks.empty
+        assert list(peaks.columns) == ["channel", "frequency", "level_db", "amplitude", "prominence_db"]
+
+    def test_unknown_interpolation_raises(self) -> None:
+        with pytest.raises(ValueError, match="Unknown peak interpolation"):
+            self.spectrum.find_peaks(interpolation="cubic")  # ty: ignore[invalid-argument-type]
