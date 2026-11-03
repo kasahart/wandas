@@ -986,7 +986,7 @@ def _rewrite(path: Path, mutate: Callable[[xr.Dataset], None]) -> None:
     dataset.to_netcdf(path, engine="h5netcdf", mode="w", invalid_netcdf=True)
 
 
-@pytest.mark.parametrize("version", [None, "0.1", "0.2", "0.3", "0.7", "99.0"])
+@pytest.mark.parametrize("version", [None, "0.1", "0.2", "0.3", "0.8", "99.0"])
 def test_wdf_rejects_missing_legacy_and_future_versions(version: str | None, tmp_path: Path) -> None:
     path = tmp_path / "version.wdf"
     ChannelFrame.from_numpy(np.ones((1, 4)), 8.0).save(path)
@@ -1319,7 +1319,8 @@ def test_sparse_time_frequency_wdf_roundtrip(tmp_path: Path, cepstrum: bool, n_f
     path = tmp_path / "sparse.wdf"
     original.save(path)
     with xr.open_dataset(path, engine="h5netcdf") as stored:
-        assert stored.attrs["version"] == "0.6"
+        # A spectrogram also records its signal extent (0.7); a cepstrogram stays at 0.6.
+        assert stored.attrs["version"] == ("0.6" if cepstrum else "0.7")
         assert json.loads(stored.attrs["constructor_json"])["allow_sparse"] is True
     loaded = cast(Any, wd.load(path))
     assert type(loaded) is type(original)
@@ -1351,7 +1352,15 @@ def test_sparse_wdf_rejects_non_true_opt_in(tmp_path: Path, invalid: Any) -> Non
 def test_sparse_wdf_cannot_masquerade_as_released_schema(tmp_path: Path) -> None:
     path = tmp_path / "wrong-version.wdf"
     wd.ChannelFrame(da.ones((1, 1024)), sampling_rate=8000).stft(n_fft=64, hop_length=128, allow_sparse=True).save(path)
-    _rewrite(path, lambda dataset: dataset.attrs.__setitem__("version", "0.5"))
+
+    def released_05(dataset: xr.Dataset) -> None:
+        dataset.attrs["version"] = "0.5"
+        state = json.loads(dataset.attrs["constructor_json"])
+        for field in ("signal_length", "signal_frame_offset"):
+            state.pop(field)
+        dataset.attrs["constructor_json"] = json.dumps(state)
+
+    _rewrite(path, released_05)
     with pytest.raises(ValueError, match="requires format version 0.6"):
         wd.load(path)
 
@@ -1367,6 +1376,8 @@ def test_wdf_06_requires_explicit_sparse_time_frequency_state(tmp_path: Path, sp
         dataset.attrs["version"] = "0.6"
         state = json.loads(dataset.attrs["constructor_json"])
         state.pop("allow_sparse", None)
+        state.pop("signal_length", None)
+        state.pop("signal_frame_offset", None)
         dataset.attrs["constructor_json"] = json.dumps(state)
 
     _rewrite(path, corrupt)
@@ -1389,4 +1400,66 @@ def test_sparse_wdf_rejects_dense_hop_relation(tmp_path: Path, cepstrum: bool, h
 
     _rewrite(path, corrupt)
     with pytest.raises(ValueError, match="for sparse state"):
+        wd.load(path)
+
+
+def test_signal_extent_without_origin_saves_as_released_schema(tmp_path: Path) -> None:
+    # The extent is only meaningful with a known origin, so it is not saved without one.
+    frame = wd.SpectrogramFrame(da.zeros((17, 4), dtype=np.complex128), 8000, 32, 8, signal_length=32)
+    path = tmp_path / "no-origin.wdf"
+    frame.save(path)
+    with xr.open_dataset(path, engine="h5netcdf") as stored:
+        assert stored.attrs["version"] == "0.4"
+    loaded = cast(Any, wd.load(path))
+    assert loaded.signal_length is None
+    assert loaded.frame_time_origin is None
+
+
+def test_spectrogram_signal_extent_survives_wdf(tmp_path: Path) -> None:
+    spectrum = wd.from_numpy(np.arange(512.0), sampling_rate=8000).stft(n_fft=64, hop_length=16)[:, :, 3:20]
+    path = tmp_path / "extent.wdf"
+    spectrum.save(path)
+    with xr.open_dataset(path, engine="h5netcdf") as stored:
+        assert stored.attrs["version"] == "0.7"
+    loaded = cast(Any, wd.load(path))
+    assert loaded.signal_length == 512
+    np.testing.assert_array_equal(loaded._full_frame_mask(), spectrum._full_frame_mask())
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ("negative-offset", "signal_frame_offset"),
+        ("bool-offset", "signal_frame_offset"),
+        ("zero-length", "signal_length"),
+        ("missing-offset", "constructor state"),
+        ("missing-origin", "Invalid WDF 0.7"),
+        ("missing-extent", "Invalid WDF 0.7"),
+        ("released-version", "requires format version 0.7"),
+    ],
+)
+def test_wdf_07_rejects_corrupt_signal_extent(tmp_path: Path, change: str, message: str) -> None:
+    path = tmp_path / "extent.wdf"
+    wd.from_numpy(np.zeros(128), sampling_rate=8000).stft(n_fft=32, hop_length=8).save(path)
+
+    def corrupt(dataset: xr.Dataset) -> None:
+        state = json.loads(dataset.attrs["constructor_json"])
+        if change == "negative-offset":
+            state["signal_frame_offset"] = -1
+        elif change == "bool-offset":
+            state["signal_frame_offset"] = True
+        elif change == "zero-length":
+            state["signal_length"] = 0
+        elif change == "missing-offset":
+            del state["signal_frame_offset"]
+        elif change == "missing-origin":
+            del state["frame_time_origin"]
+        elif change == "missing-extent":
+            del state["signal_length"], state["signal_frame_offset"]
+        else:
+            dataset.attrs["version"] = "0.5"
+        dataset.attrs["constructor_json"] = json.dumps(state)
+
+    _rewrite(path, corrupt)
+    with pytest.raises(ValueError, match=message):
         wd.load(path)

@@ -602,6 +602,7 @@ class ChannelTransformMixin:
             window=window,
             frame_time_origin=operation.frame_time_origin,
             allow_sparse=allow_sparse,
+            signal_length=int(self._effective_data.shape[-1]),
             label=f"stft({self.label})",
             metadata=self.metadata,
             channel_metadata=cast(Any, self)._metadata_after_analysis(),

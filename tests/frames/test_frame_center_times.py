@@ -90,7 +90,8 @@ def test_centers_survive_same_domain_and_cepstral_transforms_and_recipe(tmp_path
         path = tmp_path / f"{type(frame).__name__}.wdf"
         frame.save(path)
         with xr.open_dataset(path, engine="h5netcdf") as file:
-            assert file.attrs["version"] == "0.5"
+            # A spectrogram also records its signal extent (0.7); a cepstrogram stays at 0.5.
+            assert file.attrs["version"] == ("0.7" if isinstance(frame, wd.SpectrogramFrame) else "0.5")
         loaded = wd.load(path)
         assert isinstance(loaded, (wd.SpectrogramFrame, wd.CepstrogramFrame))
         np.testing.assert_array_equal(loaded.frame_center_times, frame.frame_center_times)
@@ -106,7 +107,8 @@ def test_missing_origin_is_explicit_and_old_wdf_remains_readable(tmp_path: Path,
     with xr.open_dataset(path, engine="h5netcdf") as file:
         old = file.load()
     state = json.loads(old.attrs["constructor_json"])
-    del state["frame_time_origin"]
+    for field in ("frame_time_origin", "signal_length", "signal_frame_offset"):
+        state.pop(field, None)
     old.attrs["constructor_json"] = json.dumps(state)
     old.attrs["version"] = "0.4"
     old.to_netcdf(path, engine="h5netcdf", mode="w")

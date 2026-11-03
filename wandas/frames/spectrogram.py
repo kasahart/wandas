@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 import dask.array as da
 import numpy as np
+import numpy.typing as npt
 from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
@@ -67,6 +68,11 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         frame_time_origin: float, optional. First physical frame center relative to
             input start, in seconds. None explicitly means unknown; STFT supplies
             its padding-dependent origin. Existing local time axes are unchanged.
+        signal_length: int, optional. Number of samples of the analysed signal.
+            STFT supplies it; None means unknown. With ``frame_time_origin`` it
+            tells which frames reach into the zero padding outside the signal.
+        signal_frame_offset: int, default=0. Number of frames of the original
+            STFT before the first frame of this frame, counted by time slicing.
 
     Attributes:
         magnitude: NDArrayReal. The magnitude spectrogram.
@@ -116,6 +122,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         *,
         frame_time_origin: float | None = None,
         allow_sparse: bool = False,
+        signal_length: int | None = None,
+        signal_frame_offset: int = 0,
     ) -> None:
         """Initialize a complete canonical one-sided spectrogram.
 
@@ -171,6 +179,18 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         self._win_length = resolved_win_length
         self._window = window
         self._frame_time_origin = _normalize_frame_time_origin(frame_time_origin)
+        if signal_length is not None and (
+            isinstance(signal_length, bool) or not isinstance(signal_length, int | np.integer) or signal_length < 1
+        ):
+            raise ValueError(f"signal_length must be a positive integer or None\n  Got: {signal_length!r}")
+        if (
+            isinstance(signal_frame_offset, bool)
+            or not isinstance(signal_frame_offset, int | np.integer)
+            or signal_frame_offset < 0
+        ):
+            raise ValueError(f"signal_frame_offset must be a non-negative integer\n  Got: {signal_frame_offset!r}")
+        self._signal_length = None if signal_length is None else int(signal_length)
+        self._signal_frame_offset = int(signal_frame_offset)
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -188,6 +208,30 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     def n_fft(self) -> int:
         """Return the read-only FFT size defining the frequency axis."""
         return self._n_fft
+
+    @property
+    def signal_length(self) -> int | None:
+        """Number of samples of the analysed signal; None means unknown."""
+        return self._signal_length
+
+    def _full_frame_mask(self) -> npt.NDArray[np.bool_] | None:
+        """Return which frames lie wholly inside the signal, or None when unknown.
+
+        SciPy pads the signal with zeros so that the first and last frames are
+        centred near its ends; those frames hold only part of the signal.
+        """
+        if self._signal_length is None or self._frame_time_origin is None:
+            return None
+        first_center = round(self._frame_time_origin * self.sampling_rate)
+        centers = first_center + (np.arange(self.n_frames) + self._signal_frame_offset) * self.hop_length
+        starts = centers - self.win_length // 2
+        mask: npt.NDArray[np.bool_] = (starts >= 0) & (starts + self.win_length <= self._signal_length)
+        return mask
+
+    def _time_slice_constructor_kwargs(self, start: int) -> dict[str, Any]:
+        if self._signal_length is None:
+            return {}
+        return {"signal_frame_offset": self._signal_frame_offset + start}
 
     @property
     def hop_length(self) -> int:
@@ -288,6 +332,49 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     def source_times(self) -> NDArrayReal:
         """Get frame times relative to the original source timeline."""
         return self.source_time_offset[:, None] + self.times[None, :]
+
+    @property
+    def spectral_kurtosis(self) -> NDArrayReal:
+        """Calculate the spectral kurtosis of each channel over time.
+
+        The spectral kurtosis of a frequency bin is::
+
+            SK(f) = mean(|X(f, t)| ** 4) / mean(|X(f, t)| ** 2) ** 2 - 2
+
+        where the means run over the STFT frames that lie wholly inside the
+        signal. The first and last frames of :meth:`ChannelFrame.stft` reach
+        into its zero padding, where a steady tone appears to start abruptly
+        and leaks into the neighbouring bins, so they are left out. It is 0
+        for stationary Gaussian noise and rises in bands where the signal is
+        impulsive, so its maximum points to the band to filter for an
+        envelope analysis of bearing or gear faults. Real-valued bins (0 Hz
+        and Nyquist) have the Gaussian reference value 1 instead of 0, and a
+        bin with no energy gives NaN. Short STFT frames respond better to
+        short impulses.
+
+        When the signal length or :attr:`frame_time_origin` is unknown, as
+        after loading an old WDF file or building the frame by hand, every
+        frame is used. A signal shorter than the window has no whole frame
+        and gives NaN.
+
+        This is a reduction like :attr:`ChannelFrame.rms`: it computes
+        immediately and returns a NumPy array, not a Frame, so no lineage
+        entry is created. The value does not depend on calibration.
+
+        Returns:
+            NDArrayReal of shape ``(n_channels, n_freq_bins)``, aligned with
+                :attr:`freqs`.
+
+        Examples:
+            >>> sk = cf.stft(n_fft=256, hop_length=64).spectral_kurtosis
+        """
+        from wandas.processing.stats import spectral_kurtosis
+
+        data = self._data
+        mask = self._full_frame_mask()
+        if mask is not None:
+            data = data[..., mask]
+        return np.asarray(spectral_kurtosis(data).compute())
 
     def plot(
         self,
@@ -761,6 +848,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         }
         if self._allow_sparse:
             kwargs["allow_sparse"] = True
+        if self._signal_length is not None:
+            kwargs["signal_length"] = self._signal_length
+            kwargs["signal_frame_offset"] = self._signal_frame_offset
         return kwargs
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":

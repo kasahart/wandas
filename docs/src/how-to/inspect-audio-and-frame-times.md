@@ -91,6 +91,9 @@ physical centers are required. History is not used to invent missing state.
 An older reader rejects WDF 0.5 explicitly rather than silently losing placement.
 Recipe parameters and versions are unchanged: replay constructs the new derived
 axis state from the numerical STFT operation.
+Spectrograms from `stft()` also record the analysed signal length and save as
+WDF 0.7, which keeps the origin as well; cepstrograms stay at 0.5.
 
 実時刻が既知の結果だけWDF 0.5で保存します。旧WDF 0.4は従来のdata/axisを保って読み込めます。
 旧readerは0.5を拒否するため、実時刻を保持した保存結果を旧版で開く用途には注意してください。
+`stft()`のスペクトログラムは解析した信号長も保持するためWDF 0.7で保存します（実時刻も含みます）。
