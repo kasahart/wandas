@@ -1878,10 +1878,11 @@
 <p>Wandas 0.13.0 lets you save a level-trigger analysis as a Recipe. A Recipe
 records the trigger conditions and the events you dropped or kept, so
 replaying it on another recording finds that recording's events again and
-averages them the same way.</p>
+averages them the same way. It also adds peak and kurtosis of a signal,
+peak picking on spectra, spectral kurtosis and time integration.</p>
 <p>Wandas 0.13.0では、レベルトリガーの解析をRecipeとして保存できるようになりました。Recipeにはトリガーの
 条件と除いた・残したイベントを記録するので、別の録音で再生するとその録音のイベントを検出し直して同じように
-平均します。</p>
+平均します。信号のピーク値と尖度、スペクトルのピーク検出、スペクトル尖度、時間積分も追加しました。</p>
 <h2 id="highlights">Highlights / 主な変更<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>RecipePlan.from_frame(cf.trigger(10.0, duration=1.0, pre=0.01).drop([2]).transfer_function())</code>
@@ -1889,19 +1890,31 @@ averages them the same way.</p>
   <code>ChannelFrameSegments</code> are Recipe steps.
   <code>trigger()</code>・<code>segment()</code>・<code>drop()</code>・選択と<code>ChannelFrameSegments</code>の平均がRecipeのstepになり、
   上の式のRecipeを保存・再生できます。</li>
+<li><code>cf.peak</code> / <code>cf.kurtosis</code>, <code>cf.welch().find_peaks()</code>,
+  <code>cf.stft().spectral_kurtosis</code> and <code>cf.integrate()</code> (for example acceleration
+  to velocity) are new.
+  <code>cf.peak</code>・<code>cf.kurtosis</code>、<code>cf.welch().find_peaks()</code>、<code>cf.stft().spectral_kurtosis</code>、
+  <code>cf.integrate()</code>（例: 加速度から速度）が加わりました。</li>
 </ul>
 <h2 id="changes">Changes / 変更一覧<a class="headerlink" href="#changes" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="https://github.com/kasahart/wandas/pull/631">#631: level-trigger workflows as Recipe steps</a> / レベルトリガーの処理をRecipeのstepに</li>
+<li><a href="https://github.com/kasahart/wandas/pull/623">#623: <code>ChannelFrame.peak</code> and <code>kurtosis</code></a> / チャンネルごとのピーク値と尖度</li>
+<li><a href="https://github.com/kasahart/wandas/pull/627">#627: <code>SpectralFrame.find_peaks()</code></a> / スペクトルのピーク検出</li>
+<li><a href="https://github.com/kasahart/wandas/pull/628">#628: <code>SpectrogramFrame.spectral_kurtosis</code> and WDF 0.7</a> / スペクトル尖度とWDF 0.7</li>
+<li><a href="https://github.com/kasahart/wandas/pull/629">#629: <code>ChannelFrame.integrate()</code></a> / 台形則による時間積分</li>
 </ul>
 <h2 id="compatibility-and-migration">Compatibility and migration / 互換性と移行<a class="headerlink" href="#compatibility-and-migration" title="Permanent link">&para;</a></h2>
-<p>Computed values do not change. Recipes with the new steps need 0.13.0 to
-load: 0.12.0 and earlier reject them at load time. The <code>operation_history</code> of
+<p>Computed values of existing operations do not change. Recipes with the new
+steps (including <code>integrate()</code>) need 0.13.0 to load: 0.12.0 and earlier reject
+them at load time. Spectrograms from <code>stft()</code> now save as WDF 0.7, which 0.12.0
+and earlier reject. The <code>operation_history</code> of
 <code>ChannelFrameSegments</code> results, which WDF files also store, now lists the
 trigger, drop or select and average steps instead of one <code>join</code> or <code>average</code>
 step with an input per segment.</p>
-<p>計算結果は変わりません。新しいstepを含むRecipeの読み込みには0.13.0が必要で、0.12.0以前は読み込み時に
-拒否します。<code>ChannelFrameSegments</code>の結果の<code>operation_history</code>（WDFにも保存されます）は、セグメントごとの
+<p>既存の操作の計算結果は変わりません。新しいstep（<code>integrate()</code>を含む）を含むRecipeの読み込みには0.13.0が
+必要で、0.12.0以前は読み込み時に拒否します。<code>stft()</code>のスペクトログラムはWDF 0.7で保存され、0.12.0以前は
+読み込みを拒否します。<code>ChannelFrameSegments</code>の結果の<code>operation_history</code>（WDFにも保存されます）は、セグメントごとの
 入力を持つ1つの<code>join</code>・<code>average</code>の代わりに、トリガー・除外または選択・平均のstepを並べます。</p>
 <table>
 <thead>
@@ -1930,6 +1943,22 @@ step with an input per segment.</p>
 <td>None needed; values are unchanged. Code that looked for <code>wandas.segments.join</code> should look for <code>wandas.segments.average</code>, <code>wandas.segments.transfer_function</code> or <code>wandas.segments.coherence</code></td>
 <td>0.13.0</td>
 <td>The history now follows the Recipe steps; <a href="https://github.com/kasahart/wandas/pull/631">#631</a></td>
+</tr>
+<tr>
+<td>Recipe JSON of <code>integrate()</code> (<code>wandas.audio.integrate</code>)</td>
+<td>Serialized, new operation</td>
+<td>Not applicable</td>
+<td>Upgrade readers to 0.13.0 before exchanging such Recipes</td>
+<td>0.13.0</td>
+<td>New operation; 0.12.0 and earlier reject it at load time; <a href="https://github.com/kasahart/wandas/pull/629">#629</a></td>
+</tr>
+<tr>
+<td>WDF files of spectrograms from <code>stft()</code></td>
+<td>Serialized, new format version 0.7</td>
+<td>Not applicable</td>
+<td>Read them with 0.13.0 or later; cepstrograms and spectrograms without a known signal length keep WDF 0.4/0.5/0.6</td>
+<td>0.13.0</td>
+<td>The analysed signal length must survive saving for <code>spectral_kurtosis</code>; 0.12.0 and earlier reject 0.7 explicitly; <a href="https://github.com/kasahart/wandas/pull/628">#628</a></td>
 </tr>
 </tbody>
 </table>
@@ -1961,6 +1990,22 @@ step with an input per segment.</p>
 <td>0.13.0</td>
 <td>履歴がRecipeのstepに沿うようになりました。<a href="https://github.com/kasahart/wandas/pull/631">#631</a></td>
 </tr>
+<tr>
+<td><code>integrate()</code>（<code>wandas.audio.integrate</code>）のRecipe JSON</td>
+<td>Serialized、新しい操作</td>
+<td>該当なし</td>
+<td>このRecipeをやり取りする前に、読む側を0.13.0に揃えてください</td>
+<td>0.13.0</td>
+<td>新しい操作のため、0.12.0以前は読み込み時に拒否します。<a href="https://github.com/kasahart/wandas/pull/629">#629</a></td>
+</tr>
+<tr>
+<td><code>stft()</code>のスペクトログラムのWDFファイル</td>
+<td>Serialized、新しい形式バージョン0.7</td>
+<td>該当なし</td>
+<td>0.13.0以降で読んでください。ケプストログラムと信号長が分からないスペクトログラムはWDF 0.4/0.5/0.6のままです</td>
+<td>0.13.0</td>
+<td><code>spectral_kurtosis</code>のために解析した信号長を保存する必要があります。0.12.0以前は0.7を明示的に拒否します。<a href="https://github.com/kasahart/wandas/pull/628">#628</a></td>
+</tr>
 </tbody>
 </table>
 <h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
@@ -1988,6 +2033,35 @@ step with an input per segment.</p>
   Frameは元の録音の時間スライスとして自分のlineageを保ちます。<code>apply(func)</code>と
   Frameから直接作ったSegmentsは今までどおり保存できず、理由をメッセージで示します。Recipeの入力・
   出力・名前付きstepはFrameのままで、Segmentsはnodeの間にだけ現れます。</li>
+<li><code>ChannelFrame.peak</code> and <code>ChannelFrame.kurtosis</code> return the peak absolute
+  value and the Pearson kurtosis of each channel as NumPy arrays, like <code>rms</code>.
+  <code>kurtosis</code> uses <code>dask.array.stats.kurtosis</code>.
+  <code>ChannelFrame.peak</code>と<code>ChannelFrame.kurtosis</code>は、<code>rms</code>と同じように各チャンネルの絶対値の最大と
+  ピアソンの尖度をNumPy配列で返します。<code>kurtosis</code>は<code>dask.array.stats.kurtosis</code>で計算します。</li>
+<li><code>SpectralFrame.find_peaks()</code> lists the spectral peaks of each channel as a
+  pandas table (frequency, level, amplitude, prominence), using
+  <code>scipy.signal.find_peaks</code> on the dB level, with optional parabolic
+  interpolation between bins.
+  <code>SpectralFrame.find_peaks()</code>は、dBレベルに<code>scipy.signal.find_peaks</code>を使って各チャンネルのスペクトルピーク
+  （周波数・レベル・振幅・突出度）をpandasの表で返します。ビン間の放物線補間も選べます。</li>
+<li><code>SpectrogramFrame.spectral_kurtosis</code> returns the spectral kurtosis of each
+  channel over time, aligned with <code>freqs</code>, to find the band where impulses
+  are strongest.
+  <code>SpectrogramFrame.spectral_kurtosis</code>は各チャンネルの時間方向のスペクトル尖度を<code>freqs</code>に揃えて返します。
+  衝撃成分が最も強い帯域を探すのに使えます。
+  Only the STFT frames that lie wholly inside the signal are used; the new
+  <code>SpectrogramFrame.signal_length</code> records the analysed length for this.
+  信号の内側に収まるSTFTフレームだけを使います。そのために解析した信号の長さを新しい<code>SpectrogramFrame.signal_length</code>に保持します。
+  Spectrograms from <code>stft()</code> therefore save as WDF 0.7, which Wandas 0.12.0 and
+  earlier cannot read.
+  そのため<code>stft()</code>のスペクトログラムはWDF 0.7で保存され、Wandas 0.12.0以前では読めません。</li>
+<li><code>ChannelFrame.integrate()</code> integrates each channel in time with the
+  trapezoidal rule, for example acceleration to velocity, and moves the unit
+  along <code>m/s^2 -&gt; m/s -&gt; m</code>. It is a Recipe step. Remove the drift with
+  <code>high_pass_filter()</code> afterwards.
+  <code>ChannelFrame.integrate()</code>は各チャンネルを台形則で時間積分し（例: 加速度から速度）、
+  単位を<code>m/s^2 -&gt; m/s -&gt; m</code>と進めます。Recipeの手順として記録されます。
+  ドリフトは後から<code>high_pass_filter()</code>で取り除きます。</li>
 </ul>
 <h2 id="changed">Changed / 変更<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
 <ul>
@@ -2024,7 +2098,7 @@ step with an input per segment.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 2, 2026 23:30:46 UTC">November 2, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 3, 2026 13:01:55 UTC">November 3, 2026</span>
   </span>
 
     
