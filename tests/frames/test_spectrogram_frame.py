@@ -4,6 +4,7 @@ import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+import scipy.signal
 from dask.array.core import Array as DaArray
 from matplotlib.figure import Figure
 from numpy.testing import assert_array_almost_equal
@@ -1083,10 +1084,18 @@ class TestSpectrogramFrameSpectralKurtosis:
         assert sk.shape == (2, self.spectrogram.freqs.shape[0])
         assert self.spectrogram.operation_history == history_before
 
-    def test_matches_moment_ratio_of_stft_magnitude(self) -> None:
-        power = np.abs(self.spectrogram.data) ** 2
+    def test_matches_scipy_stft_without_padded_frames(self) -> None:
+        # Independent reference: SciPy's STFT with only the frames inside the signal.
+        _, _, z = scipy.signal.stft(
+            np.asarray(self.cf.data), self.fs, window="hann", nperseg=256, noverlap=192, boundary=None, padded=False
+        )
+        power = np.abs(z) ** 2
         expected = np.mean(power**2, axis=-1) / np.mean(power, axis=-1) ** 2 - 2.0
         np.testing.assert_allclose(self.spectrogram.spectral_kurtosis, expected, rtol=1e-10)
+
+    def test_stft_records_the_signal_length(self) -> None:
+        assert self.spectrogram.signal_length == self.fs * 10
+        assert self.spectrogram[0].signal_length == self.fs * 10
 
     def test_gaussian_noise_is_near_zero_and_real_bins_near_one(self) -> None:
         sk = self.spectrogram.spectral_kurtosis[0]
@@ -1099,13 +1108,61 @@ class TestSpectrogramFrameSpectralKurtosis:
         assert abs(self.spectrogram.freqs[np.argmax(sk)] - 2200.0) < 200.0
         assert sk.max() > 1.0
 
+    def _tone(self, seconds: float) -> ChannelFrame:
+        # 1000 Hz = fs / n_fft * 32 sits on an exact bin; a weak noise fills the other bins.
+        rng = np.random.default_rng(1)
+        n = int(self.fs * seconds)
+        x = np.sin(2 * np.pi * 1000.0 * np.arange(n) / self.fs) + 0.01 * rng.standard_normal(n)
+        return ChannelFrame.from_numpy(x[None, :], sampling_rate=self.fs)
+
     def test_constant_modulus_tone_gives_minus_one(self) -> None:
-        # A tone on an exact bin (fs / n_fft * 32 = 1000 Hz) has the same |X| in every
-        # full frame; only the padded first and last frames see part of it.
-        t = np.arange(self.fs * 2) / self.fs
-        tone = ChannelFrame.from_numpy(np.sin(2 * np.pi * 1000.0 * t)[None, :], sampling_rate=self.fs)
-        sk = tone.stft(n_fft=256, hop_length=64).spectral_kurtosis
-        np.testing.assert_allclose(sk[0, 32], -1.0, atol=0.02)
+        sk = self._tone(2.0).stft(n_fft=256, hop_length=64).spectral_kurtosis
+        np.testing.assert_allclose(sk[0, 32], -1.0, atol=1e-4)
+
+    def test_padded_frames_do_not_raise_the_bins_beside_a_tone(self) -> None:
+        # In the padded first and last frames the tone starts and stops abruptly
+        # and leaks into the neighbouring bins, which hold only weak noise.
+        spectrogram = self._tone(2.0).stft(n_fft=256, hop_length=64)
+        beside = [26, 27, 28, 29, 35, 36, 37, 38]  # bins 30-34 hold the tone's main lobe
+        assert np.all(np.abs(spectrogram.spectral_kurtosis[0, beside]) < 0.5)
+        power = np.abs(spectrogram.data) ** 2
+        with_padded = np.mean(power**2, axis=-1) / np.mean(power, axis=-1) ** 2 - 2.0
+        assert with_padded[29] > 10.0
+
+    def test_time_slicing_keeps_track_of_the_padded_frames(self) -> None:
+        spectrogram = self._tone(2.0).stft(n_fft=256, hop_length=64)
+        mask = spectrogram._full_frame_mask()
+        assert mask is not None
+        # With hop 64 and a 256-sample window the first and last three frames reach into the padding.
+        assert mask.sum() == (self.fs * 2 - 256) // 64 + 1
+        assert not mask[:3].any() and not mask[-3:].any() and mask[3:-3].all()
+        np.testing.assert_array_equal(spectrogram[:, :, 1:]._full_frame_mask(), mask[1:])
+        middle = spectrogram.trim(0.5, 1.0)
+        assert middle._full_frame_mask().all()  # ty: ignore[unresolved-attribute]
+        np.testing.assert_allclose(spectrogram[:, :, 1:].spectral_kurtosis, spectrogram.spectral_kurtosis, rtol=1e-12)
+
+    def test_unknown_signal_length_uses_every_frame(self) -> None:
+        manual = SpectrogramFrame(data=self.spectrogram._data, sampling_rate=self.fs, n_fft=256, hop_length=64)
+        assert manual.signal_length is None
+        power = np.abs(self.spectrogram.data) ** 2
+        expected = np.mean(power**2, axis=-1) / np.mean(power, axis=-1) ** 2 - 2.0
+        np.testing.assert_allclose(manual.spectral_kurtosis, expected, rtol=1e-10)
+
+    def test_signal_shorter_than_the_window_gives_nan(self) -> None:
+        short = ChannelFrame.from_numpy(np.ones((1, 200)), sampling_rate=self.fs).stft(n_fft=256, hop_length=64)
+        assert np.isnan(short.spectral_kurtosis).all()
+
+    @pytest.mark.parametrize(
+        ("kwargs", "message"),
+        [
+            ({"signal_length": 0}, "signal_length"),
+            ({"signal_length": True}, "signal_length"),
+            ({"signal_length": 10, "signal_frame_offset": -1}, "signal_frame_offset"),
+        ],
+    )
+    def test_invalid_signal_state_raises(self, kwargs: dict[str, int], message: str) -> None:
+        with pytest.raises(ValueError, match=message):
+            SpectrogramFrame(data=self.spectrogram._data, sampling_rate=self.fs, n_fft=256, hop_length=64, **kwargs)
 
     @pytest.mark.parametrize("scale", [1e-12, 1e12])
     def test_single_precision_extreme_amplitudes_stay_finite(self, scale: float) -> None:

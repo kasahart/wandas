@@ -1385,6 +1385,15 @@ class BaseFrame(ABC, Generic[T]):
         del indices
         return {}
 
+    def _time_slice_constructor_kwargs(self, start: int) -> dict[str, Any]:
+        """Return private constructor state for a slice starting at time index ``start``.
+
+        Frames whose state counts time indices from their first frame override
+        this hook to shift that state with the slice.
+        """
+        del start
+        return {}
+
     def _select_channels(self: S, indices: list[int], lineage: LineageNode) -> S:
         """Create a channel subset that preserves metadata, offsets, and lineage."""
         return self._create_new_instance(
@@ -1562,6 +1571,7 @@ class BaseFrame(ABC, Generic[T]):
         axis_selectors = key[1:]
         selected_data = self._data[indices]
         source_time_offset = self.source_time_offset[indices]
+        time_slice_kwargs: dict[str, Any] = {}
         if axis_selectors:
             if not all(isinstance(selector, slice) for selector in axis_selectors):
                 raise ValueError(
@@ -1575,6 +1585,7 @@ class BaseFrame(ABC, Generic[T]):
                     raise ValueError("Only continuous forward slicing on the time axis is supported")
                 start, _, _ = time_axis_key.indices(time_axis_size)
                 source_time_offset = source_time_offset + start * time_step
+                time_slice_kwargs = self._time_slice_constructor_kwargs(start)
             selected_data = selected_data[(slice(None),) + axis_selectors]  # noqa: RUF005
         return self._create_new_instance(
             data=selected_data,
@@ -1583,6 +1594,7 @@ class BaseFrame(ABC, Generic[T]):
             source_time_offset=source_time_offset,
             lineage=self._required_semantic_lineage(),
             **self._selection_constructor_kwargs(indices),
+            **time_slice_kwargs,
         )
 
     def _channel_selector_for_lineage(self, key: Any) -> dict[str, Any] | None:
