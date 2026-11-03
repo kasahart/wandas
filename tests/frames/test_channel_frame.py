@@ -1198,6 +1198,60 @@ class TestChannelFrameRMS:
             assert len(cf.rms) == cf.n_channels
 
 
+class TestChannelFramePeakAndKurtosis:
+    """Scalar reductions peak and kurtosis: immutability, shape, and independent reference values."""
+
+    def setup_method(self) -> None:
+        self.cf_stereo = ChannelFrame.from_numpy(_STEREO_SINE, sampling_rate=_SAMPLE_RATE)
+
+    def test_reductions_do_not_mutate_frame(self) -> None:
+        history_before = list(self.cf_stereo.operation_history)
+        _ = self.cf_stereo.peak, self.cf_stereo.kurtosis
+        np.testing.assert_array_equal(channel_first_values(self.cf_stereo), _STEREO_SINE)
+        assert self.cf_stereo.operation_history == history_before
+
+    def test_return_numpy_arrays_with_one_value_per_channel(self) -> None:
+        for value in (self.cf_stereo.peak, self.cf_stereo.kurtosis):
+            assert isinstance(value, np.ndarray)
+            assert value.shape == (2,)
+
+    def test_sine_peak_is_amplitude_and_kurtosis_is_one_and_a_half(self) -> None:
+        # 440 integer cycles at 16 kHz: the sampled sine reaches its peaks, and
+        # its fourth/second moment ratio is the continuous value 3/2.
+        np.testing.assert_allclose(self.cf_stereo.peak, [1.0, 2.0], rtol=1e-6)
+        np.testing.assert_allclose(self.cf_stereo.kurtosis, [1.5, 1.5], rtol=1e-6)
+
+    def test_kurtosis_matches_scipy_pearson_definition(self) -> None:
+        from scipy.stats import kurtosis
+
+        rng = np.random.default_rng(0)
+        data: NDArrayReal = rng.standard_normal((3, 20_000))
+        data[2, ::500] += 15.0  # sparse impulses raise kurtosis well above 3
+        cf = ChannelFrame.from_numpy(data, sampling_rate=_SAMPLE_RATE)
+
+        # Same moments in float64; only summation order differs.
+        np.testing.assert_allclose(cf.kurtosis, kurtosis(data, axis=1, fisher=False), rtol=1e-9)
+        assert cf.kurtosis[2] > 4.0
+
+    def test_peak_uses_calibrated_values_and_kurtosis_is_scale_invariant(self) -> None:
+        data: NDArrayReal = np.array([[0.0, -3.0, 1.0, 2.0]])
+        cf = ChannelFrame.from_numpy(data, sampling_rate=100).with_calibration([2.0])
+
+        np.testing.assert_allclose(cf.peak, [6.0], rtol=1e-12)
+        np.testing.assert_allclose(cf.kurtosis, ChannelFrame.from_numpy(data, sampling_rate=100).kurtosis, rtol=1e-12)
+
+    def test_integer_input_and_constant_channel(self) -> None:
+        from dask.array import stats
+
+        data: NDArrayReal = np.array([[-32768, 0, 32767, 0], [5, 5, 5, 5]], dtype=np.int16)
+        cf = ChannelFrame.from_numpy(data, sampling_rate=100)
+
+        np.testing.assert_allclose(cf.peak, [32768.0, 5.0], rtol=1e-12)  # no int16 overflow in abs()
+        # No variance: kurtosis is undefined, and wandas passes Dask's result through unchanged.
+        expected = stats.kurtosis(da.from_array(data[1:].astype(np.float64)), axis=1, fisher=False).compute()
+        np.testing.assert_array_equal(cf.kurtosis[1:], expected)
+
+
 class TestChannelFrameValidationMessages:
     """ChannelFrame validation errors explain what failed and how to fix it."""
 
