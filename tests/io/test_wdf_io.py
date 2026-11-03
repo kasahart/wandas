@@ -1401,3 +1401,26 @@ def test_sparse_wdf_rejects_dense_hop_relation(tmp_path: Path, cepstrum: bool, h
     _rewrite(path, corrupt)
     with pytest.raises(ValueError, match="for sparse state"):
         wd.load(path)
+
+
+def test_signal_extent_without_origin_saves_as_released_schema(tmp_path: Path) -> None:
+    # The extent is only meaningful with a known origin, so it is not saved without one.
+    frame = wd.SpectrogramFrame(da.zeros((17, 4), dtype=np.complex128), 8000, 32, 8, signal_length=32)
+    path = tmp_path / "no-origin.wdf"
+    frame.save(path)
+    with xr.open_dataset(path, engine="h5netcdf") as stored:
+        assert stored.attrs["version"] == "0.4"
+    loaded = cast(Any, wd.load(path))
+    assert loaded.signal_length is None
+    assert loaded.frame_time_origin is None
+
+
+def test_spectrogram_signal_extent_survives_wdf(tmp_path: Path) -> None:
+    spectrum = wd.from_numpy(np.arange(512.0), sampling_rate=8000).stft(n_fft=64, hop_length=16)[:, :, 3:20]
+    path = tmp_path / "extent.wdf"
+    spectrum.save(path)
+    with xr.open_dataset(path, engine="h5netcdf") as stored:
+        assert stored.attrs["version"] == "0.7"
+    loaded = cast(Any, wd.load(path))
+    assert loaded.signal_length == 512
+    np.testing.assert_array_equal(loaded._full_frame_mask(), spectrum._full_frame_mask())

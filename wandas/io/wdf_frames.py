@@ -237,7 +237,8 @@ def _spectrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
         state["allow_sparse"] = True
     if typed.frame_time_origin is not None:
         state["frame_time_origin"] = typed.frame_time_origin
-    if typed.signal_length is not None:
+    # The extent locates frames only together with their origin, so 0.7 stores both.
+    if typed.signal_length is not None and typed.frame_time_origin is not None:
         state["signal_length"] = typed.signal_length
         state["signal_frame_offset"] = typed._signal_frame_offset
     return state
