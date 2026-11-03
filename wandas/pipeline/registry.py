@@ -144,11 +144,16 @@ def _resolved_annotation(annotation: Any, owner: Callable[..., Any]) -> Any:
 
 
 def _frame_classes() -> tuple[type[Any], ...]:
-    """Return ``BaseFrame`` and every imported subclass, parents first."""
+    """Return ``BaseFrame``, ``FrameSegments`` and every imported subclass of either, parents first.
+
+    Segment collections are not Frames, but Recipe operations take and return
+    them between Frame steps (such as ``trigger()`` and ``average()``).
+    """
     from wandas.core.base_frame import BaseFrame
+    from wandas.frames.segments import FrameSegments
 
     classes: dict[type[Any], None] = {}
-    pending: list[type[Any]] = [BaseFrame]
+    pending: list[type[Any]] = [BaseFrame, FrameSegments]
     while pending:
         cls = pending.pop(0)
         if cls not in classes:

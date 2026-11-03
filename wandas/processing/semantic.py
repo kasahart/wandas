@@ -530,6 +530,24 @@ def semantic_lineage(lineage: LineageNode) -> Any:
         _semantic_capture.reset(token)
 
 
+@contextmanager
+def independent_semantic_lineage() -> Any:
+    """Let public calls in the context record their own lineage nodes.
+
+    A public operation that returns a collection of Frames, such as segments cut
+    from a recording, uses this so every Frame it holds keeps the lineage of the
+    call that made it, while the collection keeps the operation's own node.
+
+    Yields:
+        Control with no authoritative node active.
+    """
+    token = _semantic_capture.set(None)
+    try:
+        yield
+    finally:
+        _semantic_capture.reset(token)
+
+
 def has_frame_lineage_contract(value: object) -> bool:
     """Return whether a value structurally exposes the BaseFrame lineage contract."""
     members = {name for base in type(value).__mro__ for name in base.__dict__}
