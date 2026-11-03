@@ -23,6 +23,7 @@ from .wdf_frames import decode_frame, encode_frame, frame_dimension_coordinates,
 WDF_FORMAT_VERSION = "0.4"
 _FRAME_TIME_FORMAT_VERSION = "0.5"
 _SPARSE_FORMAT_VERSION = "0.6"
+_SIGNAL_EXTENT_FORMAT_VERSION = "0.7"
 # Target size of one compressed HDF5 chunk of the data variable.
 _DATA_CHUNK_BYTES = 4 * 1024 * 1024
 
@@ -125,6 +126,8 @@ def _build_dataset(frame: BaseFrame[Any]) -> xr.Dataset:
     version = _FRAME_TIME_FORMAT_VERSION if "frame_time_origin" in constructor else WDF_FORMAT_VERSION
     if "allow_sparse" in constructor:
         version = _SPARSE_FORMAT_VERSION
+    if "signal_length" in constructor:
+        version = _SIGNAL_EXTENT_FORMAT_VERSION
     attrs: dict[str, Any] = {
         "version": version,
         "frame_type": frame_type,
@@ -356,12 +359,13 @@ def load(path: str | Path) -> BaseFrame[Any]:
         backend_kwargs={"phony_dims": "access"},
     )
     version = dataset.attrs.get("version")
-    if version not in (WDF_FORMAT_VERSION, _FRAME_TIME_FORMAT_VERSION, _SPARSE_FORMAT_VERSION):
+    supported = (WDF_FORMAT_VERSION, _FRAME_TIME_FORMAT_VERSION, _SPARSE_FORMAT_VERSION, _SIGNAL_EXTENT_FORMAT_VERSION)
+    if version not in supported:
         got = "missing" if version is None else repr(version)
         raise ValueError(
             "Unsupported WDF format version\n"
             f"  Got: {got}\n"
-            f"  Supported: {WDF_FORMAT_VERSION!r}, {_FRAME_TIME_FORMAT_VERSION!r}, {_SPARSE_FORMAT_VERSION!r}\n"
+            f"  Supported: {', '.join(repr(item) for item in supported)}\n"
             "Use a compatible Wandas version or resave the file."
         )
     _require_exact_schema(dataset)
@@ -372,7 +376,17 @@ def load(path: str | Path) -> BaseFrame[Any]:
     constructor = _load_json(dataset.attrs["constructor_json"], field="constructor_json")
     has_origin = isinstance(constructor, dict) and "frame_time_origin" in constructor
     has_sparse = isinstance(constructor, dict) and "allow_sparse" in constructor
-    if version == _SPARSE_FORMAT_VERSION:
+    has_extent = isinstance(constructor, dict) and "signal_length" in constructor
+    if version == _SIGNAL_EXTENT_FORMAT_VERSION:
+        # 0.7 adds the analysed signal extent to an STFT result, which always has its origin;
+        # sparse state may accompany it.
+        if frame_type != "SpectrogramFrame" or not has_extent or not has_origin:
+            raise ValueError(
+                "Invalid WDF 0.7 signal-extent schema; expected a spectrogram with signal_length and frame_time_origin"
+            )
+    elif has_extent:
+        raise ValueError("WDF signal-extent state requires format version 0.7")
+    elif version == _SPARSE_FORMAT_VERSION:
         if frame_type not in {"SpectrogramFrame", "CepstrogramFrame"} or not has_sparse:
             raise ValueError("Invalid WDF 0.6 sparse schema; expected sparse time-frequency state")
     elif has_sparse:
@@ -380,7 +394,7 @@ def load(path: str | Path) -> BaseFrame[Any]:
     if version == _FRAME_TIME_FORMAT_VERSION:
         if frame_type not in {"SpectrogramFrame", "CepstrogramFrame"} or not has_origin:
             raise ValueError("Invalid WDF 0.5 physical frame-time schema; expected an explicit time-frequency origin")
-    elif has_origin and version != _SPARSE_FORMAT_VERSION:
+    elif has_origin and version not in (_SPARSE_FORMAT_VERSION, _SIGNAL_EXTENT_FORMAT_VERSION):
         raise ValueError("WDF physical frame-time state requires format version 0.5")
     metadata = _load_json(dataset.attrs["metadata_json"], field="metadata_json")
     label = _load_json(dataset.attrs["label"], field="label")

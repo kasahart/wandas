@@ -92,3 +92,7 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   constructor state. Non-sparse results retain WDF 0.4/0.5. Older readers reject
   0.6 explicitly. Cepstrum, liftering and spectral-envelope conversion preserve
   sparse time axes; ISTFT still requires overlapping windows.
+- Spectrograms from `stft()` record the analysed signal length
+  (`SpectrogramFrame.signal_length`) and save as WDF 0.7, which also carries
+  their origin and any sparse state. Cepstrograms and spectrograms without a
+  known length keep WDF 0.4/0.5/0.6. Older readers reject 0.7 explicitly.
