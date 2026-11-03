@@ -113,6 +113,11 @@ def test_integrate_keeps_input_precision(dtype: type[np.floating]) -> None:
     assert channel_first_values(frame.integrate()).dtype == dtype
 
 
+def test_integer_samples_do_not_overflow() -> None:
+    frame = wd.from_numpy(np.array([[20000, 20000]], dtype=np.int16), sampling_rate=_FS, ch_units="m/s^2")
+    np.testing.assert_allclose(channel_first_values(frame.integrate()), [[0.0, 20.0]])
+
+
 def test_integrate_operation_is_registered() -> None:
     operation = get_operation("integrate")(_FS, order=2)
     assert operation.name == "integrate"

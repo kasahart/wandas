@@ -319,7 +319,8 @@ class Integrate(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         return precision_real_dtype(input_dtype)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
-        result: NDArrayReal = x
+        # Integer samples would overflow when SciPy adds neighbours, so cast first.
+        result: NDArrayReal = x.astype(precision_real_dtype(x.dtype), copy=False)
         for _ in range(int(self.order)):
             result = scipy.integrate.cumulative_trapezoid(result, dx=1.0 / self.sampling_rate, axis=-1, initial=0)
         return result.astype(precision_real_dtype(x.dtype), copy=False)
