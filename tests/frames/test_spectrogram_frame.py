@@ -1162,7 +1162,7 @@ class TestSpectrogramFrameSpectralKurtosis:
     )
     def test_invalid_signal_state_raises(self, kwargs: dict[str, int], message: str) -> None:
         with pytest.raises(ValueError, match=message):
-            SpectrogramFrame(data=self.spectrogram._data, sampling_rate=self.fs, n_fft=256, hop_length=64, **kwargs)
+            SpectrogramFrame(data=self.spectrogram._data, sampling_rate=self.fs, n_fft=256, hop_length=64, **kwargs)  # ty: ignore[invalid-argument-type]
 
     @pytest.mark.parametrize("scale", [1e-12, 1e12])
     def test_single_precision_extreme_amplitudes_stay_finite(self, scale: float) -> None:
