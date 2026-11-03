@@ -7356,10 +7356,7 @@ leave the existing file incomplete.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">155</span>
-<span class="normal">156</span>
-<span class="normal">157</span>
-<span class="normal">158</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">158</span>
 <span class="normal">159</span>
 <span class="normal">160</span>
 <span class="normal">161</span>
@@ -7436,7 +7433,10 @@ leave the existing file incomplete.</p>
 <span class="normal">232</span>
 <span class="normal">233</span>
 <span class="normal">234</span>
-<span class="normal">235</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
     <span class="n">frame</span><span class="p">:</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -7554,10 +7554,7 @@ values through <code>frame.data</code> without managing the storage backend dire
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">321</span>
-<span class="normal">322</span>
-<span class="normal">323</span>
-<span class="normal">324</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">324</span>
 <span class="normal">325</span>
 <span class="normal">326</span>
 <span class="normal">327</span>
@@ -7669,7 +7666,21 @@ values through <code>frame.data</code> without managing the storage backend dire
 <span class="normal">433</span>
 <span class="normal">434</span>
 <span class="normal">435</span>
-<span class="normal">436</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="normal">436</span>
+<span class="normal">437</span>
+<span class="normal">438</span>
+<span class="normal">439</span>
+<span class="normal">440</span>
+<span class="normal">441</span>
+<span class="normal">442</span>
+<span class="normal">443</span>
+<span class="normal">444</span>
+<span class="normal">445</span>
+<span class="normal">446</span>
+<span class="normal">447</span>
+<span class="normal">448</span>
+<span class="normal">449</span>
+<span class="normal">450</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a local WDF 0.4, 0.5 or 0.6 artifact as its exact built-in Frame type.</span>
 
 <span class="sd">    WDF 0.4 time-frequency Frames have unknown physical center times; their</span>
@@ -7707,12 +7718,13 @@ values through <code>frame.data</code> without managing the storage backend dire
         <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;phony_dims&quot;</span><span class="p">:</span> <span class="s2">&quot;access&quot;</span><span class="p">},</span>
     <span class="p">)</span>
     <span class="n">version</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;version&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">version</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="n">WDF_FORMAT_VERSION</span><span class="p">,</span> <span class="n">_FRAME_TIME_FORMAT_VERSION</span><span class="p">,</span> <span class="n">_SPARSE_FORMAT_VERSION</span><span class="p">):</span>
+    <span class="n">supported</span> <span class="o">=</span> <span class="p">(</span><span class="n">WDF_FORMAT_VERSION</span><span class="p">,</span> <span class="n">_FRAME_TIME_FORMAT_VERSION</span><span class="p">,</span> <span class="n">_SPARSE_FORMAT_VERSION</span><span class="p">,</span> <span class="n">_SIGNAL_EXTENT_FORMAT_VERSION</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">version</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">supported</span><span class="p">:</span>
         <span class="n">got</span> <span class="o">=</span> <span class="s2">&quot;missing&quot;</span> <span class="k">if</span> <span class="n">version</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">repr</span><span class="p">(</span><span class="n">version</span><span class="p">)</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">&quot;Unsupported WDF format version</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;  Got: </span><span class="si">{</span><span class="n">got</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;  Supported: </span><span class="si">{</span><span class="n">WDF_FORMAT_VERSION</span><span class="si">!r}</span><span class="s2">, </span><span class="si">{</span><span class="n">_FRAME_TIME_FORMAT_VERSION</span><span class="si">!r}</span><span class="s2">, </span><span class="si">{</span><span class="n">_SPARSE_FORMAT_VERSION</span><span class="si">!r}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;  Supported: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">item</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">item</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">supported</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="s2">&quot;Use a compatible Wandas version or resave the file.&quot;</span>
         <span class="p">)</span>
     <span class="n">_require_exact_schema</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
@@ -7723,7 +7735,17 @@ values through <code>frame.data</code> without managing the storage backend dire
     <span class="n">constructor</span> <span class="o">=</span> <span class="n">_load_json</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;constructor_json&quot;</span><span class="p">],</span> <span class="n">field</span><span class="o">=</span><span class="s2">&quot;constructor_json&quot;</span><span class="p">)</span>
     <span class="n">has_origin</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">constructor</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;frame_time_origin&quot;</span> <span class="ow">in</span> <span class="n">constructor</span>
     <span class="n">has_sparse</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">constructor</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;allow_sparse&quot;</span> <span class="ow">in</span> <span class="n">constructor</span>
-    <span class="k">if</span> <span class="n">version</span> <span class="o">==</span> <span class="n">_SPARSE_FORMAT_VERSION</span><span class="p">:</span>
+    <span class="n">has_extent</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">constructor</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;signal_length&quot;</span> <span class="ow">in</span> <span class="n">constructor</span>
+    <span class="k">if</span> <span class="n">version</span> <span class="o">==</span> <span class="n">_SIGNAL_EXTENT_FORMAT_VERSION</span><span class="p">:</span>
+        <span class="c1"># 0.7 adds the analysed signal extent to an STFT result, which always has its origin;</span>
+        <span class="c1"># sparse state may accompany it.</span>
+        <span class="k">if</span> <span class="n">frame_type</span> <span class="o">!=</span> <span class="s2">&quot;SpectrogramFrame&quot;</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">has_extent</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">has_origin</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Invalid WDF 0.7 signal-extent schema; expected a spectrogram with signal_length and frame_time_origin&quot;</span>
+            <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">has_extent</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;WDF signal-extent state requires format version 0.7&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">version</span> <span class="o">==</span> <span class="n">_SPARSE_FORMAT_VERSION</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">frame_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;SpectrogramFrame&quot;</span><span class="p">,</span> <span class="s2">&quot;CepstrogramFrame&quot;</span><span class="p">}</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">has_sparse</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid WDF 0.6 sparse schema; expected sparse time-frequency state&quot;</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">has_sparse</span><span class="p">:</span>
@@ -7731,7 +7753,7 @@ values through <code>frame.data</code> without managing the storage backend dire
     <span class="k">if</span> <span class="n">version</span> <span class="o">==</span> <span class="n">_FRAME_TIME_FORMAT_VERSION</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">frame_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;SpectrogramFrame&quot;</span><span class="p">,</span> <span class="s2">&quot;CepstrogramFrame&quot;</span><span class="p">}</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">has_origin</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid WDF 0.5 physical frame-time schema; expected an explicit time-frequency origin&quot;</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">has_origin</span> <span class="ow">and</span> <span class="n">version</span> <span class="o">!=</span> <span class="n">_SPARSE_FORMAT_VERSION</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">has_origin</span> <span class="ow">and</span> <span class="n">version</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="n">_SPARSE_FORMAT_VERSION</span><span class="p">,</span> <span class="n">_SIGNAL_EXTENT_FORMAT_VERSION</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;WDF physical frame-time state requires format version 0.5&quot;</span><span class="p">)</span>
     <span class="n">metadata</span> <span class="o">=</span> <span class="n">_load_json</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;metadata_json&quot;</span><span class="p">],</span> <span class="n">field</span><span class="o">=</span><span class="s2">&quot;metadata_json&quot;</span><span class="p">)</span>
     <span class="n">label</span> <span class="o">=</span> <span class="n">_load_json</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">],</span> <span class="n">field</span><span class="o">=</span><span class="s2">&quot;label&quot;</span><span class="p">)</span>

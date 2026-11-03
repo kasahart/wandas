@@ -5651,6 +5651,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wandas.processing.stats.spectral_kurtosis" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;spectral_kurtosis
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -12108,6 +12123,21 @@
       Functions
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wandas.processing.stats.spectral_kurtosis" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;spectral_kurtosis
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -35977,6 +36007,131 @@ so integer arithmetic cannot wrap around and other dtypes are unaffected.</p>
 
 </div>
 <h3 id="wandas.processing.stats-functions">Functions<a href="#wandas.processing.stats-functions" class="headerlink" title="Permanent link">&para;</a></h3>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="wandas.processing.stats.spectral_kurtosis" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">spectral_kurtosis</span><span class="p">(</span><span class="n">stft</span><span class="p">)</span></code>
+
+<a href="#wandas.processing.stats.spectral_kurtosis" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return the spectral kurtosis of STFT data over its last (time) axis.</p>
+<p>The spectral kurtosis of a frequency bin is::</p>
+<div class="highlight"><pre><span></span><code>SK(f) = mean(|X(f, t)| ** 4) / mean(|X(f, t)| ** 2) ** 2 - 2
+</code></pre></div>
+<p>It is 0 for stationary Gaussian noise and rises in bins where the signal
+is impulsive. Real-valued bins (0 Hz and Nyquist) have the Gaussian
+reference value 1 instead of 0. A bin with no energy gives NaN.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>stft</code>
+            </td>
+            <td>
+                  <code><span title="dask.array.core.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Complex STFT data whose last axis is time.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dask.array.core.Array">Array</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Real array with the time axis removed.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/processing/stats.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">spectral_kurtosis</span><span class="p">(</span><span class="n">stft</span><span class="p">:</span> <span class="n">DaArray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DaArray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the spectral kurtosis of STFT data over its last (time) axis.</span>
+
+<span class="sd">    The spectral kurtosis of a frequency bin is::</span>
+
+<span class="sd">        SK(f) = mean(|X(f, t)| ** 4) / mean(|X(f, t)| ** 2) ** 2 - 2</span>
+
+<span class="sd">    It is 0 for stationary Gaussian noise and rises in bins where the signal</span>
+<span class="sd">    is impulsive. Real-valued bins (0 Hz and Nyquist) have the Gaussian</span>
+<span class="sd">    reference value 1 instead of 0. A bin with no energy gives NaN.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        stft: Complex STFT data whose last axis is time.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Real array with the time axis removed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">power</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">stft</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">da</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">stft</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+    <span class="c1"># Normalise by the mean power of each bin first: the moment ratio is the</span>
+    <span class="c1"># same, and |X|^4 cannot overflow or underflow in single precision.</span>
+    <span class="n">normalized</span> <span class="o">=</span> <span class="n">power</span> <span class="o">/</span> <span class="n">da</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">power</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">da</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">normalized</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mf">2.0</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
 
 
 
