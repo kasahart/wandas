@@ -112,10 +112,7 @@ def _registry() -> RecipeRegistry:
 
 
 def _frame(value: float) -> ExtensionChannelFrame:
-    return cast(
-        ExtensionChannelFrame,
-        ExtensionChannelFrame.from_numpy(np.full((1, 16), value), sampling_rate=8000),
-    )
+    return ExtensionChannelFrame.from_numpy(np.full((1, 16), value), sampling_rate=8000)
 
 
 def _roundtrip(processed: ChannelFrame, inputs: dict[str, ChannelFrame]) -> ChannelFrame:
@@ -262,10 +259,7 @@ def test_falsy_extension_hooks_are_not_discarded() -> None:
                 lineage=self._required_semantic_lineage(),
             )
 
-    source = cast(
-        FalsyHookFrame,
-        FalsyHookFrame.from_numpy(np.full((1, 16), 2.0), sampling_rate=8000),
-    )
+    source = FalsyHookFrame.from_numpy(np.full((1, 16), 2.0), sampling_rate=8000)
     processed = source.falsy_scale(3.0)
     definition = recipe_definition(FalsyHookFrame.falsy_scale)
     registry = default_recipe_registry().with_operation(definition)

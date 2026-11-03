@@ -44,6 +44,7 @@ da_from_delayed = da.from_delayed
 
 
 S = TypeVar("S", bound="BaseFrame[Any]")
+CF = TypeVar("CF", bound="ChannelFrame")
 P = ParamSpec("P")
 R = TypeVar("R")
 
@@ -487,25 +488,21 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             self._set_channel_calibration(i, self.channels[i].calibration.with_unit(unit))
 
     def _finalize_channel_update(
-        self,
+        self: CF,
         new_data: DaArray,
         new_chmeta: Sequence[ChannelMetadata | dict[str, Any]],
         channel_ids: list[str],
         source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
         lineage: Any | None = None,
-    ) -> "ChannelFrame":
-        """Return an immutable channel update."""
+    ) -> CF:
+        """Return an immutable channel update of the same Frame class."""
         offsets = self.source_time_offset if source_time_offset is None else source_time_offset
-        return ChannelFrame(
-            data=new_data,
-            sampling_rate=self.sampling_rate,
-            label=self.label,
-            metadata=self.metadata,
-            channel_metadata=new_chmeta,
+        return self._create_new_instance(
+            new_data,
+            channel_metadata=list(new_chmeta),
             channel_ids=channel_ids,
             source_time_offset=offsets,
             lineage=self.lineage if lineage is None else lineage,
-            previous=self,
         )
 
     @property
@@ -1593,14 +1590,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     @classmethod
     def from_numpy(
-        cls,
+        cls: type[CF],
         data: NDArrayReal,
         sampling_rate: float,
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
         ch_labels: list[str] | None = None,
         ch_units: list[str] | str | None = None,
-    ) -> "ChannelFrame":
+    ) -> CF:
         """Create a ChannelFrame from a NumPy array.
 
         Args:
@@ -1640,14 +1637,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     @classmethod
     def from_ndarray(
-        cls,
+        cls: type[CF],
         array: NDArrayReal,
         sampling_rate: float,
         labels: list[str] | None = None,
         unit: list[str] | str | None = None,
         frame_label: str | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> "ChannelFrame":
+    ) -> CF:
         """Create a ChannelFrame from a NumPy array.
 
         This method is deprecated. Use from_numpy instead.
@@ -1679,7 +1676,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     @classmethod
     def from_file(
-        cls,
+        cls: type[CF],
         path: str | Path | bytes | bytearray | memoryview | BinaryIO,
         channel: int | list[int] | None = None,
         start: float | None = None,
@@ -1696,7 +1693,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         source_name: str | None = None,
         timeout: float = 10.0,
         dtype: npt.DTypeLike | None = None,
-    ) -> "ChannelFrame":
+    ) -> CF:
         """Create a ChannelFrame from an audio file or URL.
 
         Note:
@@ -1762,8 +1759,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> # Load from a URL
             >>> cf = wd.read("https://example.com/audio.wav")
         """
-        from .channel import ChannelFrame
-
         data_dtype = resolve_dtype(dtype)
         download_owner: DownloadedTemporaryFile | None = None
         downloaded_from_url = False
@@ -1923,7 +1918,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                     )
                     for index, _ in enumerate(channels_to_load)
                 ]
-            cf = ChannelFrame(
+            cf = cls(
                 data=dask_array,
                 sampling_rate=sr,
                 label=frame_label,
@@ -1941,10 +1936,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     @classmethod
     def read_wav(
-        cls,
+        cls: type[CF],
         filename: str | Path | bytes | bytearray | memoryview | BinaryIO,
         labels: list[str] | None = None,
-    ) -> "ChannelFrame":
+    ) -> CF:
         """Utility method to read a WAV file.
 
         Args:
@@ -1954,13 +1949,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         Returns:
             A new ChannelFrame containing the data (lazy loading).
         """
-        from .channel import ChannelFrame
-
         is_in_memory = isinstance(filename, (bytes, bytearray, memoryview)) or _is_file_like(filename)
         source_name: str | None = None
         if is_in_memory and _is_file_like(filename):
             source_name = getattr(filename, "name", None)
-        cf = ChannelFrame.from_file(
+        cf = cls.from_file(
             filename,
             ch_labels=labels,
             file_type=".wav" if is_in_memory else None,
@@ -1970,13 +1963,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     @classmethod
     def read_csv(
-        cls,
+        cls: type[CF],
         filename: str,
         time_column: int | str = 0,
         labels: list[str] | None = None,
         delimiter: str = ",",
         header: int | None = 0,
-    ) -> "ChannelFrame":
+    ) -> CF:
         """Utility method to read a CSV file.
 
         Args:
@@ -1998,9 +1991,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> # Read CSV without header
             >>> cf = wd.read("data.csv", header=None)
         """
-        from .channel import ChannelFrame
-
-        cf = ChannelFrame.from_file(
+        cf = cls.from_file(
             filename,
             ch_labels=labels,
             time_column=time_column,
@@ -2065,13 +2056,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         validate_params=_validate_add_channel_recipe,
     )
     def add_channel(
-        self,
+        self: CF,
         data: "np.ndarray[Any, Any] | DaArray",
         label: str | None = None,
         align: Literal["strict", "pad", "truncate"] = "strict",
         suffix_on_dup: str | None = None,
         source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
-    ) -> "ChannelFrame":
+    ) -> CF:
         """Add a new channel to the frame.
 
         Args:
@@ -2172,12 +2163,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         validate_params=_validate_concat_frame_recipe,
     )
     def concat_frame(
-        self,
+        self: CF,
         other: "ChannelFrame",
         label_prefix: str | None = None,
         align: Literal["strict", "pad", "truncate"] = "strict",
         suffix_on_dup: str | None = None,
-    ) -> "ChannelFrame":
+    ) -> CF:
         """Concatenate all channels from another frame along the channel axis.
 
         The result preserves ``other`` channel metadata, calibration, and
@@ -2245,7 +2236,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         )
 
     @recipe_operation("wandas.channel.remove_channel")
-    def remove_channel(self, key: int | str) -> "ChannelFrame":
+    def remove_channel(self: CF, key: int | str) -> CF:
         """Return a new frame without one channel.
 
         Args:
