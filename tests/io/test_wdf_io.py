@@ -986,7 +986,7 @@ def _rewrite(path: Path, mutate: Callable[[xr.Dataset], None]) -> None:
     dataset.to_netcdf(path, engine="h5netcdf", mode="w", invalid_netcdf=True)
 
 
-@pytest.mark.parametrize("version", [None, "0.1", "0.2", "0.3", "0.7", "99.0"])
+@pytest.mark.parametrize("version", [None, "0.1", "0.2", "0.3", "0.8", "99.0"])
 def test_wdf_rejects_missing_legacy_and_future_versions(version: str | None, tmp_path: Path) -> None:
     path = tmp_path / "version.wdf"
     ChannelFrame.from_numpy(np.ones((1, 4)), 8.0).save(path)
@@ -1319,7 +1319,8 @@ def test_sparse_time_frequency_wdf_roundtrip(tmp_path: Path, cepstrum: bool, n_f
     path = tmp_path / "sparse.wdf"
     original.save(path)
     with xr.open_dataset(path, engine="h5netcdf") as stored:
-        assert stored.attrs["version"] == "0.6"
+        # A spectrogram also records its signal extent (0.7); a cepstrogram stays at 0.6.
+        assert stored.attrs["version"] == ("0.6" if cepstrum else "0.7")
         assert json.loads(stored.attrs["constructor_json"])["allow_sparse"] is True
     loaded = cast(Any, wd.load(path))
     assert type(loaded) is type(original)
@@ -1351,7 +1352,15 @@ def test_sparse_wdf_rejects_non_true_opt_in(tmp_path: Path, invalid: Any) -> Non
 def test_sparse_wdf_cannot_masquerade_as_released_schema(tmp_path: Path) -> None:
     path = tmp_path / "wrong-version.wdf"
     wd.ChannelFrame(da.ones((1, 1024)), sampling_rate=8000).stft(n_fft=64, hop_length=128, allow_sparse=True).save(path)
-    _rewrite(path, lambda dataset: dataset.attrs.__setitem__("version", "0.5"))
+
+    def released_05(dataset: xr.Dataset) -> None:
+        dataset.attrs["version"] = "0.5"
+        state = json.loads(dataset.attrs["constructor_json"])
+        for field in ("signal_length", "signal_frame_offset"):
+            state.pop(field)
+        dataset.attrs["constructor_json"] = json.dumps(state)
+
+    _rewrite(path, released_05)
     with pytest.raises(ValueError, match="requires format version 0.6"):
         wd.load(path)
 
@@ -1367,6 +1376,8 @@ def test_wdf_06_requires_explicit_sparse_time_frequency_state(tmp_path: Path, sp
         dataset.attrs["version"] = "0.6"
         state = json.loads(dataset.attrs["constructor_json"])
         state.pop("allow_sparse", None)
+        state.pop("signal_length", None)
+        state.pop("signal_frame_offset", None)
         dataset.attrs["constructor_json"] = json.dumps(state)
 
     _rewrite(path, corrupt)

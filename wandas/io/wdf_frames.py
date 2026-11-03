@@ -237,12 +237,24 @@ def _spectrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
         state["allow_sparse"] = True
     if typed.frame_time_origin is not None:
         state["frame_time_origin"] = typed.frame_time_origin
+    if typed.signal_length is not None:
+        state["signal_length"] = typed.signal_length
+        state["signal_frame_offset"] = typed._signal_frame_offset
     return state
 
 
 def _validate_spectrogram_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, int, int, str]:
     expected = {"n_fft", "hop_length", "win_length", "window"}
+    if "signal_length" in state or "signal_frame_offset" in state:
+        expected = expected | {"signal_length", "signal_frame_offset"}
     _frame_time_constructor_fields(state, expected, "SpectrogramFrame")
+    if "signal_length" in state:
+        _positive_integer(state, "signal_length", "SpectrogramFrame")
+        offset = state["signal_frame_offset"]
+        if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+            raise _invalid_constructor_value(
+                "SpectrogramFrame", "signal_frame_offset", offset, "a non-negative integer"
+            )
     n_fft = _positive_integer(state, "n_fft", "SpectrogramFrame")
     hop_length = _positive_integer(state, "hop_length", "SpectrogramFrame")
     win_length = _positive_integer(state, "win_length", "SpectrogramFrame")
@@ -272,6 +284,8 @@ def _spectrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
         window=window,
         frame_time_origin=state.get("frame_time_origin"),
         allow_sparse=state.get("allow_sparse", False),
+        signal_length=state.get("signal_length"),
+        signal_frame_offset=state.get("signal_frame_offset", 0),
     )
 
 
