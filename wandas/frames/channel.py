@@ -17,7 +17,7 @@ from dask.array.core import concatenate
 
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing.calibration import _derive_absolute_calibration_factors
-from wandas.processing.semantic import InputBinding, thaw_params
+from wandas.processing.semantic import InputBinding, independent_semantic_lineage, thaw_params
 from wandas.processing.trigger import TriggerSlope, find_level_crossings
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.optional_imports import require_pandas
@@ -100,6 +100,15 @@ def _capture_with_calibration(args: tuple[Any, ...], params: Mapping[str, Any]) 
         (receiver.lineage,),
         {"calibrations": snapshots},
     )
+
+
+def _capture_segment(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Record ``segment()`` with its event times as a list of floats."""
+    captured = dict(params)
+    if "times" in captured:
+        times = np.atleast_1d(np.asarray(captured["times"], dtype=float))
+        captured["times"] = [float(value) for value in times.reshape(-1)] if times.ndim == 1 else captured["times"]
+    return OperationCapture((InputBinding("frame", "frame"),), (args[0].lineage,), captured)
 
 
 def _decode_with_calibration_recipe(params: Mapping[str, Any]) -> dict[str, ChannelCalibration]:
@@ -937,6 +946,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         )
         return indices / self.sampling_rate
 
+    @recipe_operation("wandas.audio.trigger")
     def trigger(
         self,
         threshold: float,
@@ -963,6 +973,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         whether it is kept. To trigger on a dB level, detect on a level Frame
         such as ``cf.rms_trend(dB=True)`` and pass its
         ``trigger(...).trigger_times`` to :meth:`segment` of this Frame.
+
+        A Recipe saved from a result of these segments (for example with
+        ``RecipePlan.from_frame(hits.drop([2]).transfer_function())``)
+        records these trigger conditions, not the detected times, so
+        replaying it detects the events of its own input again.
 
         Args:
             threshold: Trigger level in the trigger channel's physical unit.
@@ -1031,6 +1046,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             )
         return length, pre_samples
 
+    @recipe_operation("wandas.audio.segment", capture=_capture_segment)
     def segment(
         self,
         times: float | Sequence[float] | NDArrayReal,
@@ -1092,25 +1108,30 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         trigger_channel: int | None,
     ) -> "ChannelFrameSegments":
         """Slice every event that fits inside this Frame into segments."""
+        from wandas.frames.pairwise import _caller_stacklevel
         from wandas.frames.segments import ChannelFrameSegments
 
+        lineage = self._required_semantic_lineage()
         segments: list[ChannelFrame] = []
         event_ids: list[int] = []
         kept_times: list[float] = []
         skipped: list[float] = []
-        for event, event_time in enumerate(event_times):
-            start = int(round(event_time * self.sampling_rate)) - pre_samples
-            if start < 0 or start + length > self.n_samples:
-                skipped.append(float(event_time))
-                continue
-            segments.append(self[:, start : start + length])
-            event_ids.append(event)
-            kept_times.append(float(event_time))
+        # Each segment is a time slice of this Frame with its own lineage; the
+        # collection carries the trigger or segment call.
+        with independent_semantic_lineage():
+            for event, event_time in enumerate(event_times):
+                start = int(round(event_time * self.sampling_rate)) - pre_samples
+                if start < 0 or start + length > self.n_samples:
+                    skipped.append(float(event_time))
+                    continue
+                segments.append(self[:, start : start + length])
+                event_ids.append(event)
+                kept_times.append(float(event_time))
         if skipped:
             warnings.warn(
                 f"Skipped {len(skipped)} segment(s) that do not fit inside the signal: times {skipped} s",
                 UserWarning,
-                stacklevel=3,
+                stacklevel=_caller_stacklevel(),
             )
         return ChannelFrameSegments(
             segments,
@@ -1118,6 +1139,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             kept_times,
             pre=pre_samples / self.sampling_rate,
             trigger_channel=trigger_channel,
+            lineage=lineage,
         )
 
     def info(self) -> None:

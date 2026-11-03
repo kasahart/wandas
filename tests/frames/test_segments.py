@@ -10,10 +10,10 @@ from matplotlib.axes import Axes
 
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.pairwise import CoherenceFrame, TransferFunctionFrame
-from wandas.frames.segments import ChannelFrameSegments, FrameSegments, _segment_step
+from wandas.frames.segments import ChannelFrameSegments, FrameSegments
 from wandas.frames.spectral import SpectralFrame
-from wandas.pipeline import RecipeExtractionError, RecipePlan
-from wandas.pipeline.decorators import recipe_definition
+from wandas.pipeline import RecipeExecutionError, RecipeExtractionError, RecipePlan
+from wandas.processing.semantic import thaw_params
 
 _SR = 1000
 _LENGTH = 200
@@ -173,11 +173,6 @@ class TestValidation:
         with pytest.raises(ValueError, match="no output channel"):
             hits.transfer_function(input=0)
 
-    def test_segment_steps_reject_recipe_replay(self) -> None:
-        definition = recipe_definition(_segment_step("wandas.segments.join", 2))
-        with pytest.raises(ValueError, match="tied to positions"):
-            definition.validate_params({})
-
 
 class TestApply:
     def test_channel_frame_results_stay_channel_segments(self) -> None:
@@ -307,15 +302,13 @@ class TestEnsembleAnalysis:
         frf = hits.drop(3).transfer_function(input="force")
         assert isinstance(frf._data, DaArray)
         operations = [record["operation"] for record in frf.operation_history]
-        assert "wandas.segments.join" in operations
-        join = next(record for record in frf.operation_history if record["operation"] == "wandas.segments.join")
-        assert join["params"] == {"event_ids": [0, 1, 2, 4]}
-        assert operations[-2] == "wandas.audio.transfer_function"
-
-    def test_analysis_cannot_be_extracted_as_recipe(self) -> None:
-        hits, _ = _hits()
-        with pytest.raises(RecipeExtractionError, match="tied to positions in one recording"):
-            RecipePlan.from_frame(hits.transfer_function(input="force"))
+        assert operations[-3:] == [
+            "wandas.audio.segment",
+            "wandas.segments.drop",
+            "wandas.segments.transfer_function",
+        ]
+        drop = next(record for record in frf.operation_history if record["operation"] == "wandas.segments.drop")
+        assert drop["params"] == {"event_ids": [3]}
 
     def test_average_is_the_sample_mean_of_the_segments(self) -> None:
         hits, values = _hits()
@@ -324,6 +317,137 @@ class TestEnsembleAnalysis:
         assert average.labels == hits.labels
         np.testing.assert_allclose(average.data, values.mean(axis=0))
         assert average.operation_history[-1]["operation"] == "wandas.segments.average"
+
+
+def _impacts(seed: int = 0, n_hits: int = 6) -> ChannelFrame:
+    """A force channel with half-sine hits and a response channel ringing after each."""
+    rng = np.random.default_rng(seed)
+    n = n_hits * _LENGTH + _LENGTH
+    force = np.zeros(n)
+    width = 5
+    for hit in range(n_hits):
+        start = _LENGTH // 2 + hit * _LENGTH
+        force[start : start + width] += (8 + rng.random()) * np.sin(np.pi * np.arange(width) / width)
+    t = np.arange(_LENGTH) / _SR
+    impulse = np.exp(-t / 0.02) * np.sin(2 * np.pi * 120 * t)
+    response = np.convolve(force, impulse)[:n] + 0.01 * rng.standard_normal(n)
+    return ChannelFrame.from_numpy(
+        np.stack([force, response]), sampling_rate=_SR, ch_labels=["force", "accel"], ch_units=["N", "m/s^2"]
+    )
+
+
+class TestRecipe:
+    def _round_trip(self, frame: object) -> RecipePlan:
+        plan = RecipePlan.from_frame(frame)
+        return RecipePlan.from_dict(plan.to_dict())
+
+    def test_trigger_drop_and_transfer_function_replay(self) -> None:
+        cf = _impacts()
+        hits = cf.high_pass_filter(cutoff=5).trigger(4.0, duration=0.15, pre=0.01, channel=0)
+        frf = hits.drop([2]).transfer_function()
+        plan = self._round_trip(frf)
+        operations = [node.operation for node in plan.nodes]
+        assert operations == [
+            "wandas.audio.highpass_filter",
+            "wandas.audio.trigger",
+            "wandas.segments.drop",
+            "wandas.segments.transfer_function",
+        ]
+        replayed = plan.apply(cf)
+        assert isinstance(replayed, TransferFunctionFrame)
+        np.testing.assert_allclose(replayed.data, frf.data)
+
+    def test_replay_detects_events_on_another_recording(self) -> None:
+        plan = RecipePlan.from_frame(_impacts(0).trigger(4.0, duration=0.15, pre=0.01).average())
+        other = _impacts(1, n_hits=4)
+        expected = other.trigger(4.0, duration=0.15, pre=0.01).average()
+        np.testing.assert_allclose(plan.apply(other).data, expected.data)
+
+    def test_segment_times_and_coherence_replay(self) -> None:
+        cf = _impacts()
+        times = np.array([0.1, 0.3, 0.5, 0.7])
+        coherence = cf.segment(times, duration=0.15, pre=0.0).coherence(input="force")
+        plan = self._round_trip(coherence)
+        node = plan.nodes[0]
+        assert node.operation == "wandas.audio.segment"
+        np.testing.assert_allclose(plan.apply(cf).data, coherence.data)
+
+    def test_selection_is_recorded_by_the_kept_event_ids(self) -> None:
+        hits = _impacts().trigger(4.0, duration=0.15, pre=0.01)
+        plan = RecipePlan.from_frame(hits[0:3].average())
+        select = next(node for node in plan.nodes if node.operation == "wandas.segments.select")
+        assert thaw_params(select.params) == {"event_ids": [0, 1, 2]}
+        more = _impacts(1, n_hits=8)
+        expected = more.trigger(4.0, duration=0.15, pre=0.01)[0:3].average()
+        np.testing.assert_allclose(plan.apply(more).data, expected.data)
+        with pytest.raises(RecipeExecutionError, match="Unknown segment event IDs"):
+            plan.apply(_impacts(2, n_hits=2))
+
+    def test_reordered_selection_keeps_its_order(self) -> None:
+        hits, values = _hits()
+        reordered = hits[[2, 0]]
+        np.testing.assert_array_equal(reordered.event_ids, [2, 0])
+        plan = RecipePlan.from_frame(reordered[0])
+        assert [node.operation for node in plan.nodes] == ["wandas.frame.index"]
+        np.testing.assert_allclose(reordered[0].data, values[2])
+
+    def test_kept_event_ids_must_not_repeat(self) -> None:
+        # Indexing already rejects repeated positions; this guards an edited Recipe.
+        hits, _ = _hits()
+        with pytest.raises(ValueError, match="must not repeat"):
+            hits._keep([0, 0])
+
+    def test_apply_is_not_a_recipe(self) -> None:
+        hits, _ = _hits()
+        with pytest.raises(RecipeExtractionError, match="Python function"):
+            filtered = hits.apply(lambda hit: hit.high_pass_filter(cutoff=20))
+            assert isinstance(filtered, ChannelFrameSegments)
+            RecipePlan.from_frame(filtered.average())
+
+    def test_apply_keeps_the_processing_in_the_history(self) -> None:
+        hits, _ = _hits()
+        filtered = hits.apply(lambda hit: hit.high_pass_filter(cutoff=20))
+        assert isinstance(filtered, ChannelFrameSegments)
+        history = filtered.average().operation_history
+        filters = [step for step in history if step["operation"] == "wandas.audio.highpass_filter"]
+        assert len(filters) == len(hits)
+        assert all(step["params"]["cutoff"] == 20 for step in filters)
+        assert [step["operation"] for step in history[-2:]] == ["wandas.segments.apply", "wandas.segments.average"]
+
+    def test_segments_built_from_frames_are_not_a_recipe(self) -> None:
+        hits = _with_trigger_channel(_hits()[0])
+        with pytest.raises(RecipeExtractionError, match="built directly from Frames"):
+            RecipePlan.from_frame(hits.average())
+
+    def test_each_segment_keeps_its_own_time_slice_lineage(self) -> None:
+        cf = _impacts()
+        hits = cf.trigger(4.0, duration=0.15, pre=0.01)
+        assert hits.lineage.operation is not None
+        assert hits.lineage.operation.operation_id == "wandas.audio.trigger"
+        plan = RecipePlan.from_frame(hits[1])
+        assert [node.operation for node in plan.nodes] == ["wandas.frame.index"]
+
+    def test_recipe_ending_with_segments_is_rejected_at_run_time(self) -> None:
+        cf = _impacts()
+        data = RecipePlan.from_frame(cf.trigger(4.0, duration=0.15, pre=0.01).average()).to_dict()
+        data["nodes"] = data["nodes"][:1]
+        data["output"] = data["nodes"][0]["id"]
+        plan = RecipePlan.from_dict(data)
+        with pytest.raises(RecipeExecutionError, match="not a Frame"):
+            plan.apply(cf)
+
+    def test_registry_describes_segment_steps(self) -> None:
+        from wandas.pipeline import default_recipe_registry
+
+        described = {item.operation_id: item for item in default_recipe_registry().describe()}
+        assert described["wandas.audio.trigger"].receiver == (ChannelFrame,)
+        assert described["wandas.audio.trigger"].returns is ChannelFrameSegments
+        assert described["wandas.segments.drop"].receiver == (FrameSegments,)
+        assert described["wandas.segments.drop"].returns == "receiver"
+        assert described["wandas.segments.average"].receiver == (ChannelFrameSegments,)
+        assert described["wandas.segments.average"].returns is ChannelFrame
+        assert described["wandas.segments.transfer_function"].returns is TransferFunctionFrame
+        assert described["wandas.segments.coherence"].returns is CoherenceFrame
 
 
 class TestPlot:
