@@ -3,6 +3,7 @@ from typing import Any
 
 import numpy as np
 import scipy
+import scipy.integrate
 
 from wandas.processing.base import (
     AudioOperation,
@@ -275,6 +276,54 @@ class _RecipeAWeightingV1(AWeighting):
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         return _apply_weighting(x, self.sampling_rate, "A", bilinear=True)
+
+
+class Integrate(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
+    """Time integration with the trapezoidal rule.
+
+    Each channel is integrated with ``scipy.integrate.cumulative_trapezoid``,
+    starting from 0 at the first sample, ``order`` times. A DC offset or
+    low-frequency noise in the input grows into a drift in the result, so a
+    high-pass filter is usually applied afterwards.
+    """
+
+    name = "integrate"
+    _display = "int"
+
+    def __init__(self, sampling_rate: float, order: int = 1):
+        """
+        Initialize integration
+
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            order: int, optional. Number of integrations, at least 1. Default is 1.
+
+        Raises:
+            ValueError: If ``order`` is not an integer of at least 1.
+        """
+        super().__init__(sampling_rate, order=order)
+
+    @property
+    def order(self) -> int:
+        """Number of integrations captured at operation construction time."""
+        return self._config_value("order")
+
+    def validate_params(self) -> None:
+        order = self.order
+        if isinstance(order, bool) or not isinstance(order, int | np.integer) or order < 1:
+            raise ValueError(f"Invalid integration order\n  Got: {order!r}\n  Expected: an integer of at least 1")
+
+    _keeps_input_precision = True
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return precision_real_dtype(input_dtype)
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        # Integer samples would overflow when SciPy adds neighbours, so cast first.
+        result: NDArrayReal = x.astype(precision_real_dtype(x.dtype), copy=False)
+        for _ in range(int(self.order)):
+            result = scipy.integrate.cumulative_trapezoid(result, dx=1.0 / self.sampling_rate, axis=-1, initial=0)
+        return result.astype(precision_real_dtype(x.dtype), copy=False)
 
 
 _register_module_operations(__name__)

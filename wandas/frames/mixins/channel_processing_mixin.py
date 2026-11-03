@@ -1,6 +1,7 @@
 """Module providing mixins related to signal processing."""
 
 import logging
+import numbers
 import warnings
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, Literal, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
@@ -32,6 +33,23 @@ _RUNTIME_APPLY_ARGUMENTS = {
     "output_frame_kwargs",
     "dask_pure",
 }
+
+
+_INTEGRATION_UNIT_CHAIN = ("m/s^2", "m/s", "m")
+
+
+def _integrated_unit(channel: ChannelMetadata, order: object) -> str:
+    """Move an SI motion unit along acceleration -> velocity -> displacement."""
+    if channel.unit in _INTEGRATION_UNIT_CHAIN and isinstance(order, numbers.Integral) and not isinstance(order, bool):
+        position = _INTEGRATION_UNIT_CHAIN.index(channel.unit) + int(order)
+        if 0 <= position < len(_INTEGRATION_UNIT_CHAIN):
+            return _INTEGRATION_UNIT_CHAIN[position]
+    raise ValueError(
+        "Cannot infer the unit of the integrated signal\n"
+        f"  Channel: {channel.label!r} in {channel.unit!r}, order {order!r}\n"
+        f"  Inferred chain: {' -> '.join(_INTEGRATION_UNIT_CHAIN)}\n"
+        "Pass unit= with the unit of the result."
+    )
 
 
 def _capture_runtime_apply(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
@@ -470,6 +488,52 @@ class ChannelProcessingMixin:
             >>> envelope_spectrum = env.remove_dc().fft()
         """
         return cast(T_Processing, self._apply_named_operation("envelope"))
+
+    @recipe_operation("wandas.audio.integrate")
+    def integrate(self: T_Processing, order: int = 1, unit: str | None = None) -> T_Processing:
+        """Integrate each channel in time with the trapezoidal rule.
+
+        Uses ``scipy.integrate.cumulative_trapezoid``, starting from 0 at the
+        first sample. Calibration is applied first. Integration amplifies low
+        frequencies, so a DC offset or low-frequency noise in the input grows
+        into a drift: apply :meth:`high_pass_filter` to the result, below the
+        band of interest. For displacement, filter after each integration.
+
+        Args:
+            order: Number of integrations, at least 1. ``1`` turns acceleration
+                into velocity, ``2`` into displacement.
+            unit: Unit of the result. When omitted, ``m/s^2``, ``m/s`` and
+                ``m`` are moved along that chain by ``order``; other units need
+                ``unit``.
+
+        Returns:
+            New ChannelFrame with the integrated signal in the result unit.
+
+        Raises:
+            ValueError: If ``order`` is not an integer of at least 1, or the
+                result unit cannot be inferred.
+
+        Examples:
+            >>> accel = wd.read("accel.wav").with_calibration([wd.ChannelCalibration(0.01, "m/s^2")])
+            >>> velocity = accel.integrate().high_pass_filter(cutoff=10.0)
+            >>> displacement = velocity.integrate().high_pass_filter(cutoff=10.0)
+        """
+        from wandas.processing import create_operation as create_named_operation
+
+        operation = create_named_operation("integrate", self.sampling_rate, order=order)
+        channels = cast(Any, self).channels
+        units = [unit if unit is not None else _integrated_unit(channel, order) for channel in channels]
+        display = operation.get_display_name() or "integrate"
+        channel_metadata = cast(Any, self)._metadata_after_analysis()
+        for descriptor, channel, result_unit in zip(channel_metadata, channels, units, strict=True):
+            descriptor["label"] = f"{display}({channel.label})"
+            descriptor["calibration"] = ChannelCalibration(factor=1.0, unit=result_unit)
+        result = cast(Any, self)._apply_operation_instance(
+            operation,
+            operation_name="integrate",
+            frame_metadata_updates={"channel_metadata": channel_metadata},
+        )
+        return cast(T_Processing, result)
 
     @recipe_operation("wandas.audio.a_weighting", version=2)
     def a_weighting(self: T_Processing) -> T_Processing:
