@@ -1,8 +1,8 @@
 # Unreleased changes
 
-Changes after [Wandas 0.12.0](v0.12.0.md).
+Changes after [Wandas 0.13.0](v0.13.0.md).
 
-0.12.0以降の変更です。
+0.13.0以降の変更です。
 
 ## New features / 新機能
 

@@ -571,6 +571,7 @@ class RecipeExecutor:
         from dask.array.core import Array as DaArray
 
         from wandas.core.base_frame import BaseFrame
+        from wandas.frames.segments import FrameSegments
         from wandas.pipeline.errors import RecipeExecutionError
         from wandas.processing.semantic import LineageNode, SemanticOperation, semantic_lineage
 
@@ -634,7 +635,9 @@ class RecipeExecutor:
                     operation=node.operation,
                     cause=exc,
                 ) from exc
-            if not isinstance(result, BaseFrame):
+            # Segments (such as the hits of a trigger) may sit between nodes; the
+            # output and named steps are checked to be Frames below.
+            if not isinstance(result, BaseFrame | FrameSegments):
                 raise RecipeExecutionError(
                     f"Recipe frame operation returned {type(result).__name__}\n"
                     f"  Node: {node.id!r}\n"
@@ -653,4 +656,12 @@ class RecipeExecutor:
             lineages[node.id] = expected_lineage
             environment[node.id] = result
             kinds[node.id] = "frame"
+        if not isinstance(environment[target], BaseFrame):
+            raise RecipeExecutionError(
+                f"Recipe output is {type(environment[target]).__name__}, not a Frame\n"
+                f"  Node: {target!r}\n"
+                "End the Recipe with a step that returns a Frame, such as average() of segments",
+                node_id=target,
+                operation=next(node.operation for node in plan.nodes if node.id == target),
+            )
         return environment[target]
