@@ -1,4 +1,4 @@
-"""Band-limited frequency-domain integration (``ChannelFrame.integrate``)."""
+"""Trapezoidal time integration (``ChannelFrame.integrate``)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
+import scipy.integrate
 from dask.array.core import Array as DaArray
 
 import wandas as wd
@@ -14,7 +15,7 @@ from wandas.pipeline import RecipePlan
 from wandas.processing import get_operation
 
 _FS = 1000.0
-_T = np.arange(4000) / _FS  # 4 s: every tone below sits on an exact FFT bin
+_T = np.arange(4000) / _FS
 
 
 def _tone(freq: float, amplitude: float = 1.0) -> np.ndarray:
@@ -25,25 +26,34 @@ def _accel(*rows: np.ndarray) -> wd.ChannelFrame:
     return wd.from_numpy(np.stack(rows), sampling_rate=_FS, ch_units="m/s^2")
 
 
-def test_integral_of_a_periodic_tone_matches_the_closed_form() -> None:
+def test_matches_scipy_cumulative_trapezoid() -> None:
+    rng = np.random.default_rng(0)
+    data = rng.standard_normal((2, 4000))
+    frame = wd.from_numpy(data, sampling_rate=_FS, ch_units="m/s^2")
+
+    expected = scipy.integrate.cumulative_trapezoid(data, dx=1 / _FS, axis=-1, initial=0)
+    np.testing.assert_allclose(channel_first_values(frame.integrate()), expected, rtol=1e-12, atol=1e-15)
+    twice = scipy.integrate.cumulative_trapezoid(expected, dx=1 / _FS, axis=-1, initial=0)
+    np.testing.assert_allclose(channel_first_values(frame.integrate(order=2)), twice, rtol=1e-12, atol=1e-15)
+
+
+def test_integral_from_zero_matches_the_closed_form() -> None:
+    omega = 2 * np.pi * 5.0
+    velocity = channel_first_values(_accel(_tone(5.0), _tone(5.0, amplitude=3.0)).integrate())
+
+    # Integral of A sin(wt) from 0: A (1 - cos(wt)) / w. The trapezoid rule is accurate to about (w dt)^2.
+    expected = np.stack([1.0, 3.0])[:, None] * (1 - np.cos(omega * _T)) / omega
+    np.testing.assert_allclose(velocity, expected, atol=3.0 / omega * 5e-4)
+
+
+def test_high_pass_after_integration_removes_the_drift() -> None:
     omega = 2 * np.pi * 50.0
-    frame = _accel(_tone(50.0), _tone(50.0, amplitude=3.0))
+    frame = _accel(0.5 + _tone(50.0))  # a DC offset grows into a ramp
 
-    velocity = channel_first_values(frame.integrate())
-    displacement = channel_first_values(frame.integrate(order=2))
+    velocity = channel_first_values(frame.integrate().high_pass_filter(cutoff=10.0))
 
-    # Integral of A sin(wt) without its constant: -A cos(wt) / w, then -A sin(wt) / w**2.
-    np.testing.assert_allclose(velocity, -np.stack([1.0, 3.0])[:, None] * np.cos(omega * _T) / omega, atol=1e-12)
-    np.testing.assert_allclose(displacement, -np.stack([1.0, 3.0])[:, None] * np.sin(omega * _T) / omega**2, atol=1e-12)
-
-
-def test_band_and_zero_frequency_are_removed() -> None:
-    frame = _accel(2.0 + _tone(5.0) + _tone(50.0) + _tone(400.0))
-
-    velocity = channel_first_values(frame.integrate(fmin=10.0, fmax=200.0))
-
-    omega = 2 * np.pi * 50.0
-    np.testing.assert_allclose(velocity[0], -np.cos(omega * _T) / omega, atol=1e-12)
+    middle = slice(1000, 3000)
+    np.testing.assert_allclose(velocity[0, middle], -np.cos(omega * _T[middle]) / omega, atol=1e-4)
 
 
 def test_units_follow_motion_chain_and_calibration_is_applied() -> None:
@@ -56,8 +66,9 @@ def test_units_follow_motion_chain_and_calibration_is_applied() -> None:
     assert displacement.channels[0].unit == "m"
     assert velocity.channels[0].calibration.factor == 1.0
     assert velocity.labels == ["int(ch0)"]
-    omega = 2 * np.pi * 50.0
-    np.testing.assert_allclose(velocity.rms, [2.0 / omega / np.sqrt(2)], rtol=1e-9)
+    np.testing.assert_allclose(
+        channel_first_values(velocity), 2.0 * channel_first_values(_accel(_tone(50.0)).integrate()), rtol=1e-12
+    )
     assert frame.integrate(unit="mm/s").channels[0].unit == "mm/s"
 
 
@@ -74,35 +85,24 @@ def test_unit_that_cannot_be_inferred_asks_for_unit(unit: str, order: int) -> No
     assert frame.integrate(order=order, unit="V s").channels[0].unit == "V s"
 
 
-@pytest.mark.parametrize(
-    ("kwargs", "message"),
-    [
-        ({"order": 0}, "Invalid integration order"),
-        ({"order": 1.5}, "Invalid integration order"),
-        ({"fmin": 0.0}, "Lower band edge"),
-        ({"fmax": 600.0}, "Upper band edge"),
-        ({"fmin": 100.0, "fmax": 50.0}, "Invalid integration band"),
-        ({"fmin": float("nan")}, "Lower band edge frequency must be finite"),
-        ({"fmax": float("nan")}, "Upper band edge frequency must be finite"),
-    ],
-)
-def test_invalid_parameters_raise(kwargs: dict[str, float], message: str) -> None:
-    with pytest.raises(ValueError, match=message):
-        _accel(_tone(50.0)).integrate(**kwargs)  # ty: ignore[invalid-argument-type]
+@pytest.mark.parametrize("order", [0, -1, 1.5, True])
+def test_invalid_order_raises(order: object) -> None:
+    with pytest.raises(ValueError, match="Invalid integration order"):
+        _accel(_tone(50.0)).integrate(order=order, unit="m/s")  # ty: ignore[invalid-argument-type]
 
 
 def test_integrate_is_lazy_and_records_one_step() -> None:
     frame = _accel(_tone(50.0), _tone(80.0))
     with patch.object(DaArray, "compute", autospec=True) as compute:
-        velocity = frame.integrate(fmin=10.0)
+        displacement = frame.integrate(order=2)
         compute.assert_not_called()
 
-    assert type(velocity) is wd.ChannelFrame
-    assert velocity.n_samples == frame.n_samples
-    assert velocity.operation_history[-1] == {
+    assert type(displacement) is wd.ChannelFrame
+    assert displacement.n_samples == frame.n_samples
+    assert displacement.operation_history[-1] == {
         "operation": "wandas.audio.integrate",
         "version": 1,
-        "params": {"fmin": 10.0},
+        "params": {"order": 2},
     }
     np.testing.assert_array_equal(np.asarray(frame._data), np.stack([_tone(50.0), _tone(80.0)]))
 
@@ -121,10 +121,10 @@ def test_integrate_operation_is_registered() -> None:
 
 def test_integrate_recipe_roundtrip_keeps_unit() -> None:
     source = _accel(_tone(50.0) + _tone(5.0))
-    authored = source.integrate(fmin=10.0, fmax=200.0)
+    authored = source.integrate().high_pass_filter(cutoff=10.0)
     plan = RecipePlan.from_dict(RecipePlan.from_frame(authored, input_names=("signal",)).to_dict())
 
-    assert [node.operation for node in plan.nodes][-1] == "wandas.audio.integrate"
+    assert [node.operation for node in plan.nodes][-2] == "wandas.audio.integrate"
     replayed = plan.apply({"signal": source})
     assert replayed.channels[0].unit == "m/s"
     np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(authored), rtol=1e-12)

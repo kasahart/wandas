@@ -245,7 +245,7 @@ def _operation_cases() -> list[OperationCase]:
         OperationCase("highpass_filter", lambda: HighPassFilter(SR, cutoff=200.0), real),
         OperationCase("lowpass_filter", lambda: LowPassFilter(SR, cutoff=2000.0), real),
         OperationCase("bandpass_filter", lambda: BandPassFilter(SR, low_cutoff=200.0, high_cutoff=2000.0), real),
-        OperationCase("integrate", lambda: Integrate(SR, order=1, fmin=50.0, fmax=2000.0), real),
+        OperationCase("integrate", lambda: Integrate(SR, order=1), real),
         OperationCase("a_weighting", lambda: AWeighting(SR), real),
         OperationCase("cepstrum", lambda: Cepstrum(SR, n_fft=64), real),
         OperationCase(

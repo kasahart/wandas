@@ -490,28 +490,18 @@ class ChannelProcessingMixin:
         return cast(T_Processing, self._apply_named_operation("envelope"))
 
     @recipe_operation("wandas.audio.integrate")
-    def integrate(
-        self: T_Processing,
-        order: int = 1,
-        fmin: float | None = None,
-        fmax: float | None = None,
-        unit: str | None = None,
-    ) -> T_Processing:
-        """Integrate each channel in the frequency domain, limited to a band.
+    def integrate(self: T_Processing, order: int = 1, unit: str | None = None) -> T_Processing:
+        """Integrate each channel in time with the trapezoidal rule.
 
-        The spectrum of each whole channel is divided by ``(j 2 pi f) ** order``
-        and bins outside ``[fmin, fmax]`` are set to zero, together with 0 Hz.
-        Working on the whole channel avoids the drift of time-domain
-        integration, but the result is periodic over the channel, so its ends
-        wrap around. Calibration is applied first.
+        Uses ``scipy.integrate.cumulative_trapezoid``, starting from 0 at the
+        first sample. Calibration is applied first. Integration amplifies low
+        frequencies, so a DC offset or low-frequency noise in the input grows
+        into a drift: apply :meth:`high_pass_filter` to the result, below the
+        band of interest. For displacement, filter after each integration.
 
         Args:
             order: Number of integrations, at least 1. ``1`` turns acceleration
                 into velocity, ``2`` into displacement.
-            fmin: Lowest frequency kept in Hz. ``None`` keeps every bin above
-                0 Hz.
-            fmax: Highest frequency kept in Hz. ``None`` keeps every bin up to
-                Nyquist.
             unit: Unit of the result. When omitted, ``m/s^2``, ``m/s`` and
                 ``m`` are moved along that chain by ``order``; other units need
                 ``unit``.
@@ -520,18 +510,17 @@ class ChannelProcessingMixin:
             New ChannelFrame with the integrated signal in the result unit.
 
         Raises:
-            ValueError: If ``order`` is not an integer of at least 1, a band
-                edge is not between 0 and Nyquist, ``fmin >= fmax``, or the
+            ValueError: If ``order`` is not an integer of at least 1, or the
                 result unit cannot be inferred.
 
         Examples:
             >>> accel = wd.read("accel.wav").with_calibration([wd.ChannelCalibration(0.01, "m/s^2")])
-            >>> velocity = accel.integrate(fmin=10.0, fmax=1000.0)
-            >>> velocity.rms  # band RMS velocity in m/s
+            >>> velocity = accel.integrate().high_pass_filter(cutoff=10.0)
+            >>> displacement = velocity.integrate().high_pass_filter(cutoff=10.0)
         """
         from wandas.processing import create_operation as create_named_operation
 
-        operation = create_named_operation("integrate", self.sampling_rate, order=order, fmin=fmin, fmax=fmax)
+        operation = create_named_operation("integrate", self.sampling_rate, order=order)
         channels = cast(Any, self).channels
         units = [unit if unit is not None else _integrated_unit(channel, order) for channel in channels]
         display = operation.get_display_name() or "integrate"
