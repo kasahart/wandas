@@ -1812,6 +1812,12 @@
   <code>kurtosis</code> uses <code>dask.array.stats.kurtosis</code>.
   <code>ChannelFrame.peak</code>と<code>ChannelFrame.kurtosis</code>は、<code>rms</code>と同じように各チャンネルの絶対値の最大と
   ピアソンの尖度をNumPy配列で返します。<code>kurtosis</code>は<code>dask.array.stats.kurtosis</code>で計算します。</li>
+<li><code>SpectralFrame.find_peaks()</code> lists the spectral peaks of each channel as a
+  pandas table (frequency, level, amplitude, prominence), using
+  <code>scipy.signal.find_peaks</code> on the dB level, with optional parabolic
+  interpolation between bins.
+  <code>SpectralFrame.find_peaks()</code>は、dBレベルに<code>scipy.signal.find_peaks</code>を使って各チャンネルのスペクトルピーク
+  （周波数・レベル・振幅・突出度）をpandasの表で返します。ビン間の放物線補間も選べます。</li>
 </ul>
 
 
@@ -1833,7 +1839,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 3, 2026 03:54:47 UTC">November 3, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 3, 2026 04:01:42 UTC">November 3, 2026</span>
   </span>
 
     
