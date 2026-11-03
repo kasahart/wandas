@@ -1424,3 +1424,42 @@ def test_spectrogram_signal_extent_survives_wdf(tmp_path: Path) -> None:
     loaded = cast(Any, wd.load(path))
     assert loaded.signal_length == 512
     np.testing.assert_array_equal(loaded._full_frame_mask(), spectrum._full_frame_mask())
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ("negative-offset", "signal_frame_offset"),
+        ("bool-offset", "signal_frame_offset"),
+        ("zero-length", "signal_length"),
+        ("missing-offset", "constructor state"),
+        ("missing-origin", "Invalid WDF 0.7"),
+        ("missing-extent", "Invalid WDF 0.7"),
+        ("released-version", "requires format version 0.7"),
+    ],
+)
+def test_wdf_07_rejects_corrupt_signal_extent(tmp_path: Path, change: str, message: str) -> None:
+    path = tmp_path / "extent.wdf"
+    wd.from_numpy(np.zeros(128), sampling_rate=8000).stft(n_fft=32, hop_length=8).save(path)
+
+    def corrupt(dataset: xr.Dataset) -> None:
+        state = json.loads(dataset.attrs["constructor_json"])
+        if change == "negative-offset":
+            state["signal_frame_offset"] = -1
+        elif change == "bool-offset":
+            state["signal_frame_offset"] = True
+        elif change == "zero-length":
+            state["signal_length"] = 0
+        elif change == "missing-offset":
+            del state["signal_frame_offset"]
+        elif change == "missing-origin":
+            del state["frame_time_origin"]
+        elif change == "missing-extent":
+            del state["signal_length"], state["signal_frame_offset"]
+        else:
+            dataset.attrs["version"] = "0.5"
+        dataset.attrs["constructor_json"] = json.dumps(state)
+
+    _rewrite(path, corrupt)
+    with pytest.raises(ValueError, match=message):
+        wd.load(path)
