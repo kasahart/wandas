@@ -2107,13 +2107,18 @@ Operations by name). The Recipe registry is for looking up <strong>Recipe IDs</s
 <code>default_recipe_registry()</code> provides the standard entries, and <code>with_operation()</code>
 returns a new registry with your entry added, leaving the original unchanged.
 This does not add <code>.gain()</code> to ordinary <code>ChannelFrame</code> objects: create your inputs
-with <code>ProjectFrame.from_numpy()</code> to call your new method.</p>
+with <code>ProjectFrame.from_numpy()</code>, <code>ProjectFrame.read_wav()</code>, <code>ProjectFrame.read_csv()</code>
+or <code>ProjectFrame.from_file()</code> to call your new method. Processing methods and
+channel changes such as <code>add_channel()</code> keep returning <code>ProjectFrame</code>. <code>save()</code> to WDF
+supports only the built-in Frame classes, so it rejects a <code>ProjectFrame</code>.</p>
 <p>この例は<code>Gain(...)</code>で処理を直接作るため、数値処理を名前から探すための別の登録関数
 <code>register_operation()</code>は不要です。ここで作るRecipe registryは、<strong>Recipeに保存した処理名</strong>を
 探すためのものです。<code>default_recipe_registry()</code>で標準の対応表を取得し、<code>with_operation()</code>で
 自分の処理を加えた新しい対応表を作ります。元の対応表は変更しません。
 通常の<code>ChannelFrame</code>に<code>.gain()</code>が追加されるわけではないので、自分のメソッドを使う入力は
-<code>ProjectFrame.from_numpy()</code>で作ります。</p>
+<code>ProjectFrame.from_numpy()</code>・<code>ProjectFrame.read_wav()</code>・<code>ProjectFrame.read_csv()</code>・
+<code>ProjectFrame.from_file()</code>で作ります。処理メソッドや<code>add_channel()</code>などのチャンネル操作の結果も
+<code>ProjectFrame</code>のままです。WDFへの<code>save()</code>は組み込みのFrameクラスだけに対応しているため、<code>ProjectFrame</code>は保存できません。</p>
 <h2 id="extract-save-and-replay">Extract, save, and replay / 処理手順を取り出して保存・再実行する<a class="headerlink" href="#extract-save-and-replay" title="Permanent link">&para;</a></h2>
 <p><code>RecipePlan.from_frame()</code> builds a Recipe from the processing recorded on the
 result Frame. We call this <strong>extraction</strong>. <code>input_names=("signal",)</code> gives the
@@ -2190,7 +2195,7 @@ Test numerical results, unchanged inputs, attached information and axes, deferre
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 29, 2026 15:24:52 UTC">September 29, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 3, 2026 13:34:25 UTC">November 3, 2026</span>
   </span>
 
     
