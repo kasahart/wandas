@@ -83,6 +83,12 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   `rms_trend`/`sound_level` version 2 replay the bilinear-only filter.
   Readers without the new versions reject new Recipes at load time. The
   Recipe document schema is unchanged.
+- `loudness_zwtv`, `roughness_dw`, `roughness_dw_spec` and `sharpness_din`
+  set the result channel unit to `sone`, `asper`, `asper/Bark` and `acum`
+  with reference 1.0 instead of keeping the input unit. New Recipes use
+  operation version 2; released version 1 replays the input unit. Values are
+  unchanged. Readers without version 2 reject new Recipes at load time. The
+  Recipe document schema is unchanged.
 - `ChannelFrame.trim()` rounds times to the nearest sample (halves up) instead
   of truncating them. New `wandas.frame.time_slice` Recipes use operation
   version 2; released version 1 replays the truncation. Readers without
