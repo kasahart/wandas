@@ -83,3 +83,13 @@ Changes after [Wandas 0.13.1](v0.13.1.md).
   `sharpness_din()`は`acum`で、基準値はどれも1.0、レベルの種類は`"none"`（dBは警告）です。これまでは`Pa`のチャンネルから求めた
   ラウドネスも`Pa`・基準値2e-05のままでした。値は変わりません。新しいRecipeはこの4つの操作の
   version 2を使い、0.13.1で保存したRecipe（version 1）は今までどおり入力の単位で再生します。
+
+## Compatibility and migration / 互換性と移行
+
+| Affected surface or artifact | Classification | Deprecation start | Replacement or migration | Removal/change version | Exception reason and decision link |
+| --- | --- | --- | --- | --- | --- |
+| Unit text of `csd()` and `transfer_function()` results, including replays of Recipes saved by 0.13.1 (`wandas.audio.csd` and `wandas.audio.transfer_function` version 2, `wandas.spectrogram.csd`, `wandas.cross_spectral.transfer_function`, `wandas.segments.transfer_function`) | Stable / Serialized, unit text change without a new operation version | None | Compare units with the canonical form (`Pa^2`, `Pa*s/m`); values, references and level kinds are unchanged, and WDF files written by 0.13.1 load with the new text | Next release | Pairwise frames check their unit against one derivation, so replaying the released text would need two spellings; the released `Pa/m/s` also reads as Pa/(m·s). Maintainer decision on [#656](https://github.com/kasahart/wandas/pull/656) |
+
+| 影響する機能・データ | 分類 | 非推奨の開始 | 代替・移行方法 | 変更バージョン | 例外の理由と判断のリンク |
+| --- | --- | --- | --- | --- | --- |
+| `csd()`・`transfer_function()`の結果の単位の文字列（0.13.1で保存したRecipe、`wandas.audio.csd`・`wandas.audio.transfer_function`のversion 2、`wandas.spectrogram.csd`、`wandas.cross_spectral.transfer_function`、`wandas.segments.transfer_function`の再生を含む） | Stable / Serialized、操作versionを上げない単位の表記の変更 | なし | 単位は正規の書き方（`Pa^2`、`Pa*s/m`）で比べてください。値・基準値・レベルの種類は変わらず、0.13.1で保存したWDFは新しい表記で読み込みます | 次のリリース | ペアのFrameは単位を1つの導出と照合するため、旧表記で再生するには表記を2通り持つ必要があります。また旧表記`Pa/m/s`はPa/(m·s)と読めます。判断は[#656](https://github.com/kasahart/wandas/pull/656)でメンテナーが行いました |

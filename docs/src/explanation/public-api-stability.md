@@ -104,7 +104,9 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
 - CSD and transfer-function units use the canonical unit form (`Pa^2`,
   `Pa*s/m`) instead of joined text (`Pa*Pa`, `Pa/m/s`). WDF readers accept the
   released spellings and return the canonical form; older readers reject the
-  new spellings in files explicitly. Operation versions are unchanged.
+  new spellings in files explicitly. Operation versions are unchanged, so
+  Recipes saved by 0.13.1 replay with the canonical unit text as well; this
+  exception is recorded in the release notes.
 - `ChannelFrame.trim()` rounds times to the nearest sample (halves up) instead
   of truncating them. New `wandas.frame.time_slice` Recipes use operation
   version 2; released version 1 replays the truncation. Readers without
