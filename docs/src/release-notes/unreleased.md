@@ -58,6 +58,15 @@ Changes after [Wandas 0.13.1](v0.13.1.md).
   校正していないチャンネル（単位`""`）は校正していないままです。値は変わりません。新しいRecipeは
   `wandas.operator.*`・`wandas.numpy.ufunc`・`wandas.audio.power`のversion 2を使い、0.13.1で保存した
   Recipe（version 1）は今までどおり左の単位で再生します。
+- `csd()` and `transfer_function()` write their units in the same canonical
+  form ([#651](https://github.com/kasahart/wandas/issues/651)): `Pa*Pa`
+  becomes `Pa^2`, `Pa*Pa/Hz` becomes `Pa^2/Hz`, and the transfer function of
+  `m/s` to `Pa` becomes `Pa*s/m` instead of `Pa/m/s`, which read as
+  Pa/(m·s). References and values do not change. WDF files written by 0.13.1
+  load with the new unit text.
+  `csd()`と`transfer_function()`の単位も同じ正規の書き方になりました。`Pa*Pa`は`Pa^2`、
+  `Pa*Pa/Hz`は`Pa^2/Hz`、`m/s`から`Pa`への伝達関数は`Pa/m/s`（Pa/(m·s)と読めてしまう）ではなく
+  `Pa*s/m`です。基準値と値は変わりません。0.13.1で保存したWDFは新しい単位の表記で読み込みます。
 
 - The time-varying psychoacoustic results carry the unit of the metric instead
   of the input channel's unit

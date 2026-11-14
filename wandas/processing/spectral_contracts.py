@@ -15,6 +15,7 @@ from typing import Literal, cast
 
 import numpy as np
 
+from wandas.core._units import unit_product, unit_quotient
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 SpectralScaling = Literal["spectrum", "density"]
@@ -131,8 +132,33 @@ def flatten_pair_index(output_index: int, input_index: int, n_channels: int) -> 
 
 
 def _product_unit(input_unit: str, output_unit: str) -> str:
-    factors = [unit for unit in (input_unit, output_unit) if unit]
-    return "*".join(factors) or "1"
+    """Return ``input * output`` in the canonical unit form (``Pa*Pa`` is ``Pa^2``).
+
+    An empty (uncalibrated) unit counts as dimensionless here, so two
+    uncalibrated channels give ``1``.
+    """
+    return unit_product(input_unit or "1", output_unit or "1")
+
+
+def released_pair_units(pair: OrderedSpectralPair) -> frozenset[str]:
+    """Return the CSD and transfer unit strings that releases up to 0.13.1 wrote.
+
+    They joined the units with ``*`` and ``/`` as text (``Pa*Pa/Hz``,
+    ``Pa/m/s``). WDF reading accepts them for files written by those releases
+    and replaces them with the current canonical form.
+    """
+    product = "*".join(unit for unit in (pair.input.unit, pair.output.unit) if unit) or "1"
+    units = {product, f"{product}/Hz"}
+    for numerator, denominator in ((pair.output.unit, pair.input.unit), (pair.input.unit, pair.output.unit)):
+        if not numerator and not denominator or numerator == denominator:
+            units.add("1")
+        elif not denominator:
+            units.add(numerator)
+        elif not numerator:
+            units.add(f"1/{denominator}")
+        else:
+            units.add(f"{numerator}/{denominator}")
+    return frozenset(units)
 
 
 def _validate_scaling(scaling: str) -> SpectralScaling:
@@ -146,7 +172,7 @@ def derive_csd_domain(pair: OrderedSpectralPair, scaling: str) -> DerivedSpectra
     mode = _validate_scaling(scaling)
     unit = _product_unit(pair.input.unit, pair.output.unit)
     if mode == "density":
-        unit = f"{unit}/Hz"
+        unit = unit_quotient(unit, "Hz")
     return DerivedSpectralDomain(
         unit=unit,
         reference=pair.input.reference * pair.output.reference,
@@ -173,16 +199,8 @@ def derive_transfer_domain(
         raise ValueError("Transfer denominator role must be 'input' or 'output'")
     numerator_role = pair.output if denominator_role == "input" else pair.input
     denominator = pair.input if denominator_role == "input" else pair.output
-    output_unit = numerator_role.unit
-    input_unit = denominator.unit
-    if not output_unit and not input_unit or output_unit == input_unit:
-        unit = "1"
-    elif not input_unit:
-        unit = output_unit
-    elif not output_unit:
-        unit = f"1/{input_unit}"
-    else:
-        unit = f"{output_unit}/{input_unit}"
+    # Empty (uncalibrated) units count as dimensionless; equal units cancel to 1.
+    unit = unit_quotient(numerator_role.unit or "1", denominator.unit or "1")
     return DerivedSpectralDomain(
         unit=unit,
         reference=numerator_role.reference / denominator.reference,

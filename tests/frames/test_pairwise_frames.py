@@ -153,15 +153,15 @@ def test_pair_state_is_output_major_input_minor_and_has_opaque_source_identity()
         "input": {"sensor": "S1"},
     }
     assert [record.domain.unit for record in frame.pair_state] == [
-        "V*V/Hz",
+        "V^2/Hz",
         "Pa*V/Hz",
-        "V*V/Hz",
+        "V^2/Hz",
         "V*Pa/Hz",
-        "Pa*Pa/Hz",
+        "Pa^2/Hz",
         "V*Pa/Hz",
-        "V*V/Hz",
+        "V^2/Hz",
         "Pa*V/Hz",
-        "V*V/Hz",
+        "V^2/Hz",
     ]
 
 

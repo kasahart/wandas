@@ -757,6 +757,10 @@ def _decoded_pair_rows(
         )
 
         expected_domain = expected_domain_for(pair)
+        if _released_spelling_of(domain, expected_domain, pair):
+            # Files written up to 0.13.1 spell, for example, ``Pa*Pa/Hz`` for
+            # ``Pa^2/Hz``; read them in the current canonical form.
+            domain = expected_domain
         if domain != expected_domain:
             raise _invalid_constructor_value(
                 frame_type,
@@ -889,6 +893,17 @@ def _validated_pairwise_constructor_state(
     return n_fft, window, tuple(normalized_frequency_indices), source_ids, records, scaling, denominator_role
 
 
+def _released_spelling_of(stored: Any, expected: Any, pair: Any) -> bool:
+    """Return whether a stored pair domain is the released spelling of the expected one."""
+    from wandas.processing.spectral_contracts import released_pair_units
+
+    return (
+        stored.unit != expected.unit
+        and float(stored.reference) == float(expected.reference)
+        and stored.unit in released_pair_units(pair)
+    )
+
+
 def _validate_pairwise_common(
     common: Mapping[str, Any],
     records: tuple[Any, ...],
@@ -925,6 +940,15 @@ def _validate_pairwise_common(
                 f"  Got: {type(metadata).__name__}\n"
                 "  Expected: ChannelMetadata"
             )
+        if _released_spelling_of(
+            type(record.domain)(unit=metadata.unit, reference=metadata.ref), record.domain, record.pair
+        ):
+            metadata = ChannelMetadata(
+                label=metadata.label,
+                calibration=metadata.calibration.with_unit(record.domain.unit).with_ref(metadata.ref),
+                extra=metadata.extra,
+            )
+            channel_metadata[row] = metadata
         if (
             metadata.unit != record.domain.unit
             or float(metadata.ref) != float(record.domain.reference)
