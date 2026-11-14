@@ -87,3 +87,49 @@ def test_units_that_were_never_written_for_the_stored_quantity_are_rejected(
     _respell(path, old_path, replacements)
     with pytest.raises(ValueError):
         wd.load(old_path)
+
+
+@pytest.mark.parametrize(
+    ("kind", "replacements"),
+    [
+        pytest.param("csd-density", {"Pa^2/Hz": "Pa*Pa"}, id="density-csd-spectrum-spelling"),
+        pytest.param("transfer", {"Pa*s/m": "m/s*Pa"}, id="transfer-csd-spelling"),
+    ],
+)
+def test_spellings_of_another_scaling_or_quantity_are_rejected(
+    tmp_path: Path, kind: str, replacements: dict[str, str]
+) -> None:
+    source = _source()
+    if kind == "csd-density":
+        frame: Any = source.csd(n_fft=256, win_length=256, hop_length=128, scaling="density")
+    else:
+        frame = source.transfer_function(n_fft=256, win_length=256, hop_length=128)
+    path = tmp_path / "current.wdf"
+    old_path = tmp_path / "respelled.wdf"
+    frame.save(path)
+    _respell(path, old_path, replacements)
+    with pytest.raises(ValueError):
+        wd.load(old_path)
+
+
+def test_released_spellings_of_uncalibrated_and_equal_units() -> None:
+    from wandas.processing.spectral_contracts import (
+        OrderedSpectralPair,
+        SpectralChannelRole,
+        released_csd_unit,
+        released_transfer_unit,
+    )
+
+    def pair(output: str, input_: str) -> OrderedSpectralPair:
+        return OrderedSpectralPair(
+            output=SpectralChannelRole(0, "out", output, 1.0),
+            input=SpectralChannelRole(1, "in", input_, 1.0),
+            n_channels=2,
+        )
+
+    assert released_csd_unit(pair("", ""), "spectrum") == "1"
+    assert released_csd_unit(pair("Pa", ""), "density") == "Pa/Hz"
+    assert released_transfer_unit(pair("Pa", "Pa")) == "1"
+    assert released_transfer_unit(pair("Pa", "")) == "Pa"
+    assert released_transfer_unit(pair("", "Pa")) == "1/Pa"
+    assert released_transfer_unit(pair("Pa", "m/s"), "output") == "m/s/Pa"
