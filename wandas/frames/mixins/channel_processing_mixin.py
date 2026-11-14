@@ -171,12 +171,10 @@ class ChannelProcessingMixin:
         channel_metadata = cast(Any, self)._metadata_after_analysis()
         for descriptor, channel in zip(channel_metadata, cast(Any, self).channels, strict=True):
             descriptor["label"] = f"{display}({channel.label})"
-            # Values already in dB have no further level.
             descriptor["calibration"] = ChannelCalibration(
                 factor=1.0,
                 unit=_format_level_unit(channel.calibration),
                 ref=1.0,
-                level="none",
             )
 
         return cast(Any, self)._apply_operation_instance(

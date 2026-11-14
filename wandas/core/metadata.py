@@ -30,7 +30,7 @@ LevelKind = Literal["amplitude", "power", "none"]
 
 ``"amplitude"`` (field) quantities such as Pa or V use ``20 * log10``, ``"power"``
 quantities such as Pa^2 or W use ``10 * log10``, and ``"none"`` marks values whose
-level is not defined (for example sone or values already in dB).
+level is not defined (for example sone).
 """
 
 _LEVEL_KINDS: tuple[str, ...] = get_args(LevelKind)

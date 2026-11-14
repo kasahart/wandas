@@ -15,8 +15,8 @@ Changes after [Wandas 0.13.1](v0.13.1.md).
   `"none"` makes the dB properties raise. Spectral, spectrogram and band
   `dB`, `LevelReference.to_level()` and WDF files follow it. RMS-based levels
   (`rms_trend(dB=True)`, `sound_level()`, `leq()`, `percentile_levels()`)
-  raise for channels that are not amplitude quantities. The results of those
-  dB operations are marked `"none"`, since their values are already levels.
+  raise for channels that are not amplitude quantities; their dB results
+  keep the amplitude kind, as before.
   Existing frames, Recipes and WDF files describe amplitude channels and
   their levels do not change.
   チャンネルの校正に、値をレベルへ直す方法を持たせました（`level="amplitude" | "power" | "none"`）。
@@ -24,7 +24,7 @@ Changes after [Wandas 0.13.1](v0.13.1.md).
   `10 * log10(|x| / ref)`で、`"none"`ではdBの属性がエラーになります。スペクトル・スペクトログラム・
   帯域の`dB`、`LevelReference.to_level()`、WDFがこれに従います。RMSから求めるレベル
   （`rms_trend(dB=True)`・`sound_level()`・`leq()`・`percentile_levels()`）は振幅量以外ではエラーになり、
-  これらのdB操作の結果は既にレベルなので`"none"`になります。既存のFrame・Recipe・WDFは振幅量を表し、
+  これらのdB操作の結果は今までどおり振幅量のままです。既存のFrame・Recipe・WDFは振幅量を表し、
   レベルの値は変わりません。
 
 ## Changed / 変更
