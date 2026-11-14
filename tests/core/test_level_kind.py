@@ -92,10 +92,9 @@ class TestLevelConversion:
             with pytest.raises(ValueError, match="needs amplitude quantities"):
                 call(_frame([calibration]))
 
-    def test_level_results_keep_the_amplitude_kind(self) -> None:
-        # Values already in dB keep the released amplitude kind.
+    def test_level_results_have_no_further_level(self) -> None:
         level = _frame([_PA]).rms_trend(frame_length=256, hop_length=128, dB=True)
-        assert level.channels[0].calibration.level == "amplitude"
+        assert level.channels[0].calibration.level == "none"
 
 
 class TestPropagation:
