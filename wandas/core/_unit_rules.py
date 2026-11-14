@@ -7,7 +7,8 @@ the result channel describes. For a channel ``a`` and another operand ``b``
 - ``a ± b``: ``a``'s unit and reference, with a warning when the units or
   kinds differ; differing kinds give no level, in either order. ``maximum``,
   ``hypot``, ``fmod`` and similar follow it.
-- ``a ± k``, ``a * k``, ``a / k``: unchanged.
+- ``a ± k``, ``a * k``, ``a / k``: unchanged. ``copysign(k, a)`` and
+  ``ldexp(k, a)``: ``1``, no level.
 - ``a * b``: product of the units and of the references. Amplitude times
   amplitude is a power quantity; a dimensionless amplitude channel (unit
   ``1``, such as a window) is a gain and keeps the other kind; otherwise the
@@ -18,7 +19,7 @@ the result channel describes. For a channel ``a`` and another operand ``b``
 - ``k / a`` and ``reciprocal``: reciprocal unit and reference, same kind.
 - ``a ** n``, ``power(n)``, ``square``, ``sqrt``, ``cbrt``: unit and reference
   to the power ``n``. Amplitude squared is power, power to the 1/2 is
-  amplitude, ``n == 1`` keeps the kind; otherwise no level.
+  amplitude, ``n == 1`` and ``n == -1`` keep the kind; otherwise no level.
 - ``a ** b``, ``a ** array``: unknown unit ``""``, reference 1, no level.
   ``k ** a``: ``1``, no level.
 - ``abs``, ``negative``, ``conjugate`` and rounding: unchanged.
@@ -191,7 +192,8 @@ def _quotient_level(left: ChannelCalibration, right: ChannelCalibration) -> Leve
 
 
 def _power_level(level: LevelKind, exponent: float) -> LevelKind:
-    if exponent == 1:
+    if exponent in (1, -1):
+        # The reciprocal keeps the kind, as reciprocal() and k / a do.
         return level
     if level == "amplitude" and exponent == 2:
         return "power"
@@ -258,6 +260,9 @@ def derive_binary(
             return raised(left, _real_exponent(operand))
         if rule == DIVIDE and reverse:
             return reciprocal(left)
+        if rule == LEFT and reverse:
+            # copysign(k, a), ldexp(k, a): the magnitude comes from the scalar.
+            return _ONE
         if rule in (ADDITIVE, MULTIPLY, DIVIDE, LEFT):
             return left
         if rule == DIMENSIONLESS:

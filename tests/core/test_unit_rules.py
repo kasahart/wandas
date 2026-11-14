@@ -112,6 +112,12 @@ class TestOperators:
             pytest.param(lambda p, q, v, g: np.sqrt(p * p), ("Pa", pytest.approx(2e-5), "amplitude"), id="sqrt(p*p)"),
             pytest.param(lambda p, q, v, g: p**3, ("Pa^3", pytest.approx(8e-15), "none"), id="p**3"),
             pytest.param(lambda p, q, v, g: p**1, ("Pa", 2e-5, "amplitude"), id="p**1"),
+            pytest.param(lambda p, q, v, g: p**-1, ("1/Pa", pytest.approx(5e4), "amplitude"), id="p**-1"),
+            pytest.param(
+                lambda p, q, v, g: np.reciprocal(p), ("1/Pa", pytest.approx(5e4), "amplitude"), id="reciprocal"
+            ),
+            pytest.param(lambda p, q, v, g: np.copysign(p, -1.0), ("Pa", 2e-5, "amplitude"), id="copysign(p,k)"),
+            pytest.param(lambda p, q, v, g: np.copysign(1.0, p), ("1", 1.0, "none"), id="copysign(k,p)"),
             pytest.param(lambda p, q, v, g: p**q, ("", 1.0, "none"), id="p**p2"),
             pytest.param(lambda p, q, v, g: 2**p, ("1", 1.0, "none"), id="2**p"),
             pytest.param(lambda p, q, v, g: np.abs(np.negative(p)), ("Pa", 2e-5, "amplitude"), id="abs(negative)"),
