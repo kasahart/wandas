@@ -439,7 +439,7 @@ def test_binary_operations_cover_scalar_helpers_and_frame_mismatch_errors():
 
     assert (f - 1).operation_history[-1] == {
         "operation": "wandas.operator.subtract",
-        "version": 1,
+        "version": 2,
         "params": {"operand": 1},
     }
     assert (f * 2).operation_history[-1]["operation"] == "wandas.operator.multiply"
@@ -591,7 +591,7 @@ def test_channel_frame_binary_op_frame_success_and_remaining_operand_formats():
     assert added.labels == ["(l0 + r0)", "(l1 + r1)"]
     assert added.operation_history[-1] == {
         "operation": "wandas.operator.add",
-        "version": 1,
+        "version": 2,
         "params": {},
     }
     np.testing.assert_array_equal(channel_first_values(added), channel_first_values(left) + channel_first_values(right))

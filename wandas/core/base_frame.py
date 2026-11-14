@@ -39,6 +39,7 @@ from ._channel_schema import (
     _CHANNEL_REF_KEY,
     _CHANNEL_UNIT_KEY,
 )
+from ._unit_rules import derive_binary, derive_unary, operand_units_kept, units_are_kept, warn_mixed_units
 from .channel_metadata import ChannelMetadataIndexer, ChannelMetadataView
 from .metadata import (
     ChannelCalibration,
@@ -362,19 +363,52 @@ def _capture_ufunc(args: tuple[Any, ...], params: Mapping[str, Any]) -> Operatio
     )
 
 
-def _ufunc_recipe_handler(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
-    """Replay a NumPy ufunc call through the Frame ufunc boundary."""
-    ufunc = _numpy_ufunc(params["ufunc"])
-    if len(inputs) == 2:
-        left, right = inputs
-        if isinstance(left, BaseFrame):
-            return left._apply_ufunc(ufunc, right)
-        return right._apply_ufunc(ufunc, left, reverse=True)
-    if "operand" in params:
-        return inputs[0]._apply_ufunc(ufunc, params["operand"], reverse=params["reverse"])
-    if ufunc.nin != 1:
-        raise ValueError(f"NumPy ufunc '{ufunc.__name__}' takes two inputs but the Recipe stores one")
-    return inputs[0]._apply_ufunc(ufunc)
+def _ufunc_handler(method_name: str) -> Callable[[tuple[Any, ...], Mapping[str, Any]], Any]:
+    """Build a replay handler that applies a NumPy ufunc through one Frame method."""
+
+    def apply(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+        """Replay a NumPy ufunc call through the Frame ufunc boundary."""
+        ufunc = _numpy_ufunc(params["ufunc"])
+        if len(inputs) == 2:
+            left, right = inputs
+            if isinstance(left, BaseFrame):
+                return getattr(left, method_name)(ufunc, right)
+            return getattr(right, method_name)(ufunc, left, reverse=True)
+        if "operand" in params:
+            return getattr(inputs[0], method_name)(ufunc, params["operand"], reverse=params["reverse"])
+        if ufunc.nin != 1:
+            raise ValueError(f"NumPy ufunc '{ufunc.__name__}' takes two inputs but the Recipe stores one")
+        return getattr(inputs[0], method_name)(ufunc)
+
+    return apply
+
+
+_ufunc_recipe_handler = _ufunc_handler("_apply_ufunc")
+
+
+def _units_kept_operator_v1(operation_id: str, method_name: str, *, reverse: bool = False) -> Any:
+    """Declare the released version 1 of an arithmetic operator.
+
+    Version 1 kept the left operand's channel units, references and level
+    kinds. Its replay calls the current operator under that contract and
+    records version 1 again.
+    """
+    replay_name = f"_{method_name.strip('_')}_recipe_v1"
+
+    def replay(self: Any, other: Any) -> Any:
+        with operand_units_kept():
+            return getattr(self, method_name)(other)
+
+    replay.__name__ = replay.__qualname__ = replay_name
+    replay.__doc__ = f"Replay released Recipe v1 of ``{operation_id}``, which kept the operand units."
+    handler = (_reverse_binary_recipe_handler if reverse else _binary_recipe_handler)(replay_name)
+    return recipe_operation(
+        operation_id,
+        version=1,
+        binding_patterns=_REVERSE_BINARY_PATTERNS if reverse else _FORWARD_BINARY_PATTERNS,
+        capture=_capture_reverse_binary if reverse else _capture_binary,
+        handler=handler,
+    )(replay)
 
 
 def _validate_ufunc_params(params: Mapping[str, Any]) -> None:
@@ -2058,6 +2092,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @recipe_operation(
         "wandas.numpy.ufunc",
+        version=2,
         binding_patterns=_UFUNC_PATTERNS,
         capture=_capture_ufunc,
         handler=_ufunc_recipe_handler,
@@ -2072,8 +2107,11 @@ class BaseFrame(ABC, Generic[T]):
             reverse: Whether ``operand`` is the ufunc's first input.
 
         Returns:
-            A new frame of the same type. Calibration is applied before the ufunc,
-            and channel units and references are kept, as for the arithmetic operators.
+            A new frame of the same type. Calibration is applied before the ufunc.
+            The result channel unit, reference and level kind follow the rules
+            in :mod:`wandas.core._unit_rules`: ``sqrt`` and ``square`` raise the
+            unit to a power, ``abs`` and rounding keep it, and ``log``, ``exp``
+            and the trigonometric ufuncs give the dimensionless unit ``1``.
         """
         name = ufunc.__name__
         widen = name in self._array_ufunc_widened
@@ -2089,8 +2127,11 @@ class BaseFrame(ABC, Generic[T]):
         if widen:
             (data,) = integer_arithmetic_as_float64(data)
         channel_metadata = self._metadata_after_analysis()
+        units_kept = units_are_kept()
         for descriptor, channel in zip(channel_metadata, self.channels, strict=True):
             descriptor["label"] = f"{name}({channel.label})"
+            if not units_kept:
+                descriptor["calibration"] = derive_unary(name, descriptor["calibration"])
         return self._create_new_instance(
             data=ufunc(data),
             label=f"{name}({self.label})",
@@ -2234,13 +2275,7 @@ class BaseFrame(ABC, Generic[T]):
                 descriptor["label"] = f"({other_label} {symbol} {self_ch.label})"
             else:
                 descriptor["label"] = f"({self_ch.label} {symbol} {other_label})"
-        if isinstance(other, BaseFrame):
-            # Operands of different level kinds give a result without a dB level,
-            # whatever their order.
-            for descriptor, other_ch in zip(new_channel_metadata, other.channels, strict=True):
-                calibration = descriptor["calibration"]
-                if calibration.level != other_ch.calibration.level:
-                    descriptor["calibration"] = calibration.with_level("none")
+        self._derive_binary_calibrations(new_channel_metadata, other, symbol, reverse=reverse)
 
         label = (
             f"({other_str} {symbol} {self.label})"
@@ -2254,6 +2289,48 @@ class BaseFrame(ABC, Generic[T]):
             lineage=self._required_semantic_lineage(),
             channel_metadata=new_channel_metadata,
         )
+
+    @staticmethod
+    def _derive_binary_calibrations(
+        channel_metadata: list[dict[str, Any]],
+        other: object,
+        symbol: str,
+        *,
+        reverse: bool,
+    ) -> None:
+        """Set each result channel's unit, reference and level kind by the arithmetic rules.
+
+        The rules live in :mod:`wandas.core._unit_rules`. Recipe version 1 of
+        the operators replays the released contract, which kept the left
+        operand's channels unchanged.
+        """
+        if units_are_kept():
+            if isinstance(other, BaseFrame):
+                # Version 1 kept the left channel, but operands of different
+                # level kinds still give no dB level, whatever their order.
+                for descriptor, other_ch in zip(channel_metadata, other.channels, strict=True):
+                    calibration = descriptor["calibration"]
+                    if calibration.level != other_ch.calibration.level:
+                        descriptor["calibration"] = calibration.with_level("none")
+            return
+        right = (
+            [descriptor["calibration"] for descriptor in other._metadata_after_analysis()]
+            if isinstance(other, BaseFrame)
+            else [None] * len(channel_metadata)
+        )
+        messages: list[str] = []
+        for descriptor, right_calibration in zip(channel_metadata, right, strict=True):
+            descriptor["calibration"] = derive_binary(
+                symbol,
+                descriptor["calibration"],
+                right_calibration,
+                other,
+                reverse=reverse,
+                warn=messages.append,
+            )
+        if messages:
+            # One warning per operation, naming the first mismatching channel.
+            warn_mixed_units(messages[0])
 
     @staticmethod
     def _is_supported_reverse_operand(value: object) -> bool:
@@ -2293,6 +2370,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @recipe_operation(
         "wandas.operator.add",
+        version=2,
         binding_patterns=_FORWARD_BINARY_PATTERNS,
         capture=_capture_binary,
         handler=_binary_recipe_handler("__add__"),
@@ -2303,6 +2381,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @recipe_operation(
         "wandas.operator.subtract",
+        version=2,
         binding_patterns=_FORWARD_BINARY_PATTERNS,
         capture=_capture_binary,
         handler=_binary_recipe_handler("__sub__"),
@@ -2313,6 +2392,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @recipe_operation(
         "wandas.operator.multiply",
+        version=2,
         binding_patterns=_FORWARD_BINARY_PATTERNS,
         capture=_capture_binary,
         handler=_binary_recipe_handler("__mul__"),
@@ -2323,6 +2403,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @recipe_operation(
         "wandas.operator.divide",
+        version=2,
         binding_patterns=_FORWARD_BINARY_PATTERNS,
         capture=_capture_binary,
         handler=_binary_recipe_handler("__truediv__"),
@@ -2333,6 +2414,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @recipe_operation(
         "wandas.operator.power",
+        version=2,
         binding_patterns=_FORWARD_BINARY_PATTERNS,
         capture=_capture_binary,
         handler=_binary_recipe_handler("__pow__"),
@@ -2343,6 +2425,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @recipe_operation(
         "wandas.operator.reverse_add",
+        version=2,
         binding_patterns=_REVERSE_BINARY_PATTERNS,
         capture=_capture_reverse_binary,
         handler=_reverse_binary_recipe_handler("__radd__"),
@@ -2353,6 +2436,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @recipe_operation(
         "wandas.operator.reverse_subtract",
+        version=2,
         binding_patterns=_REVERSE_BINARY_PATTERNS,
         capture=_capture_reverse_binary,
         handler=_reverse_binary_recipe_handler("__rsub__"),
@@ -2363,6 +2447,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @recipe_operation(
         "wandas.operator.reverse_multiply",
+        version=2,
         binding_patterns=_REVERSE_BINARY_PATTERNS,
         capture=_capture_reverse_binary,
         handler=_reverse_binary_recipe_handler("__rmul__"),
@@ -2373,6 +2458,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @recipe_operation(
         "wandas.operator.reverse_divide",
+        version=2,
         binding_patterns=_REVERSE_BINARY_PATTERNS,
         capture=_capture_reverse_binary,
         handler=_reverse_binary_recipe_handler("__rtruediv__"),
@@ -2383,6 +2469,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @recipe_operation(
         "wandas.operator.reverse_power",
+        version=2,
         binding_patterns=_REVERSE_BINARY_PATTERNS,
         capture=_capture_reverse_binary,
         handler=_reverse_binary_recipe_handler("__rpow__"),
@@ -2390,6 +2477,31 @@ class BaseFrame(ABC, Generic[T]):
     def __rpow__(self: S, other: int | float) -> S:
         """Reverse power operator."""
         return self._reverse_operand_op(other, lambda x, y: x**y, "**")
+
+    # Released Recipe version 1 of the arithmetic, which kept the operand units.
+    _add_recipe_v1 = _units_kept_operator_v1("wandas.operator.add", "__add__")
+    _sub_recipe_v1 = _units_kept_operator_v1("wandas.operator.subtract", "__sub__")
+    _mul_recipe_v1 = _units_kept_operator_v1("wandas.operator.multiply", "__mul__")
+    _truediv_recipe_v1 = _units_kept_operator_v1("wandas.operator.divide", "__truediv__")
+    _pow_recipe_v1 = _units_kept_operator_v1("wandas.operator.power", "__pow__")
+    _radd_recipe_v1 = _units_kept_operator_v1("wandas.operator.reverse_add", "__radd__", reverse=True)
+    _rsub_recipe_v1 = _units_kept_operator_v1("wandas.operator.reverse_subtract", "__rsub__", reverse=True)
+    _rmul_recipe_v1 = _units_kept_operator_v1("wandas.operator.reverse_multiply", "__rmul__", reverse=True)
+    _rtruediv_recipe_v1 = _units_kept_operator_v1("wandas.operator.reverse_divide", "__rtruediv__", reverse=True)
+    _rpow_recipe_v1 = _units_kept_operator_v1("wandas.operator.reverse_power", "__rpow__", reverse=True)
+
+    @recipe_operation(
+        "wandas.numpy.ufunc",
+        version=1,
+        binding_patterns=_UFUNC_PATTERNS,
+        capture=_capture_ufunc,
+        handler=_ufunc_handler("_apply_ufunc_recipe_v1"),
+        validate_params=_validate_ufunc_params,
+    )
+    def _apply_ufunc_recipe_v1(self: S, ufunc: np.ufunc, operand: Any = _UNARY, reverse: bool = False) -> S:
+        """Replay released Recipe v1 of ``wandas.numpy.ufunc``, which kept the operand units."""
+        with operand_units_kept():
+            return self._apply_ufunc(ufunc, operand, reverse=reverse)
 
     def _apply_named_operation(self: S, operation_name: str, **params: Any) -> S:
         """Execute a numerical operation inside a decorated public boundary."""

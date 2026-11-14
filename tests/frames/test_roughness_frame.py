@@ -566,7 +566,7 @@ class TestRoughnessFrame:
 
         result = frame1 + frame2
 
-        assert result.operation_history == [{"operation": "wandas.operator.add", "version": 1, "params": {}}]
+        assert result.operation_history == [{"operation": "wandas.operator.add", "version": 2, "params": {}}]
         assert result.lineage.inputs == (frame1.lineage, frame2.lineage)
 
     def test_binary_op_preserves_persisted_history_prefix(self) -> None:

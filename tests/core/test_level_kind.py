@@ -117,8 +117,10 @@ class TestPropagation:
 
     def test_frame_arithmetic_of_different_kinds_has_no_level_in_either_order(self) -> None:
         amplitude, power = _frame([_PA]), _frame([_PA2])
-        assert (amplitude + power).channels[0].calibration.level == "none"
-        assert (power + amplitude).channels[0].calibration.level == "none"
+        with pytest.warns(UserWarning, match="different units"):
+            assert (amplitude + power).channels[0].calibration.level == "none"
+        with pytest.warns(UserWarning, match="different units"):
+            assert (power + amplitude).channels[0].calibration.level == "none"
         assert (power + power).channels[0].calibration.level == "power"
         assert (power * 2.0).channels[0].calibration.level == "power"
 

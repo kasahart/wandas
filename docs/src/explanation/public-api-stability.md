@@ -40,7 +40,8 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
 - Element-wise NumPy ufuncs on a frame return a lazy frame. Arithmetic ufuncs
   record the operator Recipe operations, whose reverse forms accept an array
   input; other one- and two-input NumPy ufuncs record `wandas.numpy.ufunc`
-  version 1 with the ufunc name. Ufuncs outside NumPy cannot be saved.
+  with the ufunc name (version 1 until the unit rules below, now version 2).
+  Ufuncs outside NumPy cannot be saved.
 - Recipe schema 3 writes finite Python floats as plain JSON numbers. The reader
   accepts schemas 2 and 3; the writer emits 3. Older readers reject schema 3.
   Operation versions are unchanged.
@@ -94,6 +95,12 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   is not `"amplitude"`; WDF adds a `channel_level` variable only in that case,
   which older readers reject explicitly. Amplitude-only frames, Recipes and
   WDF files keep their schemas. Operation versions are unchanged.
+- Element-wise arithmetic (the `wandas.operator.*` operations,
+  `wandas.numpy.ufunc` and `wandas.audio.power`) derives the result unit,
+  reference and level kind by one table of rules instead of keeping the left
+  operand's. New Recipes use operation version 2; released version 1 replays
+  the kept units. Values are unchanged. Readers without version 2 reject new
+  Recipes at load time. The Recipe document schema is unchanged.
 - `ChannelFrame.trim()` rounds times to the nearest sample (halves up) instead
   of truncating them. New `wandas.frame.time_slice` Recipes use operation
   version 2; released version 1 replays the truncation. Readers without
