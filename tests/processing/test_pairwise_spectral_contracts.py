@@ -372,7 +372,7 @@ def test_derived_csd_domain_distinguishes_same_units_and_scaling() -> None:
     assert spectrum.reference == 10.0
     assert density.unit == "V*Pa/Hz"
     assert density.reference == spectrum.reference
-    assert same_unit_spectrum.unit == "V*V"
+    assert same_unit_spectrum.unit == "V^2"
     assert same_unit_spectrum.reference == 6.0
 
 

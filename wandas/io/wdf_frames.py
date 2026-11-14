@@ -657,6 +657,7 @@ def _decoded_pair_rows(
     *,
     frame_type: str,
     expected_domain_for: Callable[[Any], Any],
+    released_unit_for: Callable[[Any], str] | None = None,
 ) -> tuple[tuple[str, ...], tuple[Any, ...]]:
     """Validate and decode the source identity and typed pair rows shared by every pairwise codec."""
     source_count = _positive_integer(state, "source_channel_count", frame_type)
@@ -757,6 +758,10 @@ def _decoded_pair_rows(
         )
 
         expected_domain = expected_domain_for(pair)
+        if _released_spelling_of(domain.unit, domain.reference, expected_domain, pair, released_unit_for):
+            # Files written up to 0.13.1 spell, for example, ``Pa*Pa/Hz`` for
+            # ``Pa^2/Hz``; read them in the current canonical form.
+            domain = expected_domain
         if domain != expected_domain:
             raise _invalid_constructor_value(
                 frame_type,
@@ -774,6 +779,17 @@ def _decoded_pair_rows(
         )
 
     return source_ids, tuple(records)
+
+
+def _released_unit_reader(quantity: str, scaling: Any, denominator_role: Any) -> Callable[[Any], str] | None:
+    """Return the released (0.13.1) unit spelling of one pair for this quantity, if it had another."""
+    from wandas.processing.spectral_contracts import released_csd_unit, released_transfer_unit
+
+    if quantity == "csd":
+        return lambda pair: released_csd_unit(pair, cast(str, scaling))
+    if quantity == "transfer":
+        return lambda pair: released_transfer_unit(pair, denominator_role)
+    return None
 
 
 def _validated_pairwise_constructor_state(
@@ -876,6 +892,8 @@ def _validated_pairwise_constructor_state(
         derive_transfer_domain,
     )
 
+    released_unit_for = _released_unit_reader(quantity, scaling, denominator_role)
+
     def expected_domain_for(pair: Any) -> Any:
         if quantity == "coherence":
             return derive_coherence_domain()
@@ -884,9 +902,29 @@ def _validated_pairwise_constructor_state(
         return derive_transfer_domain(pair, cast(Any, denominator_role))
 
     source_ids, records = _decoded_pair_rows(
-        state, data, frame_type=frame_type, expected_domain_for=expected_domain_for
+        state,
+        data,
+        frame_type=frame_type,
+        expected_domain_for=expected_domain_for,
+        released_unit_for=released_unit_for,
     )
     return n_fft, window, tuple(normalized_frequency_indices), source_ids, records, scaling, denominator_role
+
+
+def _released_spelling_of(
+    unit: str,
+    reference: float,
+    expected: Any,
+    pair: Any,
+    released_unit_for: Callable[[Any], str] | None,
+) -> bool:
+    """Return whether a stored unit is the released spelling of exactly this pair's domain."""
+    return (
+        released_unit_for is not None
+        and unit != expected.unit
+        and float(reference) == float(expected.reference)
+        and unit == released_unit_for(pair)
+    )
 
 
 def _validate_pairwise_common(
@@ -894,6 +932,7 @@ def _validate_pairwise_common(
     records: tuple[Any, ...],
     *,
     frame_type: str,
+    released_unit_for: Callable[[Any], str] | None = None,
 ) -> None:
     """Ensure common WDF row metadata agrees with typed pair state."""
     channel_ids = common.get("channel_ids")
@@ -925,6 +964,13 @@ def _validate_pairwise_common(
                 f"  Got: {type(metadata).__name__}\n"
                 "  Expected: ChannelMetadata"
             )
+        if _released_spelling_of(metadata.unit, metadata.ref, record.domain, record.pair, released_unit_for):
+            metadata = ChannelMetadata(
+                label=metadata.label,
+                calibration=metadata.calibration.with_unit(record.domain.unit).with_ref(metadata.ref),
+                extra=metadata.extra,
+            )
+            channel_metadata[row] = metadata
         if (
             metadata.unit != record.domain.unit
             or float(metadata.ref) != float(record.domain.reference)
@@ -984,7 +1030,12 @@ def _csd_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[A
         frame_type="CrossSpectralFrame",
         quantity="csd",
     )
-    _validate_pairwise_common(common, records, frame_type="CrossSpectralFrame")
+    _validate_pairwise_common(
+        common,
+        records,
+        frame_type="CrossSpectralFrame",
+        released_unit_for=_released_unit_reader("csd", scaling, None),
+    )
     return CrossSpectralFrame(
         **common,
         n_fft=n_fft,
@@ -1015,7 +1066,12 @@ def _transfer_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
             quantity="transfer",
         )
     )
-    _validate_pairwise_common(common, records, frame_type="TransferFunctionFrame")
+    _validate_pairwise_common(
+        common,
+        records,
+        frame_type="TransferFunctionFrame",
+        released_unit_for=_released_unit_reader("transfer", scaling, denominator_role),
+    )
     return TransferFunctionFrame(
         **common,
         n_fft=n_fft,
