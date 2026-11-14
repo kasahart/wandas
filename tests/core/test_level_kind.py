@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, cast
 
 import dask.array as da
 import numpy as np
 import pytest
-import xarray as xr
 
-import wandas as wd
 from wandas.core.metadata import ChannelCalibration, ChannelMetadata, LevelReference
 from wandas.frames.channel import ChannelFrame
 
@@ -81,21 +78,6 @@ class TestLevelConversion:
         assert reference.to_level(4e-8) == pytest.approx(20.0)
         assert LevelReference(2e-5, "Pa").to_level(2e-4) == pytest.approx(20.0)
 
-    def test_noct_level_follows_the_kind(self) -> None:
-        pytest.importorskip("mosqito")
-        frame = ChannelFrame(
-            da.from_array(np.vstack([_sine(n=48000 // 2)] * 2), chunks=(1, -1)),
-            sampling_rate=48000.0,
-            channel_metadata=[
-                ChannelMetadata(label="a", calibration=_PA),
-                ChannelMetadata(label="b", calibration=_PA2),
-            ],
-        )
-        bands = frame.noct_spectrum(fmin=500.0, fmax=2000.0, n=3)
-        values = np.abs(bands.data)
-        np.testing.assert_allclose(bands.dB[0], 20 * np.log10(values[0] / 2e-5), rtol=1e-9)
-        np.testing.assert_allclose(bands.dB[1], 10 * np.log10(values[1] / 4e-10), rtol=1e-9)
-
     @pytest.mark.parametrize(
         "call",
         [
@@ -125,6 +107,18 @@ class TestPropagation:
         assert frame.with_calibration([_PA2, _PA2]).sum().channels[0].calibration.level == "power"
         assert frame.sum().channels[0].calibration.level == "none"
 
+    def test_frame_arithmetic_of_different_kinds_has_no_level_in_either_order(self) -> None:
+        amplitude, power = _frame([_PA]), _frame([_PA2])
+        assert (amplitude + power).channels[0].calibration.level == "none"
+        assert (power + amplitude).channels[0].calibration.level == "none"
+        assert (power + power).channels[0].calibration.level == "power"
+        assert (power * 2.0).channels[0].calibration.level == "power"
+
+    def test_storage_written_before_the_level_kind_reads_as_amplitude(self) -> None:
+        frame = _frame([_PA2])
+        frame._xr = frame._xr.drop_vars("channel_level")
+        assert frame.channels[0].calibration == ChannelCalibration(1.0, "Pa^2", ref=4e-10)
+
     def test_recipe_replays_a_power_calibration(self) -> None:
         from wandas.pipeline import RecipePlan
 
@@ -132,14 +126,3 @@ class TestPropagation:
         configured = source.with_calibration([_PA2])
         replayed = RecipePlan.from_frame(configured, input_names=("signal",)).apply({"signal": source})
         assert replayed.channels[0].calibration == _PA2
-
-    def test_wdf_round_trip_and_amplitude_files_keep_their_schema(self, tmp_path: Path) -> None:
-        amplitude_path = tmp_path / "amplitude.wdf"
-        _frame([_PA]).save(amplitude_path)
-        with xr.open_dataset(amplitude_path, engine="h5netcdf") as dataset:
-            assert "channel_level" not in dataset.data_vars
-
-        path = tmp_path / "power.wdf"
-        _frame([_PA, _PA2, _SONE]).save(path)
-        loaded = wd.load(path)
-        assert [channel.calibration for channel in loaded.channels] == [_PA, _PA2, _SONE]

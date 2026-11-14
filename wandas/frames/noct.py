@@ -63,8 +63,8 @@ class NOctFrame(BaseFrame[NDArrayReal]):
     Attributes:
         freqs: NDArrayReal. The center frequencies of each band in Hz, calculated according to
             the standard fractional octave band definitions.
-        dB: NDArrayReal. Band RMS amplitude level,
-            ``20 * log10(band_rms / channel_ref)``.
+        dB: NDArrayReal. Band RMS level, ``20 * log10(band_rms / channel_ref)`` for
+            amplitude channels and ``10 * log10(...)`` for power channels.
         dBA: NDArrayReal. The A-weighted spectrum in decibels, applying frequency weighting
             for better correlation with perceived loudness.
         fmin: float. Lower frequency bound in Hz.
@@ -165,7 +165,9 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         Get band RMS amplitude levels relative to each channel reference.
 
         The conversion is
-        ``20 * log10(max(band_rms / channel_ref, 1e-12))``. The reference has
+        ``20 * log10(max(band_rms / channel_ref, 1e-12))`` for amplitude
+        channels and ``10 * log10(...)`` for power channels; a channel with
+        level kind ``"none"`` raises ``ValueError``. The reference has
         the same physical unit as the band RMS value and is specified by each
         channel's calibration metadata.
 

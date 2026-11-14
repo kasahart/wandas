@@ -415,7 +415,7 @@ class ChannelMetadata:
 
     @property
     def level_reference(self) -> LevelReference:
-        """Return the amplitude-level contract derived from linear metadata."""
+        """Return the level contract (reference and level kind) derived from linear metadata."""
         return LevelReference(
             reference_value=self.calibration.ref,
             reference_unit=self.calibration.unit,

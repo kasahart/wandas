@@ -2234,6 +2234,13 @@ class BaseFrame(ABC, Generic[T]):
                 descriptor["label"] = f"({other_label} {symbol} {self_ch.label})"
             else:
                 descriptor["label"] = f"({self_ch.label} {symbol} {other_label})"
+        if isinstance(other, BaseFrame):
+            # Operands of different level kinds give a result without a dB level,
+            # whatever their order.
+            for descriptor, other_ch in zip(new_channel_metadata, other.channels, strict=True):
+                calibration = descriptor["calibration"]
+                if calibration.level != other_ch.calibration.level:
+                    descriptor["calibration"] = calibration.with_level("none")
 
         label = (
             f"({other_str} {symbol} {self.label})"

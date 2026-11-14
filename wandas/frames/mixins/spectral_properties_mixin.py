@@ -91,10 +91,15 @@ class SpectralPropertiesMixin:
 
     @property
     def dB(self: Any) -> NDArrayReal:  # noqa: N802
-        """Magnitude level: ``20 * log10(magnitude / channel_ref)``.
+        """Magnitude level relative to each channel reference.
 
-        For the canonical FFT, STFT, and Welch amplitude quantities, this is
-        an amplitude level.
+        ``20 * log10(magnitude / channel_ref)`` for amplitude channels (the
+        canonical FFT, STFT, and Welch quantities of an amplitude signal) and
+        ``10 * log10(magnitude / channel_ref)`` for power channels, chosen by
+        ``channels[i].calibration.level``.
+
+        Raises:
+            ValueError: If a channel has level kind ``"none"``.
         """
         mag: NDArrayReal = np.abs(self.data)
         return _ref_weighted_db_public_shape(mag, self._channel_metadata)

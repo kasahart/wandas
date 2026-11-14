@@ -727,6 +727,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         ``target_rms`` is a linear value in ``unit``. ``target_level`` is an
         amplitude level using ``20 * log10(target_rms / ref)`` and the default
         reference for ``unit``; for ``unit="Pa"`` that reference is ``2e-5 Pa``.
+        The derived calibrations describe amplitude quantities (level kind
+        ``"amplitude"``), since a calibration event is a measured amplitude.
         """
         labels = self.labels
         if any(not label for label in labels) or len(set(labels)) != len(labels):
