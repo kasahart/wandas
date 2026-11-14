@@ -11,6 +11,7 @@ from dask.array.core import Array as DaArray
 from wandas.core._channel_schema import (
     _CHANNEL_CALIBRATION_FACTOR_KEY,
     _CHANNEL_LABEL_KEY,
+    _CHANNEL_LEVEL_KEY,
     _CHANNEL_REF_KEY,
     _CHANNEL_UNIT_KEY,
 )
@@ -276,6 +277,7 @@ def test_with_calibration_resolves_once_and_reads_source_coordinates_once(
     assert getter_counts == {
         _CHANNEL_CALIBRATION_FACTOR_KEY: 100,
         _CHANNEL_LABEL_KEY: 100,
+        _CHANNEL_LEVEL_KEY: 100,
         _CHANNEL_REF_KEY: 100,
         _CHANNEL_UNIT_KEY: 100,
     }

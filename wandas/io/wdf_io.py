@@ -49,6 +49,9 @@ _DATA_VARIABLES = frozenset(
         "channel_extra_json",
     }
 )
+# Written only when a channel is not an amplitude quantity, so amplitude-only
+# files keep the schema that earlier readers accept.
+_OPTIONAL_DATA_VARIABLES = frozenset({"channel_level"})
 
 
 def _dump_json(value: object, *, field: str) -> str:
@@ -150,6 +153,8 @@ def _build_dataset(frame: BaseFrame[Any]) -> xr.Dataset:
         "source_time_offset": ("channel", np.asarray(frame.source_time_offset, dtype=float)),
         "channel_extra_json": ("channel", extras),
     }
+    if any(channel.calibration.level != "amplitude" for channel in channels):
+        variables["channel_level"] = ("channel", [channel.calibration.level for channel in channels])
     coords: dict[str, Any] = {"channel": ("channel", frame._channel_ids)}
     coords.update({name: (name, values) for name, values in frame_dimension_coordinates(frame).items()})
     return xr.Dataset(variables, coords=coords, attrs=attrs)
@@ -276,7 +281,7 @@ def _require_exact_schema(dataset: xr.Dataset) -> None:
             f"  Unexpected: {sorted(unexpected_attrs)}"
         )
     missing_variables = _DATA_VARIABLES - set(dataset.data_vars)
-    unexpected_variables = set(dataset.data_vars) - _DATA_VARIABLES
+    unexpected_variables = set(dataset.data_vars) - _DATA_VARIABLES - _OPTIONAL_DATA_VARIABLES
     if missing_variables or unexpected_variables:
         raise ValueError(
             "Invalid WDF data variable schema\n"
@@ -416,13 +421,23 @@ def load(path: str | Path) -> BaseFrame[Any]:
     factors = _number_vector(dataset, "channel_calibration_factor", channel_count)
     offsets = _number_vector(dataset, "source_time_offset", channel_count)
     extras_json = _text_vector(dataset, "channel_extra_json", channel_count)
+    levels = (
+        _text_vector(dataset, "channel_level", channel_count)
+        if "channel_level" in dataset.data_vars
+        else ["amplitude"] * channel_count
+    )
     extras = [_load_json(value, field=f"channel_extra_json[{index}]") for index, value in enumerate(extras_json)]
     if not all(isinstance(extra, dict) for extra in extras):
         raise ValueError("Invalid WDF channel_extra_json; expected JSON objects")
     channels = [
         ChannelMetadata(
             label=labels[index],
-            calibration=ChannelCalibration(factor=float(factors[index]), unit=units[index], ref=float(refs[index])),
+            calibration=ChannelCalibration(
+                factor=float(factors[index]),
+                unit=units[index],
+                ref=float(refs[index]),
+                level=levels[index],  # ty: ignore[invalid-argument-type]
+            ),
             extra=extras[index],
         )
         for index in range(channel_count)

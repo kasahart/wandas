@@ -928,8 +928,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf = wd.read("noise.wav").with_calibration({0: wd.ChannelCalibration(0.42, "Pa")})
             >>> laeq = cf.leq("A")
         """
+        from wandas.core.metadata import _require_amplitude_channels
         from wandas.processing.temporal import equivalent_level_db, log10_weighted_rms, normalize_freq_weighting
 
+        _require_amplitude_channels(self.channels, "leq")
         curve = normalize_freq_weighting(freq_weighting)
         # Reduce the raw samples and apply calibration in the log domain, so
         # neither squaring nor the calibration factor can overflow.

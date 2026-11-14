@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from wandas.processing.weighting import _reference_level_db, a_weighting_db
+from wandas.processing.weighting import _channel_level_factors, _reference_level_db, a_weighting_db
 from wandas.utils.types import NDArrayReal
 
 
@@ -32,9 +32,11 @@ def _ref_weighted_db_public_shape(
             raise ValueError("Spectral level conversion requires channel metadata")
         return _reference_level_db(data, np.asarray(1.0, dtype=float))
 
+    factors = _channel_level_factors(channel_metadata)
     if channel_count == 1:
         # Keep the historical float64 promotion while returning the public shape.
         reference: NDArrayReal = np.asarray(channel_metadata[0].ref, dtype=float)
+        factor: NDArrayReal = np.asarray(factors[0])
     else:
         if data.ndim == 0 or data.shape[0] != channel_count:
             raise ValueError(
@@ -45,8 +47,9 @@ def _ref_weighted_db_public_shape(
         reference = np.asarray([channel.ref for channel in channel_metadata], dtype=float).reshape(
             (channel_count,) + (1,) * (data.ndim - 1)
         )
+        factor = factors.reshape(reference.shape)
 
-    return _reference_level_db(data, reference)
+    return _reference_level_db(data, reference, factor)
 
 
 class SpectralPropertiesMixin:

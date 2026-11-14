@@ -6,7 +6,13 @@ import warnings
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, Literal, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
-from wandas.core.metadata import _REF_UNSET, ChannelCalibration, ChannelMetadata, _format_level_unit
+from wandas.core.metadata import (
+    _REF_UNSET,
+    ChannelCalibration,
+    ChannelMetadata,
+    _format_level_unit,
+    _require_amplitude_channels,
+)
 from wandas.frames._frame_time import TimeReference, TimeValue, _local_time_range, _nearest_sample
 from wandas.frames.roughness import RoughnessFrame
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
@@ -52,8 +58,8 @@ def _integrated_unit(channel: ChannelMetadata, order: object) -> str:
     )
 
 
-# Units of the time-varying psychoacoustic results, each with reference 1.0:
-# these quantities have no standard level reference.
+# Units of the time-varying psychoacoustic results, each with reference 1.0
+# and no dB level: these quantities have no level reference.
 _PSYCHOACOUSTIC_UNITS = {
     "loudness_zwtv": "sone",
     "roughness_dw": "asper",
@@ -74,7 +80,7 @@ def _psychoacoustic_channel_metadata(
     for descriptor, channel in zip(channel_metadata, frame.channels, strict=True):
         if display_name is not None:
             descriptor["label"] = f"{display_name}({channel.label})"
-        descriptor["calibration"] = ChannelCalibration(factor=1.0, unit=unit, ref=1.0)
+        descriptor["calibration"] = ChannelCalibration(factor=1.0, unit=unit, ref=1.0, level="none")
     return channel_metadata
 
 
@@ -152,6 +158,8 @@ class ChannelProcessingMixin:
         """Apply a dB operation with reference-bearing output metadata."""
         from wandas.processing import create_operation as create_named_operation
 
+        _require_amplitude_channels(cast(Any, self).channels, operation_name)
+
         calibration_scales = [channel.calibration.factor for channel in cast(Any, self).channels]
         operation = create_named_operation(
             _registered_name or operation_name,
@@ -163,10 +171,12 @@ class ChannelProcessingMixin:
         channel_metadata = cast(Any, self)._metadata_after_analysis()
         for descriptor, channel in zip(channel_metadata, cast(Any, self).channels, strict=True):
             descriptor["label"] = f"{display}({channel.label})"
+            # Values already in dB have no further level.
             descriptor["calibration"] = ChannelCalibration(
                 factor=1.0,
                 unit=_format_level_unit(channel.calibration),
                 ref=1.0,
+                level="none",
             )
 
         return cast(Any, self)._apply_operation_instance(
@@ -567,7 +577,9 @@ class ChannelProcessingMixin:
         channel_metadata = cast(Any, self)._metadata_after_analysis()
         for descriptor, channel, result_unit in zip(channel_metadata, channels, units, strict=True):
             descriptor["label"] = f"{display}({channel.label})"
-            descriptor["calibration"] = ChannelCalibration(factor=1.0, unit=result_unit)
+            descriptor["calibration"] = ChannelCalibration(
+                factor=1.0, unit=result_unit, level=channel.calibration.level
+            )
         result = cast(Any, self)._apply_operation_instance(
             operation,
             operation_name="integrate",
@@ -646,12 +658,14 @@ class ChannelProcessingMixin:
         domains = {(ch.unit, ch.ref) for ch in self._channel_metadata}
         reduced_ref = self._channel_metadata[0].ref if not recipe_v1 and len(domains) == 1 else _REF_UNSET
 
+        levels = {ch.calibration.level for ch in self._channel_metadata}
+        reduced_level = levels.pop() if len(levels) == 1 else "none"
+
         reduced_extra = {"source_extras": [ch.extra for ch in self._channel_metadata]}
         new_channel_metadata = [
             ChannelMetadata(
                 label=label,
-                unit=reduced_unit,
-                ref=reduced_ref,
+                calibration=ChannelCalibration(unit=reduced_unit, ref=reduced_ref, level=reduced_level),
                 extra=reduced_extra,
             )
         ]

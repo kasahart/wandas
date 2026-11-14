@@ -4,7 +4,7 @@ import math
 import numbers
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, cast, overload
+from typing import Any, Literal, cast, get_args, overload
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -24,6 +24,57 @@ class _ExtraUnset:
 _REF_UNSET = _RefUnset()
 _EXTRA_UNSET = _ExtraUnset()
 _REFERENCE_MATCH_REL_TOL = 1e-9
+
+LevelKind = Literal["amplitude", "power", "none"]
+"""How a channel's values convert to a level.
+
+``"amplitude"`` (field) quantities such as Pa or V use ``20 * log10``, ``"power"``
+quantities such as Pa^2 or W use ``10 * log10``, and ``"none"`` marks values whose
+level is not defined (for example sone or values already in dB).
+"""
+
+_LEVEL_KINDS: tuple[str, ...] = get_args(LevelKind)
+_LEVEL_FACTORS: dict[str, float] = {"amplitude": 20.0, "power": 10.0}
+
+
+def _normalize_level_kind(level: object) -> LevelKind:
+    """Return one validated level kind."""
+    if not isinstance(level, str) or level not in _LEVEL_KINDS:
+        raise ValueError(
+            "Invalid channel level kind\n"
+            f"  Got: {level!r}\n"
+            f"  Expected: one of {', '.join(repr(kind) for kind in _LEVEL_KINDS)}\n"
+            "Use 'amplitude' for field quantities such as Pa, 'power' for quantities such as Pa^2, "
+            "or 'none' when a level is not defined."
+        )
+    return cast(LevelKind, level)
+
+
+def _level_factor(level: LevelKind, unit: str) -> float:
+    """Return the dB factor of a level kind, or raise when no level is defined."""
+    factor = _LEVEL_FACTORS.get(level)
+    if factor is None:
+        raise ValueError(
+            "A dB level is not defined for this channel\n"
+            f"  Unit: {unit or 'input unit'!r}, level kind: {level!r}\n"
+            "  Expected: an 'amplitude' or 'power' quantity\n"
+            "Convert the values themselves, or set the level kind with "
+            "ChannelCalibration.with_level() when the quantity has one."
+        )
+    return factor
+
+
+def _require_amplitude_channels(channels: Any, operation: str) -> None:
+    """Reject RMS-based level operations on channels that are not amplitude quantities."""
+    for channel in channels:
+        level = channel.calibration.level
+        if level != "amplitude":
+            raise ValueError(
+                f"{operation} needs amplitude quantities\n"
+                f"  Channel: {channel.label!r} in {channel.unit or 'input unit'!r}, level kind {level!r}\n"
+                "  Expected: level kind 'amplitude' (for example Pa or V)\n"
+                "Compute the level from the amplitude signal before squaring or converting it."
+            )
 
 
 def _is_twenty_micropascals(value: float) -> bool:
@@ -68,18 +119,22 @@ class ChannelCalibration:
 
     ``factor`` converts raw samples to physical values. ``unit`` and ``ref``
     describe that physical domain. A missing reference is inferred from the
-    unit (for example, ``Pa`` uses ``2e-5``).
+    unit (for example, ``Pa`` uses ``2e-5``). ``level`` says how the values
+    convert to dB: ``"amplitude"`` (the default) uses ``20 * log10(|x| / ref)``,
+    ``"power"`` uses ``10 * log10(|x| / ref)``, and ``"none"`` rejects dB.
     """
 
     factor: float = 1.0
     unit: str = ""
     ref: float = 1.0
+    level: LevelKind = "amplitude"
 
     def __init__(
         self,
         factor: float = 1.0,
         unit: str = "",
         ref: float | _RefUnset = _REF_UNSET,
+        level: LevelKind = "amplitude",
     ) -> None:
         """Normalize values and enforce the calibration contract."""
         if isinstance(factor, bool) or not isinstance(factor, numbers.Real):
@@ -135,18 +190,24 @@ class ChannelCalibration:
         object.__setattr__(self, "factor", normalized_factor)
         object.__setattr__(self, "unit", normalized_unit)
         object.__setattr__(self, "ref", normalized_ref)
+        object.__setattr__(self, "level", _normalize_level_kind(level))
 
     def with_factor(self, factor: float) -> "ChannelCalibration":
         """Return this physical domain with a replacement factor."""
-        return ChannelCalibration(factor=factor, unit=self.unit, ref=self.ref)
+        return ChannelCalibration(factor=factor, unit=self.unit, ref=self.ref, level=self.level)
 
     def with_unit(self, unit: str) -> "ChannelCalibration":
         """Replace the unit and reset ``ref`` to that unit's default.
 
-        The calibration factor is preserved. Chain ``with_ref()`` after this
-        method when the new unit needs a non-default reference.
+        The calibration factor and the level kind are preserved. Chain
+        ``with_ref()`` after this method when the new unit needs a non-default
+        reference.
         """
-        return ChannelCalibration(factor=self.factor, unit=unit)
+        return ChannelCalibration(factor=self.factor, unit=unit, level=self.level)
+
+    def with_level(self, level: LevelKind) -> "ChannelCalibration":
+        """Return a replacement level kind preserving factor, unit and reference."""
+        return ChannelCalibration(factor=self.factor, unit=self.unit, ref=self.ref, level=level)
 
     def with_ref(self, ref: float) -> "ChannelCalibration":
         """Return a replacement reference preserving factor and unit."""
@@ -158,45 +219,57 @@ class ChannelCalibration:
 
     def _with_ref(self, ref: float) -> "ChannelCalibration":
         """Return a private reference replacement preserving factor and unit."""
-        return ChannelCalibration(factor=self.factor, unit=self.unit, ref=ref)
+        return ChannelCalibration(factor=self.factor, unit=self.unit, ref=ref, level=self.level)
 
     def to_dict(self) -> dict[str, float | str]:
-        """Return a JSON-safe snapshot."""
-        return {"factor": self.factor, "unit": self.unit, "ref": self.ref}
+        """Return a JSON-safe snapshot.
+
+        ``level`` is written only when it is not ``"amplitude"``, so amplitude
+        snapshots keep the three fields that earlier releases wrote.
+        """
+        snapshot: dict[str, float | str] = {"factor": self.factor, "unit": self.unit, "ref": self.ref}
+        if self.level != "amplitude":
+            snapshot["level"] = self.level
+        return snapshot
 
     @classmethod
     def from_dict(cls, value: object) -> "ChannelCalibration":
         """Decode an exact calibration snapshot."""
-        if not isinstance(value, Mapping) or set(value) != {"factor", "unit", "ref"}:
+        fields = {"factor", "unit", "ref"}
+        if not isinstance(value, Mapping) or set(value) not in (fields, fields | {"level"}):
             raise ValueError(
                 "Invalid channel calibration snapshot\n"
                 f"  Got: {value!r}\n"
-                "  Expected: factor, unit, and ref fields\n"
+                "  Expected: factor, unit, and ref fields, and optionally level\n"
                 "Use ChannelCalibration.to_dict() when serializing calibration values."
             )
         return cls(
             factor=value["factor"],  # ty: ignore[invalid-argument-type]
             unit=value["unit"],  # ty: ignore[invalid-argument-type]
             ref=value["ref"],  # ty: ignore[invalid-argument-type]
+            level=cast(Mapping[str, Any], value).get("level", "amplitude"),
         )
 
 
 @dataclass(frozen=True, slots=True)
 class LevelReference:
-    """Immutable amplitude-level contract for one linear channel domain.
+    """Immutable level contract for one linear channel domain.
 
     Obtain this object from ``frame.channels[index].level_reference``. Values
     passed to :meth:`to_level` must already be expressed in the channel linear
     domain; the channel calibration factor is not applied again.
 
     Args:
-        reference_value: Positive finite linear amplitude reference.
+        reference_value: Positive finite linear reference.
         reference_unit: Linear unit such as ``"Pa"``, ``"V"``, or explicit
             canonical full scale ``"FS"``.
+        level_kind: ``"amplitude"`` (``20 * log10``, the default), ``"power"``
+            (``10 * log10``) or ``"none"``, for which :meth:`to_level` raises.
     """
 
     reference_value: float
     reference_unit: str
+    level_kind: LevelKind = "amplitude"
 
     def __post_init__(self) -> None:
         if isinstance(self.reference_value, bool) or not isinstance(self.reference_value, numbers.Real):
@@ -211,6 +284,7 @@ class LevelReference:
             raise ValueError("Level reference unit must not contain only whitespace")
         object.__setattr__(self, "reference_value", reference_value)
         object.__setattr__(self, "reference_unit", reference_unit)
+        object.__setattr__(self, "level_kind", _normalize_level_kind(self.level_kind))
 
     @property
     def unit(self) -> str:
@@ -238,11 +312,18 @@ class LevelReference:
     def to_level(self, amplitude: ArrayLike) -> NDArrayReal: ...
 
     def to_level(self, amplitude: ArrayLike | complex | float) -> NDArrayReal | float:
-        """Convert signed, complex, scalar, or array-like linear amplitude."""
-        from wandas.processing.weighting import _reference_level_db
+        """Convert signed, complex, scalar, or array-like linear values.
+
+        Amplitude quantities use ``20 * log10(|x| / ref)`` and power quantities
+        ``10 * log10(|x| / ref)``.
+
+        Raises:
+            ValueError: If the level kind is ``"none"``.
+        """
+        from wandas.processing.weighting import _kind_level_db
 
         result = np.asarray(
-            _reference_level_db(amplitude, self.reference_value),
+            _kind_level_db(amplitude, self.reference_value, self.level_kind, self.reference_unit),
             dtype=np.float64,
         )
         if np.isscalar(amplitude) and result.ndim == 0:
@@ -338,6 +419,7 @@ class ChannelMetadata:
         return LevelReference(
             reference_value=self.calibration.ref,
             reference_unit=self.calibration.unit,
+            level_kind=self.calibration.level,
         )
 
     def __setattr__(self, name: str, value: Any) -> None:
