@@ -52,6 +52,46 @@ def _integrated_unit(channel: ChannelMetadata, order: object) -> str:
     )
 
 
+# Units of the time-varying psychoacoustic results, each with reference 1.0:
+# these quantities have no standard level reference.
+_PSYCHOACOUSTIC_UNITS = {
+    "loudness_zwtv": "sone",
+    "roughness_dw": "asper",
+    "roughness_dw_spec": "asper/Bark",
+    "sharpness_din": "acum",
+}
+
+
+def _psychoacoustic_channel_metadata(
+    frame: Any, operation_name: str, display_name: str | None = None
+) -> list[dict[str, Any]]:
+    """Return result channel descriptors in the metric's own unit.
+
+    ``display_name`` relabels each channel as ``display_name(label)``.
+    """
+    unit = _PSYCHOACOUSTIC_UNITS[operation_name]
+    channel_metadata = frame._metadata_after_analysis()
+    for descriptor, channel in zip(channel_metadata, frame.channels, strict=True):
+        if display_name is not None:
+            descriptor["label"] = f"{display_name}({channel.label})"
+        descriptor["calibration"] = ChannelCalibration(factor=1.0, unit=unit, ref=1.0)
+    return channel_metadata
+
+
+def _apply_psychoacoustic(frame: Any, operation_name: str, **params: Any) -> Any:
+    """Apply a time-varying psychoacoustic operation with its result unit."""
+    operation = create_operation(operation_name, frame.sampling_rate, **params)
+    return frame._apply_operation_instance(
+        operation,
+        operation_name=operation_name,
+        frame_metadata_updates={
+            "channel_metadata": _psychoacoustic_channel_metadata(
+                frame, operation_name, operation.get_display_name() or operation_name
+            ),
+        },
+    )
+
+
 def _capture_runtime_apply(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
     """Record custom-apply history while rejecting it as a portable Recipe step."""
     if not args or not isinstance(getattr(args[0], "lineage", None), LineageNode):
@@ -1107,7 +1147,7 @@ class ChannelProcessingMixin:
             ),
         )
 
-    @recipe_operation("wandas.audio.loudness_zwtv", extras=("psychoacoustic",))
+    @recipe_operation("wandas.audio.loudness_zwtv", version=2, extras=("psychoacoustic",))
     def loudness_zwtv(self: T_Processing, field_type: Literal["free", "diffuse"] = "free") -> T_Processing:
         """
         Calculate time-varying loudness using Zwicker method (ISO 532-1:2017).
@@ -1125,7 +1165,8 @@ class ChannelProcessingMixin:
 
         Returns:
             New ChannelFrame containing time-varying loudness values in sones.
-                Each channel is processed independently.
+                Each channel is processed independently, and its unit is
+                ``sone`` with reference 1.0.
                 The output sampling rate is adjusted based on the loudness
                 calculation time resolution (typically ~500 Hz for 2ms steps).
 
@@ -1166,10 +1207,13 @@ class ChannelProcessingMixin:
             ISO 532-1:2017, "Acoustics — Methods for calculating loudness —
             Part 1: Zwicker method"
         """
-        result = self._apply_named_operation("loudness_zwtv", field_type=field_type)
-
-        # Sampling rate update is handled by the Operation class
+        result = _apply_psychoacoustic(self, "loudness_zwtv", field_type=field_type)
         return cast(T_Processing, result)
+
+    @recipe_operation("wandas.audio.loudness_zwtv", version=1, extras=("psychoacoustic",))
+    def _loudness_zwtv_recipe_v1(self: T_Processing, field_type: Literal["free", "diffuse"] = "free") -> T_Processing:
+        """Replay released Recipe v1, whose result kept the input channel unit."""
+        return cast(T_Processing, self._apply_named_operation("loudness_zwtv", field_type=field_type))
 
     def loudness_zwst(self: ProcessingFrameProtocol, field_type: Literal["free", "diffuse"] = "free") -> "NDArrayReal":
         """
@@ -1227,7 +1271,7 @@ class ChannelProcessingMixin:
         operation = LoudnessZwst(self.sampling_rate, field_type=field_type)
         return self._compute_scalar_metric(operation)
 
-    @recipe_operation("wandas.audio.roughness_dw", extras=("psychoacoustic",))
+    @recipe_operation("wandas.audio.roughness_dw", version=2, extras=("psychoacoustic",))
     def roughness_dw(self: T_Processing, overlap: float = 0.5) -> T_Processing:
         """Calculate time-varying roughness using Daniel and Weber method.
 
@@ -1246,7 +1290,8 @@ class ChannelProcessingMixin:
 
         Returns:
             New ChannelFrame containing time-varying roughness values in asper.
-                The output sampling rate depends on the overlap parameter.
+                The channel unit is ``asper`` with reference 1.0. The output
+                sampling rate depends on the overlap parameter.
 
         Raises:
             ValueError: If overlap is not in the range [0.0, 1.0]
@@ -1297,10 +1342,15 @@ class ChannelProcessingMixin:
             Implementation of an optimized model." Acustica, 83, 113-123.
         """
         logger.debug(f"Applying roughness_dw operation with overlap={overlap} (lazy)")
-        result = self._apply_named_operation("roughness_dw", overlap=overlap)
+        result = _apply_psychoacoustic(self, "roughness_dw", overlap=overlap)
         return cast(T_Processing, result)
 
-    @recipe_operation("wandas.audio.roughness_dw_spec", extras=("psychoacoustic",))
+    @recipe_operation("wandas.audio.roughness_dw", version=1, extras=("psychoacoustic",))
+    def _roughness_dw_recipe_v1(self: T_Processing, overlap: float = 0.5) -> T_Processing:
+        """Replay released Recipe v1, whose result kept the input channel unit."""
+        return cast(T_Processing, self._apply_named_operation("roughness_dw", overlap=overlap))
+
+    @recipe_operation("wandas.audio.roughness_dw_spec", version=2, extras=("psychoacoustic",))
     def roughness_dw_spec(self: ProcessingFrameProtocol, overlap: float = 0.5) -> "RoughnessFrame":
         """Calculate specific roughness with Bark-band frequency information.
 
@@ -1325,6 +1375,8 @@ class ChannelProcessingMixin:
                 - time: Time axis for each analysis frame
                 - overlap: Overlap coefficient used
                 - plot(): Method for Bark-Time heatmap visualization
+                The channel unit is ``asper/Bark`` with reference 1.0; labels,
+                ids and extra metadata are kept from the input.
 
         Raises:
             ValueError: If overlap is not in the range [0.0, 1.0]
@@ -1368,7 +1420,17 @@ class ChannelProcessingMixin:
             Daniel, P., & Weber, R. (1997). "Psychoacoustical roughness:
             Implementation of an optimized model." Acustica, 83, 113-123.
         """
+        return cast(Any, self)._roughness_spec_frame(overlap, unit_from_metric=True)
 
+    @recipe_operation("wandas.audio.roughness_dw_spec", version=1, extras=("psychoacoustic",))
+    def _roughness_dw_spec_recipe_v1(self: ProcessingFrameProtocol, overlap: float = 0.5) -> "RoughnessFrame":
+        """Replay released Recipe v1, whose result kept the input channel unit."""
+        return cast(Any, self)._roughness_spec_frame(overlap, unit_from_metric=False)
+
+    def _roughness_spec_frame(
+        self: ProcessingFrameProtocol, overlap: float, *, unit_from_metric: bool
+    ) -> "RoughnessFrame":
+        """Build the specific-roughness frame, in ``asper/Bark`` or (v1) the input unit."""
         params = {"overlap": overlap}
         operation_name = "roughness_dw_spec"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
@@ -1397,7 +1459,11 @@ class ChannelProcessingMixin:
             overlap=overlap,
             label=f"{self.label}_roughness_spec" if self.label else "roughness_spec",
             metadata=self.metadata,
-            channel_metadata=cast(Any, self)._metadata_after_analysis(),
+            channel_metadata=(
+                _psychoacoustic_channel_metadata(self, operation_name)
+                if unit_from_metric
+                else cast(Any, self)._metadata_after_analysis()
+            ),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,
@@ -1453,7 +1519,7 @@ class ChannelProcessingMixin:
         result = self._apply_named_operation("fade", fade_ms=fade_ms)
         return cast(T_Processing, result)
 
-    @recipe_operation("wandas.audio.sharpness_din", extras=("psychoacoustic",))
+    @recipe_operation("wandas.audio.sharpness_din", version=2, extras=("psychoacoustic",))
     def sharpness_din(
         self: T_Processing,
         weighting: Literal["din", "aures", "bismarck", "fastl"] = "din",
@@ -1477,7 +1543,8 @@ class ChannelProcessingMixin:
 
         Returns:
             T_Processing: New ChannelFrame containing sharpness time series in acum.
-                The output sampling rate is approximately 500 Hz (2ms time steps).
+                The channel unit is ``acum`` with reference 1.0. The output
+                sampling rate is approximately 500 Hz (2ms time steps).
 
         Raises:
             ValueError: If the signal sampling rate is not supported by the algorithm.
@@ -1504,11 +1571,17 @@ class ChannelProcessingMixin:
             weighting,
             field_type,
         )
-        result = self._apply_named_operation(
-            "sharpness_din",
-            weighting=weighting,
-            field_type=field_type,
-        )
+        result = _apply_psychoacoustic(self, "sharpness_din", weighting=weighting, field_type=field_type)
+        return cast(T_Processing, result)
+
+    @recipe_operation("wandas.audio.sharpness_din", version=1, extras=("psychoacoustic",))
+    def _sharpness_din_recipe_v1(
+        self: T_Processing,
+        weighting: Literal["din", "aures", "bismarck", "fastl"] = "din",
+        field_type: Literal["free", "diffuse"] = "free",
+    ) -> T_Processing:
+        """Replay released Recipe v1, whose result kept the input channel unit."""
+        result = self._apply_named_operation("sharpness_din", weighting=weighting, field_type=field_type)
         return cast(T_Processing, result)
 
     def sharpness_din_st(

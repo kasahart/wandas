@@ -1590,7 +1590,7 @@ class TestRoughnessOperations:
         assert roughness_spec.data.shape[1] == 47  # 47 Bark bands
 
 
-def test_roughness_dw_spec_preserves_source_channel_metadata_and_ids() -> None:
+def test_roughness_dw_spec_preserves_source_channel_metadata_and_sets_its_unit() -> None:
     data = np.random.default_rng(123).random((2, 16000))
     frame = ChannelFrame(
         data=_da_from_array(data, chunks=(1, 4000)),
@@ -1611,12 +1611,12 @@ def test_roughness_dw_spec_preserves_source_channel_metadata_and_ids() -> None:
     np.testing.assert_array_equal(result.source_time_offset, np.array([3.25, 3.25]))
     assert result._channel_ids == ["left-id", "right-id"]
     assert result.channels[0].label == "left"
-    assert result.channels[0].unit == "Pa"
-    assert result.channels[0].ref == 0.25
+    assert result.channels[0].unit == "asper/Bark"
+    assert result.channels[0].ref == 1.0
     assert result.channels[0].extra == {"gain": 10}
     assert result.channels[1].label == "right"
-    assert result.channels[1].unit == "V"
-    assert result.channels[1].ref == 0.5
+    assert result.channels[1].unit == "asper/Bark"
+    assert result.channels[1].ref == 1.0
     assert result.channels[1].extra == {"gain": 20}
 
 
