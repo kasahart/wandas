@@ -621,9 +621,14 @@ class ChannelProcessingMixin:
         result = self._apply_named_operation("abs")
         return cast(T_Processing, result)
 
-    @recipe_operation("wandas.audio.power")
+    @recipe_operation("wandas.audio.power", version=2)
     def power(self: T_Processing, exponent: float = 2.0) -> T_Processing:
         """Compute the power of the signal.
+
+        Like ``frame ** exponent``, the result unit and reference are raised to
+        ``exponent``: ``Pa`` becomes ``Pa^2`` with reference ``4e-10``, and a
+        squared amplitude quantity is a power quantity, whose dB level uses
+        ``10 * log10``.
 
         Args:
             exponent: Exponent to raise the signal to. Default is 2.0.
@@ -631,8 +636,26 @@ class ChannelProcessingMixin:
         Returns:
             New ChannelFrame containing the powered signal
         """
-        result = self._apply_named_operation("power", exponent=exponent)
+        from wandas.core._unit_rules import raised
+        from wandas.processing import create_operation as create_named_operation
+
+        operation = create_named_operation("power", self.sampling_rate, exponent=exponent)
+        display = operation.get_display_name() or "power"
+        channel_metadata = cast(Any, self)._metadata_after_analysis()
+        for descriptor, channel in zip(channel_metadata, cast(Any, self).channels, strict=True):
+            descriptor["label"] = f"{display}({channel.label})"
+            descriptor["calibration"] = raised(descriptor["calibration"], float(exponent))
+        result = cast(Any, self)._apply_operation_instance(
+            operation,
+            operation_name="power",
+            frame_metadata_updates={"channel_metadata": channel_metadata},
+        )
         return cast(T_Processing, result)
+
+    @recipe_operation("wandas.audio.power", version=1)
+    def _power_recipe_v1(self: T_Processing, exponent: float = 2.0) -> T_Processing:
+        """Replay released Recipe v1, whose result kept the input channel unit."""
+        return cast(T_Processing, self._apply_named_operation("power", exponent=exponent))
 
     def _reduce_channels(self: T_Processing, op: str, *, recipe_v1: bool = False) -> T_Processing:
         """Helper to reduce all channels with the given operation ('sum' or 'mean').

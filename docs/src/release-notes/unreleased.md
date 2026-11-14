@@ -29,6 +29,36 @@ Changes after [Wandas 0.13.1](v0.13.1.md).
 
 ## Changed / 変更
 
+- Element-wise arithmetic derives the unit, reference and level kind of its
+  result instead of keeping the left operand's
+  ([#651](https://github.com/kasahart/wandas/issues/651)). `p * p`, `p ** 2`,
+  `p.power(2)` and `np.square(p)` of a channel in `Pa` give `Pa^2` with
+  reference `4e-10` and a power level (`10 * log10`), so their level in dB
+  equals the level of `p`; `p * v` gives `Pa*m/s`, `p / v` gives `Pa*s/m`,
+  `p / p` gives `1`, `2 / p` gives `1/Pa`, `np.sqrt(p * p)` gives `Pa` again,
+  and `np.log10(p)`, `np.exp(...)` and the trigonometric ufuncs give `1` with
+  no level. A dimensionless channel (unit `1`), such as a window, acts as a
+  gain and keeps the other operand's unit. Adding or subtracting frames whose
+  units differ keeps the left unit as before but now emits a `UserWarning`.
+  Units are read as products of factors with exponents, so `Pa*Pa` and `Pa^2`
+  are the same unit; text that is not such a product, such as
+  `dB SPL re 2e-05 Pa`, is kept as one factor, and an uncalibrated channel
+  (unit `""`) stays uncalibrated. Values do not change. New Recipes use
+  version 2 of the `wandas.operator.*` operations, `wandas.numpy.ufunc` and
+  `wandas.audio.power`; Recipes saved by 0.13.1 (version 1) still replay with
+  the left operand's unit.
+  要素ごとの演算の結果に、左の被演算子の単位ではなく演算から決まる単位・基準値・レベルの種類を
+  付けるようになりました。`Pa`のチャンネルの`p * p`・`p ** 2`・`p.power(2)`・`np.square(p)`は
+  基準値`4e-10`の`Pa^2`でパワー量（`10 * log10`）になり、dBのレベルは`p`と同じです。
+  `p * v`は`Pa*m/s`、`p / v`は`Pa*s/m`、`p / p`は`1`、`2 / p`は`1/Pa`、`np.sqrt(p * p)`は`Pa`に戻り、
+  `np.log10(p)`・`np.exp(...)`・三角関数は`1`（レベルなし）です。単位`1`のチャンネル（窓など）は
+  ゲインとして働き、相手の単位を保ちます。単位の違うFrameどうしの加減算は今までどおり左の単位を
+  保ちますが、`UserWarning`を出すようになりました。単位は因子と指数の積として読むので`Pa*Pa`と
+  `Pa^2`は同じ単位です。`dB SPL re 2e-05 Pa`のように積として読めない文字列は1つの因子として扱い、
+  校正していないチャンネル（単位`""`）は校正していないままです。値は変わりません。新しいRecipeは
+  `wandas.operator.*`・`wandas.numpy.ufunc`・`wandas.audio.power`のversion 2を使い、0.13.1で保存した
+  Recipe（version 1）は今までどおり左の単位で再生します。
+
 - The time-varying psychoacoustic results carry the unit of the metric instead
   of the input channel's unit
   ([#652](https://github.com/kasahart/wandas/issues/652)): `loudness_zwtv()`
