@@ -140,25 +140,27 @@ def _product_unit(input_unit: str, output_unit: str) -> str:
     return unit_product(input_unit or "1", output_unit or "1")
 
 
-def released_pair_units(pair: OrderedSpectralPair) -> frozenset[str]:
-    """Return the CSD and transfer unit strings that releases up to 0.13.1 wrote.
+def released_csd_unit(pair: OrderedSpectralPair, scaling: str) -> str:
+    """Return the CSD unit text that releases up to 0.13.1 wrote (``Pa*Pa/Hz``).
 
-    They joined the units with ``*`` and ``/`` as text (``Pa*Pa/Hz``,
-    ``Pa/m/s``). WDF reading accepts them for files written by those releases
-    and replaces them with the current canonical form.
+    WDF reading accepts it for files written by those releases and replaces it
+    with the current canonical form.
     """
-    product = "*".join(unit for unit in (pair.input.unit, pair.output.unit) if unit) or "1"
-    units = {product, f"{product}/Hz"}
-    for numerator, denominator in ((pair.output.unit, pair.input.unit), (pair.input.unit, pair.output.unit)):
-        if not numerator and not denominator or numerator == denominator:
-            units.add("1")
-        elif not denominator:
-            units.add(numerator)
-        elif not numerator:
-            units.add(f"1/{denominator}")
-        else:
-            units.add(f"{numerator}/{denominator}")
-    return frozenset(units)
+    unit = "*".join(unit for unit in (pair.input.unit, pair.output.unit) if unit) or "1"
+    return f"{unit}/Hz" if _validate_scaling(scaling) == "density" else unit
+
+
+def released_transfer_unit(pair: OrderedSpectralPair, denominator_role: TransferDenominator = "input") -> str:
+    """Return the transfer unit text that releases up to 0.13.1 wrote (``Pa/m/s``)."""
+    numerator = (pair.output if denominator_role == "input" else pair.input).unit
+    denominator = (pair.input if denominator_role == "input" else pair.output).unit
+    if not numerator and not denominator or numerator == denominator:
+        return "1"
+    if not denominator:
+        return numerator
+    if not numerator:
+        return f"1/{denominator}"
+    return f"{numerator}/{denominator}"
 
 
 def _validate_scaling(scaling: str) -> SpectralScaling:

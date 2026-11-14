@@ -7,6 +7,7 @@ from typing import Any, cast
 
 import dask.array as da
 import numpy as np
+import pytest
 import xarray as xr
 
 import wandas as wd
@@ -60,3 +61,29 @@ def test_csd_and_transfer_files_with_the_released_unit_spelling_load_in_the_curr
         assert [channel.unit for channel in loaded.channels] == [channel.unit for channel in frame.channels]
         assert [record.domain for record in loaded.pair_state] == [record.domain for record in frame.pair_state]
         np.testing.assert_array_equal(np.asarray(loaded.data), np.asarray(frame.data))
+
+
+@pytest.mark.parametrize(
+    ("kind", "replacements"),
+    [
+        # A spectrum CSD never had the density spelling or "1".
+        pytest.param("csd", {"Pa^2": "Pa*Pa/Hz"}, id="csd-density-spelling"),
+        pytest.param("csd", {"Pa^2": "1"}, id="csd-dimensionless"),
+        # The released spelling of the other transfer direction.
+        pytest.param("transfer", {"Pa*s/m": "m/s/Pa"}, id="transfer-other-direction"),
+    ],
+)
+def test_units_that_were_never_written_for_the_stored_quantity_are_rejected(
+    tmp_path: Path, kind: str, replacements: dict[str, str]
+) -> None:
+    source = _source()
+    if kind == "csd":
+        frame: Any = source.csd(n_fft=256, win_length=256, hop_length=128, scaling="spectrum")
+    else:
+        frame = source.transfer_function(n_fft=256, win_length=256, hop_length=128)
+    path = tmp_path / "current.wdf"
+    old_path = tmp_path / "respelled.wdf"
+    frame.save(path)
+    _respell(path, old_path, replacements)
+    with pytest.raises(ValueError):
+        wd.load(old_path)
