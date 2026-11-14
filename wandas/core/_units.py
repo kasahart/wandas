@@ -83,10 +83,16 @@ class _Reader:
 
     def _atom(self) -> list[tuple[str, Fraction]]:
         if self.position < len(self.text) and self.text[self.position] == "(":
+            start = self.position
             self.position += 1
-            factors = self._product()
-            if self.position >= len(self.text) or self.text[self.position] != ")":
-                raise _UnreadableUnitError(self.text)
+            try:
+                factors = self._product()
+                if self.position >= len(self.text) or self.text[self.position] != ")":
+                    raise _UnreadableUnitError(self.text)
+            except (_UnreadableUnitError, ZeroDivisionError):
+                # A parenthesised opaque factor, as format_unit prints one.
+                self.position = start
+                return [(self._opaque_name(), Fraction(1))]
             self.position += 1
             return factors
         match = _NAME.match(self.text, self.position)
@@ -97,6 +103,22 @@ class _Reader:
         if name == _DIMENSIONLESS:
             return []
         return [(name, Fraction(1))]
+
+    def _opaque_name(self) -> str:
+        """Read ``(text)`` up to its matching parenthesis and return ``text``."""
+        depth = 0
+        for index in range(self.position, len(self.text)):
+            if self.text[index] == "(":
+                depth += 1
+            elif self.text[index] == ")":
+                depth -= 1
+                if depth == 0:
+                    name = self.text[self.position + 1 : index].strip()
+                    if not name:
+                        break
+                    self.position = index + 1
+                    return name
+        raise _UnreadableUnitError(self.text)
 
 
 def parse_unit(unit: str) -> UnitFactors | None:

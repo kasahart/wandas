@@ -68,6 +68,21 @@ class TestUnitAlgebra:
         assert unit_power("", 2) == ""
         assert parse_unit("") is None
 
+    @pytest.mark.parametrize(
+        "unit",
+        ["Pa", "Pa*s/m", "m^(1/3)/s^(2/3)", "kg m", "dB SPL re 2e-05 Pa", "dB (A)", "N*m re 1"],
+    )
+    def test_printed_units_read_back_to_the_same_factors(self, unit: str) -> None:
+        # Frame arithmetic stores the printed unit, which the next operation reads.
+        for derived in (unit, unit_product(unit, "s"), unit_power(unit, 2), unit_quotient("1", unit)):
+            assert parse_unit(format_unit(parse_unit(derived))) == parse_unit(derived)
+
+    def test_opaque_factors_cancel_across_operations(self) -> None:
+        assert unit_quotient(unit_product("kg m", "s"), "s") == "(kg m)"
+        assert unit_power(unit_power("kg m", 2), 0.5) == "(kg m)"
+        assert same_unit(unit_product("kg m", "kg m"), "(kg m)^2")
+        assert unit_quotient(unit_product("dB (A)", "s"), "dB (A)") == "s"
+
 
 _PA2 = ("Pa^2", pytest.approx(4e-10), "power")
 
