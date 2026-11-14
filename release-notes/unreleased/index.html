@@ -18,7 +18,7 @@
         <link rel="prev" href="../../explanation/spectral-numerical-contracts/">
       
       
-        <link rel="next" href="../v0.13.1/">
+        <link rel="next" href="../v0.13.2/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -1212,19 +1212,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Unreleased
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1237,52 +1224,29 @@
 
       </a>
       
-        
+    </li>
+  
 
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+              
+            
+              
+                
   
   
   
+  
+    <li class="md-nav__item">
+      <a href="../v0.13.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.13.2
     
+  </span>
   
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
-    <span class="md-ellipsis">
-      Added / 追加
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Changed / 変更
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#compatibility-and-migration" class="md-nav__link">
-    <span class="md-ellipsis">
-      Compatibility and migration / 互換性と移行
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
+
+      </a>
     </li>
   
 
@@ -1804,41 +1768,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
-    <span class="md-ellipsis">
-      Added / 追加
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Changed / 変更
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#compatibility-and-migration" class="md-nav__link">
-    <span class="md-ellipsis">
-      Compatibility and migration / 互換性と移行
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -1862,136 +1791,10 @@
 
 
 <h1 id="unreleased-changes">Unreleased changes<a class="headerlink" href="#unreleased-changes" title="Permanent link">&para;</a></h1>
-<p>Changes after <a href="../v0.13.1/">Wandas 0.13.1</a>.</p>
-<p>0.13.1以降の変更です。</p>
-<h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
-<ul>
-<li>A channel calibration records how its values convert to a level:
-  <code>ChannelCalibration(..., level="amplitude" | "power" | "none")</code>, read as
-  <code>frame.channels[i].calibration.level</code>
-  (<a href="https://github.com/kasahart/wandas/issues/651">#651</a>). Amplitude
-  quantities (the default, such as Pa or V) keep <code>20 * log10(|x| / ref)</code>,
-  power quantities (such as Pa^2 or W) use <code>10 * log10(|x| / ref)</code>, and
-  <code>"none"</code> makes the dB properties warn and use the amplitude formula. Spectral, spectrogram and band
-  <code>dB</code>, <code>LevelReference.to_level()</code> and WDF files follow it. RMS-based levels
-  (<code>rms_trend(dB=True)</code>, <code>sound_level()</code>, <code>leq()</code>, <code>percentile_levels()</code>)
-  warn for channels that are not amplitude quantities and compute as before. The results of those
-  dB operations are marked <code>"none"</code>, since their values are already levels.
-  Existing frames, Recipes and WDF files describe amplitude channels and
-  their levels do not change.
-  チャンネルの校正に、値をレベルへ直す方法を持たせました（<code>level="amplitude" | "power" | "none"</code>）。
-  振幅量（既定、Pa・Vなど）は今までどおり<code>20 * log10(|x| / ref)</code>、パワー量（Pa^2・Wなど）は
-  <code>10 * log10(|x| / ref)</code>で、<code>"none"</code>ではdBの属性が警告を出して振幅の式で計算します。スペクトル・スペクトログラム・
-  帯域の<code>dB</code>、<code>LevelReference.to_level()</code>、WDFがこれに従います。RMSから求めるレベル
-  （<code>rms_trend(dB=True)</code>・<code>sound_level()</code>・<code>leq()</code>・<code>percentile_levels()</code>）は振幅量以外では警告を出して今までどおり計算し、
-  これらのdB操作の結果は既にレベルなので<code>"none"</code>になります。既存のFrame・Recipe・WDFは振幅量を表し、
-  レベルの値は変わりません。</li>
-</ul>
-<h2 id="changed">Changed / 変更<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Element-wise arithmetic derives the unit, reference and level kind of its
-  result instead of keeping the left operand's
-  (<a href="https://github.com/kasahart/wandas/issues/651">#651</a>). <code>p * p</code>, <code>p ** 2</code>,
-  <code>p.power(2)</code> and <code>np.square(p)</code> of a channel in <code>Pa</code> give <code>Pa^2</code> with
-  reference <code>4e-10</code> and a power level (<code>10 * log10</code>), so their level in dB
-  equals the level of <code>p</code>; <code>p * v</code> gives <code>Pa*m/s</code>, <code>p / v</code> gives <code>Pa*s/m</code>,
-  <code>p / p</code> gives <code>1</code>, <code>2 / p</code> gives <code>1/Pa</code>, <code>np.sqrt(p * p)</code> gives <code>Pa</code> again,
-  and <code>np.log10(p)</code>, <code>np.exp(...)</code> and the trigonometric ufuncs give <code>1</code> with
-  no level. A dimensionless channel (unit <code>1</code>), such as a window, acts as a
-  gain and keeps the other operand's unit. Adding or subtracting frames whose
-  units differ keeps the left unit as before but now emits a <code>UserWarning</code>.
-  Units are read as products of factors with exponents, so <code>Pa*Pa</code> and <code>Pa^2</code>
-  are the same unit; text that is not such a product, such as
-  <code>dB SPL re 2e-05 Pa</code>, is kept as one factor, and an uncalibrated channel
-  (unit <code>""</code>) stays uncalibrated. Values do not change. New Recipes use
-  version 2 of the <code>wandas.operator.*</code> operations, <code>wandas.numpy.ufunc</code> and
-  <code>wandas.audio.power</code>; Recipes saved by 0.13.1 (version 1) still replay with
-  the left operand's unit.
-  要素ごとの演算の結果に、左の被演算子の単位ではなく演算から決まる単位・基準値・レベルの種類を
-  付けるようになりました。<code>Pa</code>のチャンネルの<code>p * p</code>・<code>p ** 2</code>・<code>p.power(2)</code>・<code>np.square(p)</code>は
-  基準値<code>4e-10</code>の<code>Pa^2</code>でパワー量（<code>10 * log10</code>）になり、dBのレベルは<code>p</code>と同じです。
-  <code>p * v</code>は<code>Pa*m/s</code>、<code>p / v</code>は<code>Pa*s/m</code>、<code>p / p</code>は<code>1</code>、<code>2 / p</code>は<code>1/Pa</code>、<code>np.sqrt(p * p)</code>は<code>Pa</code>に戻り、
-  <code>np.log10(p)</code>・<code>np.exp(...)</code>・三角関数は<code>1</code>（レベルなし）です。単位<code>1</code>のチャンネル（窓など）は
-  ゲインとして働き、相手の単位を保ちます。単位の違うFrameどうしの加減算は今までどおり左の単位を
-  保ちますが、<code>UserWarning</code>を出すようになりました。単位は因子と指数の積として読むので<code>Pa*Pa</code>と
-  <code>Pa^2</code>は同じ単位です。<code>dB SPL re 2e-05 Pa</code>のように積として読めない文字列は1つの因子として扱い、
-  校正していないチャンネル（単位<code>""</code>）は校正していないままです。値は変わりません。新しいRecipeは
-  <code>wandas.operator.*</code>・<code>wandas.numpy.ufunc</code>・<code>wandas.audio.power</code>のversion 2を使い、0.13.1で保存した
-  Recipe（version 1）は今までどおり左の単位で再生します。</li>
-<li>
-<p><code>csd()</code> and <code>transfer_function()</code> write their units in the same canonical
-  form (<a href="https://github.com/kasahart/wandas/issues/651">#651</a>): <code>Pa*Pa</code>
-  becomes <code>Pa^2</code>, <code>Pa*Pa/Hz</code> becomes <code>Pa^2/Hz</code>, and the transfer function of
-  <code>m/s</code> to <code>Pa</code> becomes <code>Pa*s/m</code> instead of <code>Pa/m/s</code>, which read as
-  Pa/(m·s). References and values do not change. WDF files written by 0.13.1
-  load with the new unit text.
-  <code>csd()</code>と<code>transfer_function()</code>の単位も同じ正規の書き方になりました。<code>Pa*Pa</code>は<code>Pa^2</code>、
-  <code>Pa*Pa/Hz</code>は<code>Pa^2/Hz</code>、<code>m/s</code>から<code>Pa</code>への伝達関数は<code>Pa/m/s</code>（Pa/(m·s)と読めてしまう）ではなく
-  <code>Pa*s/m</code>です。基準値と値は変わりません。0.13.1で保存したWDFは新しい単位の表記で読み込みます。</p>
-</li>
-<li>
-<p>The time-varying psychoacoustic results carry the unit of the metric instead
-  of the input channel's unit
-  (<a href="https://github.com/kasahart/wandas/issues/652">#652</a>): <code>loudness_zwtv()</code>
-  is in <code>sone</code>, <code>roughness_dw()</code> in <code>asper</code>, <code>roughness_dw_spec()</code> in
-  <code>asper/Bark</code> and <code>sharpness_din()</code> in <code>acum</code>, each with reference 1.0 and
-  level kind <code>"none"</code>, so their dB properties warn.
-  Before, a loudness trace of a channel in <code>Pa</code> was still labelled <code>Pa</code> with
-  reference 2e-05. The values do not change. New Recipes use version 2 of
-  these four operations; Recipes saved by 0.13.1 (version 1) still replay with
-  the input unit.
-  時間変化する心理音響指標の結果は、入力チャンネルの単位ではなく指標の単位を持つようになりました。
-  <code>loudness_zwtv()</code>は<code>sone</code>、<code>roughness_dw()</code>は<code>asper</code>、<code>roughness_dw_spec()</code>は<code>asper/Bark</code>、
-  <code>sharpness_din()</code>は<code>acum</code>で、基準値はどれも1.0、レベルの種類は<code>"none"</code>（dBは警告）です。これまでは<code>Pa</code>のチャンネルから求めた
-  ラウドネスも<code>Pa</code>・基準値2e-05のままでした。値は変わりません。新しいRecipeはこの4つの操作の
-  version 2を使い、0.13.1で保存したRecipe（version 1）は今までどおり入力の単位で再生します。</p>
-</li>
-</ul>
-<h2 id="compatibility-and-migration">Compatibility and migration / 互換性と移行<a class="headerlink" href="#compatibility-and-migration" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Affected surface or artifact</th>
-<th>Classification</th>
-<th>Deprecation start</th>
-<th>Replacement or migration</th>
-<th>Removal/change version</th>
-<th>Exception reason and decision link</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Unit text of <code>csd()</code> and <code>transfer_function()</code> results, including replays of Recipes saved by 0.13.1 (<code>wandas.audio.csd</code> and <code>wandas.audio.transfer_function</code> version 2, <code>wandas.spectrogram.csd</code>, <code>wandas.cross_spectral.transfer_function</code>, <code>wandas.segments.transfer_function</code>)</td>
-<td>Stable / Serialized, unit text change without a new operation version</td>
-<td>None</td>
-<td>Compare units with the canonical form (<code>Pa^2</code>, <code>Pa*s/m</code>); values, references and level kinds are unchanged, and WDF files written by 0.13.1 load with the new text</td>
-<td>Next release</td>
-<td>Pairwise frames check their unit against one derivation, so replaying the released text would need two spellings; the released <code>Pa/m/s</code> also reads as Pa/(m·s). Maintainer decision on <a href="https://github.com/kasahart/wandas/pull/656">#656</a></td>
-</tr>
-</tbody>
-</table>
-<table>
-<thead>
-<tr>
-<th>影響する機能・データ</th>
-<th>分類</th>
-<th>非推奨の開始</th>
-<th>代替・移行方法</th>
-<th>変更バージョン</th>
-<th>例外の理由と判断のリンク</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>csd()</code>・<code>transfer_function()</code>の結果の単位の文字列（0.13.1で保存したRecipe、<code>wandas.audio.csd</code>・<code>wandas.audio.transfer_function</code>のversion 2、<code>wandas.spectrogram.csd</code>、<code>wandas.cross_spectral.transfer_function</code>、<code>wandas.segments.transfer_function</code>の再生を含む）</td>
-<td>Stable / Serialized、操作versionを上げない単位の表記の変更</td>
-<td>なし</td>
-<td>単位は正規の書き方（<code>Pa^2</code>、<code>Pa*s/m</code>）で比べてください。値・基準値・レベルの種類は変わらず、0.13.1で保存したWDFは新しい表記で読み込みます</td>
-<td>次のリリース</td>
-<td>ペアのFrameは単位を1つの導出と照合するため、旧表記で再生するには表記を2通り持つ必要があります。また旧表記<code>Pa/m/s</code>はPa/(m·s)と読めます。判断は<a href="https://github.com/kasahart/wandas/pull/656">#656</a>でメンテナーが行いました</td>
-</tr>
-</tbody>
-</table>
+<p>Changes after <a href="../v0.13.2/">Wandas 0.13.2</a>.</p>
+<p>0.13.2以降の変更です。</p>
+<p>No changes are currently pending after 0.13.2.</p>
+<p>0.13.2以降の変更はまだありません。</p>
 
 
 
@@ -2012,7 +1815,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 14, 2026 06:08:56 UTC">November 14, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 14, 2026 06:40:24 UTC">November 14, 2026</span>
   </span>
 
     
