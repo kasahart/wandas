@@ -50,29 +50,47 @@ def _normalize_level_kind(level: object) -> LevelKind:
     return cast(LevelKind, level)
 
 
+def _warn_from_caller(message: str) -> None:
+    """Emit a UserWarning at the first frame outside the wandas package."""
+    import os
+    import sys
+    import warnings
+
+    package_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep
+    level = 1
+    frame = sys._getframe(0)
+    while frame is not None and os.path.abspath(frame.f_code.co_filename).startswith(package_dir):
+        frame = frame.f_back
+        level += 1
+    warnings.warn(message, UserWarning, stacklevel=level)
+
+
 def _level_factor(level: LevelKind, unit: str) -> float:
-    """Return the dB factor of a level kind, or raise when no level is defined."""
+    """Return the dB factor of a level kind; ``"none"`` warns and uses the amplitude factor."""
     factor = _LEVEL_FACTORS.get(level)
     if factor is None:
-        raise ValueError(
+        _warn_from_caller(
             "A dB level is not defined for this channel\n"
             f"  Unit: {unit or 'input unit'!r}, level kind: {level!r}\n"
             "  Expected: an 'amplitude' or 'power' quantity\n"
+            "  The value is computed as an amplitude level (20 * log10) and may be meaningless.\n"
             "Convert the values themselves, or set the level kind with "
             "ChannelCalibration.with_level() when the quantity has one."
         )
+        return _LEVEL_FACTORS["amplitude"]
     return factor
 
 
 def _require_amplitude_channels(channels: Any, operation: str) -> None:
-    """Reject RMS-based level operations on channels that are not amplitude quantities."""
+    """Warn when an RMS-based level operation gets channels that are not amplitude quantities."""
     for channel in channels:
         level = channel.calibration.level
         if level != "amplitude":
-            raise ValueError(
+            _warn_from_caller(
                 f"{operation} needs amplitude quantities\n"
                 f"  Channel: {channel.label!r} in {channel.unit or 'input unit'!r}, level kind {level!r}\n"
                 "  Expected: level kind 'amplitude' (for example Pa or V)\n"
+                "  The level is computed as for an amplitude signal and may be meaningless.\n"
                 "Compute the level from the amplitude signal before squaring or converting it."
             )
 
@@ -317,8 +335,7 @@ class LevelReference:
         Amplitude quantities use ``20 * log10(|x| / ref)`` and power quantities
         ``10 * log10(|x| / ref)``.
 
-        Raises:
-            ValueError: If the level kind is ``"none"``.
+        A ``"none"`` kind warns and uses the amplitude formula.
         """
         from wandas.processing.weighting import _kind_level_db
 

@@ -98,8 +98,8 @@ class SpectralPropertiesMixin:
         ``10 * log10(magnitude / channel_ref)`` for power channels, chosen by
         ``channels[i].calibration.level``.
 
-        Raises:
-            ValueError: If a channel has level kind ``"none"``.
+        A channel with level kind ``"none"`` warns and uses the amplitude
+        formula.
         """
         mag: NDArrayReal = np.abs(self.data)
         return _ref_weighted_db_public_shape(mag, self._channel_metadata)

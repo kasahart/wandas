@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, cast
 
 import dask.array as da
@@ -65,12 +66,14 @@ class TestLevelConversion:
         np.testing.assert_allclose(level[0], 20 * np.log10(np.maximum(magnitude[0] / 2e-5, 1e-12)), rtol=1e-9)
         np.testing.assert_allclose(level[1], 10 * np.log10(np.maximum(magnitude[1] / 4e-10, 1e-12)), rtol=1e-9)
 
-    def test_level_of_a_none_channel_raises(self) -> None:
+    def test_level_of_a_none_channel_warns_and_uses_the_amplitude_level(self) -> None:
         spectrum = _frame([_SONE]).fft()
-        with pytest.raises(ValueError, match="A dB level is not defined for this channel"):
-            _ = spectrum.dB
-        with pytest.raises(ValueError, match="A dB level is not defined"):
-            _ = _frame([_SONE]).channels[0].level_reference.to_level(1.0)
+        with pytest.warns(UserWarning, match="A dB level is not defined for this channel") as record:
+            level = spectrum.dB
+        assert record[0].filename == __file__
+        np.testing.assert_allclose(level, 20 * np.log10(np.maximum(np.abs(spectrum.data), 1e-12)), rtol=1e-9)
+        with pytest.warns(UserWarning, match="A dB level is not defined"):
+            assert _frame([_SONE]).channels[0].level_reference.to_level(10.0) == pytest.approx(20.0)
 
     def test_level_reference_carries_the_kind(self) -> None:
         reference = _frame([_PA2]).channels[0].level_reference
@@ -86,15 +89,20 @@ class TestLevelConversion:
             pytest.param(lambda frame: frame.leq(), id="leq"),
         ],
     )
-    def test_rms_based_levels_need_amplitude_channels(self, call: Any) -> None:
-        call(_frame([_PA]))
+    def test_rms_based_levels_warn_for_non_amplitude_channels(self, call: Any) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            call(_frame([_PA]))
         for calibration in (_PA2, _SONE):
-            with pytest.raises(ValueError, match="needs amplitude quantities"):
+            with pytest.warns(UserWarning, match="needs amplitude quantities") as record:
                 call(_frame([calibration]))
+            assert record[0].filename == __file__
 
     def test_level_results_have_no_further_level(self) -> None:
         level = _frame([_PA]).rms_trend(frame_length=256, hop_length=128, dB=True)
         assert level.channels[0].calibration.level == "none"
+        with pytest.warns(UserWarning, match="A dB level is not defined"):
+            _ = level.fft().dB
 
 
 class TestPropagation:

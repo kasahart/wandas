@@ -98,7 +98,7 @@ def _kind_level_db(data: ArrayLike, reference: ArrayLike, level_kind: str, unit:
     """Compute the level of one channel domain from its level kind.
 
     Raises:
-        ValueError: If the level kind is ``"none"``.
+        UserWarning: If the level kind is ``"none"`` (amplitude factor is used).
     """
     from wandas.core.metadata import _level_factor, _normalize_level_kind
 
@@ -106,7 +106,7 @@ def _kind_level_db(data: ArrayLike, reference: ArrayLike, level_kind: str, unit:
 
 
 def _channel_level_factors(channel_metadata: Any) -> NDArrayReal:
-    """Return the dB factor of each channel, raising when one has no level."""
+    """Return the dB factor of each channel, warning when one has no level."""
     from wandas.core.metadata import _level_factor
 
     return np.asarray(
