@@ -1613,6 +1613,7 @@ def test_roughness_dw_spec_preserves_source_channel_metadata_and_sets_its_unit()
     assert result.channels[0].label == "left"
     assert result.channels[0].unit == "asper/Bark"
     assert result.channels[0].ref == 1.0
+    assert result.channels[0].calibration.level == "none"
     assert result.channels[0].extra == {"gain": 10}
     assert result.channels[1].label == "right"
     assert result.channels[1].unit == "asper/Bark"

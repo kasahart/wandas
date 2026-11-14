@@ -70,6 +70,7 @@ def test_result_carries_the_metric_unit_and_released_payload_keeps_the_input_uni
 
     current = getattr(source, method)(**params)
     assert [(channel.unit, channel.ref) for channel in current.channels] == [(unit, 1.0), (unit, 1.0)]
+    assert [channel.calibration.level for channel in current.channels] == ["none", "none"]
     assert current.operation_history[-1]["version"] == 2
     current_replayed = RecipePlan.from_frame(current, input_names=("signal",)).apply({"signal": source})
     assert [channel.unit for channel in current_replayed.channels] == [unit, unit]
@@ -78,6 +79,7 @@ def test_result_carries_the_metric_unit_and_released_payload_keeps_the_input_uni
     assert default_recipe_registry().require(operation_id, 1).version == 1
     replayed = RecipePlan.from_dict(_payload(operation_id, 1, params)).apply({"signal": source})
     assert [(channel.unit, channel.ref) for channel in replayed.channels] == [("Pa", 2e-5), ("Pa", 2e-5)]
+    assert [channel.calibration.level for channel in replayed.channels] == ["amplitude", "amplitude"]
     assert replayed.operation_history == [{"operation": operation_id, "version": 1, "params": params}]
     assert replayed.labels == current.labels
     # Only the unit metadata differs between the versions.

@@ -89,6 +89,11 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   operation version 2; released version 1 replays the input unit. Values are
   unchanged. Readers without version 2 reject new Recipes at load time. The
   Recipe document schema is unchanged.
+- `ChannelCalibration` gains `level` (`"amplitude"` by default, `"power"` or
+  `"none"`). Calibration snapshots and Recipe parameters write it only when it
+  is not `"amplitude"`; WDF adds a `channel_level` variable only in that case,
+  which older readers reject explicitly. Amplitude-only frames, Recipes and
+  WDF files keep their schemas. Operation versions are unchanged.
 - `ChannelFrame.trim()` rounds times to the nearest sample (halves up) instead
   of truncating them. New `wandas.frame.time_slice` Recipes use operation
   version 2; released version 1 replays the truncation. Readers without

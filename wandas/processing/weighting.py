@@ -45,8 +45,11 @@ from wandas.utils.types import NDArrayReal
 from wandas.utils.util import DB_FLOOR
 
 
-def _reference_level_db(data: ArrayLike, reference: ArrayLike) -> NDArrayReal:
-    """Compute the canonical amplitude level for a broadcastable reference.
+def _reference_level_db(data: ArrayLike, reference: ArrayLike, factor: ArrayLike = 20.0) -> NDArrayReal:
+    """Compute the canonical level for a broadcastable reference.
+
+    ``factor`` is 20 for amplitude quantities (the default) and 10 for power
+    quantities; it broadcasts like ``reference``.
 
     Real magnitude is evaluated in float64, and the result is float32 for
     float32 or complex64 data and float64 otherwise. Complex components are scaled
@@ -86,8 +89,36 @@ def _reference_level_db(data: ArrayLike, reference: ArrayLike) -> NDArrayReal:
         log_ratio = log_magnitude - np.log10(reference_array)
     minimum_log_ratio = math.log10(DB_FLOOR)
     output_dtype = np.float32 if source.dtype in (np.dtype(np.float32), np.dtype(np.complex64)) else np.float64
-    result: NDArrayReal = np.asarray(20.0 * np.maximum(log_ratio, minimum_log_ratio), dtype=output_dtype)
+    factor_array = np.asarray(factor, dtype=float)
+    result: NDArrayReal = np.asarray(factor_array * np.maximum(log_ratio, minimum_log_ratio), dtype=output_dtype)
     return result
+
+
+def _kind_level_db(data: ArrayLike, reference: ArrayLike, level_kind: str, unit: str = "") -> NDArrayReal:
+    """Compute the level of one channel domain from its level kind.
+
+    Raises:
+        UserWarning: If the level kind is ``"none"`` (amplitude factor is used).
+    """
+    from wandas.core.metadata import _level_factor, _normalize_level_kind
+
+    return _reference_level_db(data, reference, _level_factor(_normalize_level_kind(level_kind), unit))
+
+
+def _channel_level_factors(channel_metadata: Any) -> NDArrayReal:
+    """Return the dB factor of each channel, warning when one has no level."""
+    from wandas.core.metadata import _level_factor
+
+    return np.asarray(
+        [
+            _level_factor(
+                getattr(getattr(channel, "calibration", None), "level", "amplitude"),
+                getattr(channel, "unit", ""),
+            )
+            for channel in channel_metadata
+        ],
+        dtype=float,
+    )
 
 
 def a_weighting_db(frequencies: NDArrayReal, min_db: float | None = -45.0) -> NDArrayReal:

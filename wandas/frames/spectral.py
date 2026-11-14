@@ -70,8 +70,9 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         unwrapped_phase: NDArrayReal. The unwrapped phase spectrum in radians.
         power: NDArrayReal. Squared magnitude. This compatibility property is not necessarily
             physical power or power spectral density.
-        dB: NDArrayReal. Magnitude level, ``20 * log10(magnitude / channel_ref)``. For FFT and
-            Welch results this is an amplitude level.
+        dB: NDArrayReal. Magnitude level, ``20 * log10(magnitude / channel_ref)`` for amplitude
+            channels and ``10 * log10(...)`` for power channels; it raises for channels without a
+            level. For FFT and Welch results of an amplitude signal this is an amplitude level.
         dBA: NDArrayReal. A-weighted magnitude level. For FFT and Welch results this is an
             A-weighted amplitude level.
         freqs: NDArrayReal. The frequency axis values in Hz.

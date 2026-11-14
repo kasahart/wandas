@@ -349,6 +349,7 @@ def test_db_operations_publish_reference_bearing_level_metadata(
         factor=1.0,
         unit="dB SPL re 2e-05 Pa",
         ref=1.0,
+        level="none",
     )
     assert source.channels[0].calibration == ChannelCalibration(2.0, "Pa")
     assert source.operation_history == source_history
@@ -381,6 +382,7 @@ def test_db_operations_preserve_exact_reference_metadata(
         factor=1.0,
         unit=expected_unit,
         ref=1.0,
+        level="none",
     )
     assert source.channels[0].calibration == calibration
 

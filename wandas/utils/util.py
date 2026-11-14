@@ -42,14 +42,16 @@ def ref_weighted_dB(
         ndim: int. Number of dimensions in the underlying dask array.
 
     Returns:
-        NDArrayReal: Decibel values: ``20 * log10(max(data / ref, DB_FLOOR))``
+        NDArrayReal: Decibel values: ``20 * log10(max(data / ref, DB_FLOOR))`` for
+            amplitude channels and ``10 * log10(...)`` for power channels.
     """
     ref = np.array([ch.ref for ch in channel_metadata])
     extra_dims = ndim - 1
     ref_shape = ref.reshape((-1,) + (1,) * extra_dims)
-    from wandas.processing.weighting import _reference_level_db
+    from wandas.processing.weighting import _channel_level_factors, _reference_level_db
 
-    return _reference_level_db(data, ref_shape)
+    factors = _channel_level_factors(channel_metadata).reshape(ref_shape.shape)
+    return _reference_level_db(data, ref_shape, factors)
 
 
 def _normalize_sampling_rate(sampling_rate: object, param_name: str = "sampling_rate") -> float:

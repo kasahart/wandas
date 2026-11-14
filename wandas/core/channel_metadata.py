@@ -45,6 +45,7 @@ class ChannelMetadataView(ChannelMetadata):
                     factor=frame._get_channel_coord_value(_CHANNEL_CALIBRATION_FACTOR_KEY, index),
                     unit=frame._get_channel_coord_value(_CHANNEL_UNIT_KEY, index),
                     ref=frame._get_channel_coord_value(_CHANNEL_REF_KEY, index),
+                    level=frame._get_channel_level_value(index),
                 )
             if name == "unit":
                 return self.calibration.unit

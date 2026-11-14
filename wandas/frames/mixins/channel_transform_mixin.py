@@ -380,7 +380,8 @@ class ChannelTransformMixin:
         Segment power spectra are averaged and converted to peak amplitude.
         Values retain each channel's physical unit and are not power spectral
         density or expressed per hertz. ``SpectralFrame.dB`` therefore uses the
-        amplitude rule ``20 * log10(amplitude / channel_ref)``. Graph
+        amplitude rule ``20 * log10(amplitude / channel_ref)`` for an amplitude
+        channel (the channel's level kind is kept). Graph
         construction remains lazy.
 
         With ``average="mean"``, a long channel is passed to SciPy in runs of
@@ -477,7 +478,8 @@ class ChannelTransformMixin:
 
         Each output value is the RMS amplitude in one fractional-octave band
         and retains the input channel's physical unit. ``NOctFrame.dB`` applies
-        ``20 * log10(band_rms / channel_ref)``.
+        ``20 * log10(band_rms / channel_ref)`` for an amplitude channel (the
+        channel's level kind is kept).
 
         Args:
             fmin: Minimum center frequency (Hz). Default is 25 Hz.

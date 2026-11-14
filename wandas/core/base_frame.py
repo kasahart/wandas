@@ -35,6 +35,7 @@ from ._channel_schema import (
     _CHANNEL_EXTRA_ATTR,
     _CHANNEL_IDS_ATTR,
     _CHANNEL_LABEL_KEY,
+    _CHANNEL_LEVEL_KEY,
     _CHANNEL_REF_KEY,
     _CHANNEL_UNIT_KEY,
 )
@@ -718,6 +719,7 @@ class BaseFrame(ABC, Generic[T]):
                 self._CHANNEL_DIM,
                 [ch.calibration.factor for ch in metadata],
             ),
+            _CHANNEL_LEVEL_KEY: (self._CHANNEL_DIM, [ch.calibration.level for ch in metadata]),
         }
 
     def _channel_size_from_xarray_dims(self, data: DaArray) -> int | None:
@@ -820,6 +822,12 @@ class BaseFrame(ABC, Generic[T]):
             return self._xr.coords[coord_name].values[index]
         return self._xr.attrs[coord_name][index]
 
+    def _get_channel_level_value(self, index: int) -> str:
+        """Read one channel level kind; storage written before it existed means amplitude."""
+        if _CHANNEL_LEVEL_KEY in self._xr.coords or _CHANNEL_LEVEL_KEY in self._xr.attrs:
+            return str(self._get_channel_coord_value(_CHANNEL_LEVEL_KEY, index))
+        return "amplitude"
+
     def _channel_ids_for_selection(self, indices: Sequence[int]) -> list[str]:
         """Return collision-free stable identifiers for a channel selection."""
         selected_ids: list[str] = []
@@ -891,6 +899,7 @@ class BaseFrame(ABC, Generic[T]):
             _CHANNEL_CALIBRATION_FACTOR_KEY,
             _CHANNEL_UNIT_KEY,
             _CHANNEL_REF_KEY,
+            _CHANNEL_LEVEL_KEY,
         }:
             raise RuntimeError("Calibration coordinates must be written atomically with _set_channel_calibration")
         if coord_name in self._xr.coords:
@@ -910,6 +919,7 @@ class BaseFrame(ABC, Generic[T]):
             _CHANNEL_CALIBRATION_FACTOR_KEY: calibration.factor,
             _CHANNEL_UNIT_KEY: calibration.unit,
             _CHANNEL_REF_KEY: calibration.ref,
+            _CHANNEL_LEVEL_KEY: calibration.level,
         }
         if self._CHANNEL_DIM in self._xr.dims:
             coords: dict[str, Any] = {}
@@ -919,6 +929,9 @@ class BaseFrame(ABC, Generic[T]):
                 coords[name] = (self._CHANNEL_DIM, values)
             self._xr = self._xr.assign_coords(coords)
             return
+        if _CHANNEL_LEVEL_KEY not in self._xr.attrs:
+            # Attrs written before the level kind existed describe amplitude channels.
+            self._xr.attrs[_CHANNEL_LEVEL_KEY] = ["amplitude"] * len(self._xr.attrs[_CHANNEL_UNIT_KEY])
         for name, value in updates.items():
             values = list(self._xr.attrs[name])
             values[index] = value
@@ -954,6 +967,7 @@ class BaseFrame(ABC, Generic[T]):
         units = [ch.unit for ch in channel_metadata]
         refs = [ch.ref for ch in channel_metadata]
         factors = [ch.calibration.factor for ch in channel_metadata]
+        levels = [ch.calibration.level for ch in channel_metadata]
         channel_extra = {channel_id: ch.extra for channel_id, ch in zip(ids, channel_metadata, strict=True)}
         self._xr.attrs[_CHANNEL_EXTRA_ATTR] = channel_extra
         if self._CHANNEL_DIM in self._xr.dims:
@@ -964,6 +978,7 @@ class BaseFrame(ABC, Generic[T]):
                     _CHANNEL_UNIT_KEY: (self._CHANNEL_DIM, units),
                     _CHANNEL_REF_KEY: (self._CHANNEL_DIM, refs),
                     _CHANNEL_CALIBRATION_FACTOR_KEY: (self._CHANNEL_DIM, factors),
+                    _CHANNEL_LEVEL_KEY: (self._CHANNEL_DIM, levels),
                 }
             )
             for name in _CHANNEL_COORD_FALLBACK_ATTRS:
@@ -976,6 +991,7 @@ class BaseFrame(ABC, Generic[T]):
                 _CHANNEL_UNIT_KEY: units,
                 _CHANNEL_REF_KEY: refs,
                 _CHANNEL_CALIBRATION_FACTOR_KEY: factors,
+                _CHANNEL_LEVEL_KEY: levels,
             }
         )
 
@@ -1946,11 +1962,7 @@ class BaseFrame(ABC, Generic[T]):
             result.append(
                 {
                     "label": channel.label,
-                    "calibration": ChannelCalibration(
-                        factor=1.0,
-                        unit=channel.unit,
-                        ref=channel.ref,
-                    ),
+                    "calibration": channel.calibration.with_factor(1.0),
                     "extra": channel.extra,
                 }
             )
@@ -2222,6 +2234,13 @@ class BaseFrame(ABC, Generic[T]):
                 descriptor["label"] = f"({other_label} {symbol} {self_ch.label})"
             else:
                 descriptor["label"] = f"({self_ch.label} {symbol} {other_label})"
+        if isinstance(other, BaseFrame):
+            # Operands of different level kinds give a result without a dB level,
+            # whatever their order.
+            for descriptor, other_ch in zip(new_channel_metadata, other.channels, strict=True):
+                calibration = descriptor["calibration"]
+                if calibration.level != other_ch.calibration.level:
+                    descriptor["calibration"] = calibration.with_level("none")
 
         label = (
             f"({other_str} {symbol} {self.label})"

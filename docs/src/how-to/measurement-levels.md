@@ -43,11 +43,21 @@ floored at `1e-12`; zero is therefore `-240 dB`. Scalar input returns a
 `float`; array-like input preserves its NumPy shape. Signed and complex input
 uses magnitude.
 
+A channel whose calibration has `level="power"` (for example `Pa^2` with
+reference `4e-10`) uses `10 * log10(abs(value) / reference)` instead, so its
+zero is `-120 dB`. A channel with `level="none"`, such as loudness in sone or
+values already in dB, has no level: `to_level()` and the dB properties warn
+and compute the amplitude formula, so the result may be meaningless.
+
 `to_level()`はchannelのlinear domainにすでにある振幅を受け取り、
 `ChannelCalibration.factor`を再適用しません。振幅／reference比を`1e-12`でfloorした
 `20 * log10(abs(amplitude) / reference)`を使用するため、zeroは`-240 dB`です。
 scalar入力は`float`、array-like入力はshapeを維持したNumPy arrayになり、signed／complex
 入力にはmagnitudeを使います。
+
+校正が`level="power"`のchannel（reference `4e-10`の`Pa^2`など）は
+`10 * log10(abs(value) / reference)`を使い、zeroは`-120 dB`です。`level="none"`のchannel
+（soneのラウドネスや既にdBの値など）にはレベルがなく、`to_level()`やdBの属性は警告を出して振幅の式で計算します（意味のない値になることがあります）。
 
 ## Calibrated channels / 校正済みchannel
 
