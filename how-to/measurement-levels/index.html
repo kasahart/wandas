@@ -1860,11 +1860,19 @@ domain. It does not apply <code>ChannelCalibration.factor</code> again. It uses
 floored at <code>1e-12</code>; zero is therefore <code>-240 dB</code>. Scalar input returns a
 <code>float</code>; array-like input preserves its NumPy shape. Signed and complex input
 uses magnitude.</p>
+<p>A channel whose calibration has <code>level="power"</code> (for example <code>Pa^2</code> with
+reference <code>4e-10</code>) uses <code>10 * log10(abs(value) / reference)</code> instead, so its
+zero is <code>-120 dB</code>. A channel with <code>level="none"</code>, such as loudness in sone or
+values already in dB, has no level: <code>to_level()</code> and the dB properties warn
+and compute the amplitude formula, so the result may be meaningless.</p>
 <p><code>to_level()</code>はchannelのlinear domainにすでにある振幅を受け取り、
 <code>ChannelCalibration.factor</code>を再適用しません。振幅／reference比を<code>1e-12</code>でfloorした
 <code>20 * log10(abs(amplitude) / reference)</code>を使用するため、zeroは<code>-240 dB</code>です。
 scalar入力は<code>float</code>、array-like入力はshapeを維持したNumPy arrayになり、signed／complex
 入力にはmagnitudeを使います。</p>
+<p>校正が<code>level="power"</code>のchannel（reference <code>4e-10</code>の<code>Pa^2</code>など）は
+<code>10 * log10(abs(value) / reference)</code>を使い、zeroは<code>-120 dB</code>です。<code>level="none"</code>のchannel
+（soneのラウドネスや既にdBの値など）にはレベルがなく、<code>to_level()</code>やdBの属性は警告を出して振幅の式で計算します（意味のない値になることがあります）。</p>
 <h2 id="calibrated-channels-channel">Calibrated channels / 校正済みchannel<a class="headerlink" href="#calibrated-channels-channel" title="Permanent link">&para;</a></h2>
 <p>The same API applies after calibration:</p>
 <p>校正後も同じAPIを使用します。</p>
@@ -1915,7 +1923,7 @@ Frameの永続化や再解釈は定義しません。</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 12, 2026 15:08:47 UTC">August 12, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 14, 2026 05:05:59 UTC">November 14, 2026</span>
   </span>
 
     

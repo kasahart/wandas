@@ -1897,12 +1897,7 @@ leave the existing file incomplete.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">158</span>
-<span class="normal">159</span>
-<span class="normal">160</span>
-<span class="normal">161</span>
-<span class="normal">162</span>
-<span class="normal">163</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">163</span>
 <span class="normal">164</span>
 <span class="normal">165</span>
 <span class="normal">166</span>
@@ -1977,7 +1972,12 @@ leave the existing file incomplete.</p>
 <span class="normal">235</span>
 <span class="normal">236</span>
 <span class="normal">237</span>
-<span class="normal">238</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
     <span class="n">frame</span><span class="p">:</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -2095,12 +2095,7 @@ values through <code>frame.data</code> without managing the storage backend dire
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">324</span>
-<span class="normal">325</span>
-<span class="normal">326</span>
-<span class="normal">327</span>
-<span class="normal">328</span>
-<span class="normal">329</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">329</span>
 <span class="normal">330</span>
 <span class="normal">331</span>
 <span class="normal">332</span>
@@ -2221,7 +2216,22 @@ values through <code>frame.data</code> without managing the storage backend dire
 <span class="normal">447</span>
 <span class="normal">448</span>
 <span class="normal">449</span>
-<span class="normal">450</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="normal">450</span>
+<span class="normal">451</span>
+<span class="normal">452</span>
+<span class="normal">453</span>
+<span class="normal">454</span>
+<span class="normal">455</span>
+<span class="normal">456</span>
+<span class="normal">457</span>
+<span class="normal">458</span>
+<span class="normal">459</span>
+<span class="normal">460</span>
+<span class="normal">461</span>
+<span class="normal">462</span>
+<span class="normal">463</span>
+<span class="normal">464</span>
+<span class="normal">465</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a local WDF 0.4, 0.5 or 0.6 artifact as its exact built-in Frame type.</span>
 
 <span class="sd">    WDF 0.4 time-frequency Frames have unknown physical center times; their</span>
@@ -2316,13 +2326,23 @@ values through <code>frame.data</code> without managing the storage backend dire
     <span class="n">factors</span> <span class="o">=</span> <span class="n">_number_vector</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s2">&quot;channel_calibration_factor&quot;</span><span class="p">,</span> <span class="n">channel_count</span><span class="p">)</span>
     <span class="n">offsets</span> <span class="o">=</span> <span class="n">_number_vector</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s2">&quot;source_time_offset&quot;</span><span class="p">,</span> <span class="n">channel_count</span><span class="p">)</span>
     <span class="n">extras_json</span> <span class="o">=</span> <span class="n">_text_vector</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s2">&quot;channel_extra_json&quot;</span><span class="p">,</span> <span class="n">channel_count</span><span class="p">)</span>
+    <span class="n">levels</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">_text_vector</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s2">&quot;channel_level&quot;</span><span class="p">,</span> <span class="n">channel_count</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;channel_level&quot;</span> <span class="ow">in</span> <span class="n">dataset</span><span class="o">.</span><span class="n">data_vars</span>
+        <span class="k">else</span> <span class="p">[</span><span class="s2">&quot;amplitude&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">channel_count</span>
+    <span class="p">)</span>
     <span class="n">extras</span> <span class="o">=</span> <span class="p">[</span><span class="n">_load_json</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;channel_extra_json[</span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">extras_json</span><span class="p">)]</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">extra</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">for</span> <span class="n">extra</span> <span class="ow">in</span> <span class="n">extras</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid WDF channel_extra_json; expected JSON objects&quot;</span><span class="p">)</span>
     <span class="n">channels</span> <span class="o">=</span> <span class="p">[</span>
         <span class="n">ChannelMetadata</span><span class="p">(</span>
             <span class="n">label</span><span class="o">=</span><span class="n">labels</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>
-            <span class="n">calibration</span><span class="o">=</span><span class="n">ChannelCalibration</span><span class="p">(</span><span class="n">factor</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">factors</span><span class="p">[</span><span class="n">index</span><span class="p">]),</span> <span class="n">unit</span><span class="o">=</span><span class="n">units</span><span class="p">[</span><span class="n">index</span><span class="p">],</span> <span class="n">ref</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">refs</span><span class="p">[</span><span class="n">index</span><span class="p">])),</span>
+            <span class="n">calibration</span><span class="o">=</span><span class="n">ChannelCalibration</span><span class="p">(</span>
+                <span class="n">factor</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">factors</span><span class="p">[</span><span class="n">index</span><span class="p">]),</span>
+                <span class="n">unit</span><span class="o">=</span><span class="n">units</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>
+                <span class="n">ref</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">refs</span><span class="p">[</span><span class="n">index</span><span class="p">]),</span>
+                <span class="n">level</span><span class="o">=</span><span class="n">levels</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>  <span class="c1"># ty: ignore[invalid-argument-type]</span>
+            <span class="p">),</span>
             <span class="n">extra</span><span class="o">=</span><span class="n">extras</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>
         <span class="p">)</span>
         <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">channel_count</span><span class="p">)</span>

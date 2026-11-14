@@ -1253,6 +1253,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added / 追加
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#changed" class="md-nav__link">
     <span class="md-ellipsis">
       Changed / 変更
@@ -1793,6 +1802,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added / 追加
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#changed" class="md-nav__link">
     <span class="md-ellipsis">
       Changed / 変更
@@ -1828,20 +1846,44 @@
 <h1 id="unreleased-changes">Unreleased changes<a class="headerlink" href="#unreleased-changes" title="Permanent link">&para;</a></h1>
 <p>Changes after <a href="../v0.13.1/">Wandas 0.13.1</a>.</p>
 <p>0.13.1以降の変更です。</p>
+<h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
+<ul>
+<li>A channel calibration records how its values convert to a level:
+  <code>ChannelCalibration(..., level="amplitude" | "power" | "none")</code>, read as
+  <code>frame.channels[i].calibration.level</code>
+  (<a href="https://github.com/kasahart/wandas/issues/651">#651</a>). Amplitude
+  quantities (the default, such as Pa or V) keep <code>20 * log10(|x| / ref)</code>,
+  power quantities (such as Pa^2 or W) use <code>10 * log10(|x| / ref)</code>, and
+  <code>"none"</code> makes the dB properties warn and use the amplitude formula. Spectral, spectrogram and band
+  <code>dB</code>, <code>LevelReference.to_level()</code> and WDF files follow it. RMS-based levels
+  (<code>rms_trend(dB=True)</code>, <code>sound_level()</code>, <code>leq()</code>, <code>percentile_levels()</code>)
+  warn for channels that are not amplitude quantities and compute as before. The results of those
+  dB operations are marked <code>"none"</code>, since their values are already levels.
+  Existing frames, Recipes and WDF files describe amplitude channels and
+  their levels do not change.
+  チャンネルの校正に、値をレベルへ直す方法を持たせました（<code>level="amplitude" | "power" | "none"</code>）。
+  振幅量（既定、Pa・Vなど）は今までどおり<code>20 * log10(|x| / ref)</code>、パワー量（Pa^2・Wなど）は
+  <code>10 * log10(|x| / ref)</code>で、<code>"none"</code>ではdBの属性が警告を出して振幅の式で計算します。スペクトル・スペクトログラム・
+  帯域の<code>dB</code>、<code>LevelReference.to_level()</code>、WDFがこれに従います。RMSから求めるレベル
+  （<code>rms_trend(dB=True)</code>・<code>sound_level()</code>・<code>leq()</code>・<code>percentile_levels()</code>）は振幅量以外では警告を出して今までどおり計算し、
+  これらのdB操作の結果は既にレベルなので<code>"none"</code>になります。既存のFrame・Recipe・WDFは振幅量を表し、
+  レベルの値は変わりません。</li>
+</ul>
 <h2 id="changed">Changed / 変更<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The time-varying psychoacoustic results carry the unit of the metric instead
   of the input channel's unit
   (<a href="https://github.com/kasahart/wandas/issues/652">#652</a>): <code>loudness_zwtv()</code>
   is in <code>sone</code>, <code>roughness_dw()</code> in <code>asper</code>, <code>roughness_dw_spec()</code> in
-  <code>asper/Bark</code> and <code>sharpness_din()</code> in <code>acum</code>, each with reference 1.0.
+  <code>asper/Bark</code> and <code>sharpness_din()</code> in <code>acum</code>, each with reference 1.0 and
+  level kind <code>"none"</code>, so their dB properties warn.
   Before, a loudness trace of a channel in <code>Pa</code> was still labelled <code>Pa</code> with
   reference 2e-05. The values do not change. New Recipes use version 2 of
   these four operations; Recipes saved by 0.13.1 (version 1) still replay with
   the input unit.
   時間変化する心理音響指標の結果は、入力チャンネルの単位ではなく指標の単位を持つようになりました。
   <code>loudness_zwtv()</code>は<code>sone</code>、<code>roughness_dw()</code>は<code>asper</code>、<code>roughness_dw_spec()</code>は<code>asper/Bark</code>、
-  <code>sharpness_din()</code>は<code>acum</code>で、基準値はどれも1.0です。これまでは<code>Pa</code>のチャンネルから求めた
+  <code>sharpness_din()</code>は<code>acum</code>で、基準値はどれも1.0、レベルの種類は<code>"none"</code>（dBは警告）です。これまでは<code>Pa</code>のチャンネルから求めた
   ラウドネスも<code>Pa</code>・基準値2e-05のままでした。値は変わりません。新しいRecipeはこの4つの操作の
   version 2を使い、0.13.1で保存したRecipe（version 1）は今までどおり入力の単位で再生します。</li>
 </ul>
@@ -1865,7 +1907,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 14, 2026 04:02:51 UTC">November 14, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 14, 2026 05:05:59 UTC">November 14, 2026</span>
   </span>
 
     

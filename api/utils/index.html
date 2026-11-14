@@ -9353,7 +9353,8 @@ wraps them in a Dask array.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Decibel values: <code>20 * log10(max(data / ref, DB_FLOOR))</code></p>
+                <p>Decibel values: <code>20 * log10(max(data / ref, DB_FLOOR))</code> for
+amplitude channels and <code>10 * log10(...)</code> for power channels.</p>
               </div>
             </td>
           </tr>
@@ -9383,7 +9384,9 @@ wraps them in a Dask array.</p>
 <span class="normal">49</span>
 <span class="normal">50</span>
 <span class="normal">51</span>
-<span class="normal">52</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ref_weighted_dB</span><span class="p">(</span>
+<span class="normal">52</span>
+<span class="normal">53</span>
+<span class="normal">54</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ref_weighted_dB</span><span class="p">(</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">,</span>
     <span class="n">channel_metadata</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
     <span class="n">ndim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -9396,14 +9399,16 @@ wraps them in a Dask array.</p>
 <span class="sd">        ndim: int. Number of dimensions in the underlying dask array.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        NDArrayReal: Decibel values: ``20 * log10(max(data / ref, DB_FLOOR))``</span>
+<span class="sd">        NDArrayReal: Decibel values: ``20 * log10(max(data / ref, DB_FLOOR))`` for</span>
+<span class="sd">            amplitude channels and ``10 * log10(...)`` for power channels.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">ref</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ch</span><span class="o">.</span><span class="n">ref</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">channel_metadata</span><span class="p">])</span>
     <span class="n">extra_dims</span> <span class="o">=</span> <span class="n">ndim</span> <span class="o">-</span> <span class="mi">1</span>
     <span class="n">ref_shape</span> <span class="o">=</span> <span class="n">ref</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)</span> <span class="o">*</span> <span class="n">extra_dims</span><span class="p">)</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.processing.weighting</span><span class="w"> </span><span class="kn">import</span> <span class="n">_reference_level_db</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.processing.weighting</span><span class="w"> </span><span class="kn">import</span> <span class="n">_channel_level_factors</span><span class="p">,</span> <span class="n">_reference_level_db</span>
 
-    <span class="k">return</span> <span class="n">_reference_level_db</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">ref_shape</span><span class="p">)</span>
+    <span class="n">factors</span> <span class="o">=</span> <span class="n">_channel_level_factors</span><span class="p">(</span><span class="n">channel_metadata</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">ref_shape</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_reference_level_db</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">ref_shape</span><span class="p">,</span> <span class="n">factors</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -9503,9 +9508,7 @@ wraps them in a Dask array.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/util.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">75</span>
-<span class="normal">76</span>
-<span class="normal">77</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">77</span>
 <span class="normal">78</span>
 <span class="normal">79</span>
 <span class="normal">80</span>
@@ -9519,7 +9522,9 @@ wraps them in a Dask array.</p>
 <span class="normal">88</span>
 <span class="normal">89</span>
 <span class="normal">90</span>
-<span class="normal">91</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">validate_sampling_rate</span><span class="p">(</span><span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">param_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;sampling_rate&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">91</span>
+<span class="normal">92</span>
+<span class="normal">93</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">validate_sampling_rate</span><span class="p">(</span><span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">param_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;sampling_rate&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Validate that sampling rate is positive.</span>
 
@@ -9613,9 +9618,7 @@ For other units, returns 1.0.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/util.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 94</span>
-<span class="normal"> 95</span>
-<span class="normal"> 96</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 96</span>
 <span class="normal"> 97</span>
 <span class="normal"> 98</span>
 <span class="normal"> 99</span>
@@ -9627,7 +9630,9 @@ For other units, returns 1.0.</p>
 <span class="normal">105</span>
 <span class="normal">106</span>
 <span class="normal">107</span>
-<span class="normal">108</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">unit_to_ref</span><span class="p">(</span><span class="n">unit</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">unit_to_ref</span><span class="p">(</span><span class="n">unit</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert unit to reference value.</span>
 
@@ -9728,9 +9733,7 @@ one per channel. For single-channel input, returns a single RMS value.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/util.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">111</span>
-<span class="normal">112</span>
-<span class="normal">113</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">113</span>
 <span class="normal">114</span>
 <span class="normal">115</span>
 <span class="normal">116</span>
@@ -9743,7 +9746,9 @@ one per channel. For single-channel input, returns a single RMS value.</p>
 <span class="normal">123</span>
 <span class="normal">124</span>
 <span class="normal">125</span>
-<span class="normal">126</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_rms</span><span class="p">(</span><span class="n">wave</span><span class="p">:</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_rms</span><span class="p">(</span><span class="n">wave</span><span class="p">:</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculate the root mean square of the wave.</span>
 
@@ -9860,9 +9865,7 @@ Can be a single value or an array for multi-channel.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/util.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">131</span>
 <span class="normal">132</span>
 <span class="normal">133</span>
 <span class="normal">134</span>
@@ -9874,7 +9877,9 @@ Can be a single value or an array for multi-channel.</p>
 <span class="normal">140</span>
 <span class="normal">141</span>
 <span class="normal">142</span>
-<span class="normal">143</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_desired_noise_rms</span><span class="p">(</span><span class="n">clean_rms</span><span class="p">:</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">,</span> <span class="n">snr</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_desired_noise_rms</span><span class="p">(</span><span class="n">clean_rms</span><span class="p">:</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">,</span> <span class="n">snr</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculate the desired noise RMS based on clean signal RMS and target SNR.</span>
 
@@ -9989,9 +9994,7 @@ Can be a single value or an array for multi-channel.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/util.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">146</span>
-<span class="normal">147</span>
-<span class="normal">148</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">148</span>
 <span class="normal">149</span>
 <span class="normal">150</span>
 <span class="normal">151</span>
@@ -10003,7 +10006,9 @@ Can be a single value or an array for multi-channel.</p>
 <span class="normal">157</span>
 <span class="normal">158</span>
 <span class="normal">159</span>
-<span class="normal">160</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">amplitude_to_db</span><span class="p">(</span><span class="n">amplitude</span><span class="p">:</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">,</span> <span class="n">ref</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">amplitude_to_db</span><span class="p">(</span><span class="n">amplitude</span><span class="p">:</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">,</span> <span class="n">ref</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert amplitude to decibel.</span>
 
@@ -10146,9 +10151,7 @@ Can be a single value or an array for multi-channel.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/util.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">163</span>
-<span class="normal">164</span>
-<span class="normal">165</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">165</span>
 <span class="normal">166</span>
 <span class="normal">167</span>
 <span class="normal">168</span>
@@ -10176,7 +10179,9 @@ Can be a single value or an array for multi-channel.</p>
 <span class="normal">190</span>
 <span class="normal">191</span>
 <span class="normal">192</span>
-<span class="normal">193</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">level_trigger</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">hold</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">level_trigger</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">hold</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Find points where the signal crosses the specified level from below.</span>
 
@@ -10356,9 +10361,7 @@ A value of 0 means no tapering, 1 means full tapering.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/util.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">196</span>
-<span class="normal">197</span>
-<span class="normal">198</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">198</span>
 <span class="normal">199</span>
 <span class="normal">200</span>
 <span class="normal">201</span>
@@ -10388,7 +10391,9 @@ A value of 0 means no tapering, 1 means full tapering.</p>
 <span class="normal">225</span>
 <span class="normal">226</span>
 <span class="normal">227</span>
-<span class="normal">228</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">cut_sig</span><span class="p">(</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">cut_sig</span><span class="p">(</span>
     <span class="n">data</span><span class="p">:</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">,</span>
     <span class="n">point_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
     <span class="n">cut_len</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
