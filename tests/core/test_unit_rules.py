@@ -9,7 +9,7 @@ import dask.array as da
 import numpy as np
 import pytest
 
-from wandas.core._unit_rules import binary_rule, unary_rule
+from wandas.core._unit_rules import binary_rule, derive_binary, derive_unary, operand_units_kept, raised, unary_rule
 from wandas.core._units import format_unit, parse_unit, same_unit, unit_power, unit_product, unit_quotient
 from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.channel import ChannelFrame
@@ -227,3 +227,43 @@ def test_level_kinds_combine_by_the_operation() -> None:
         assert _domain(amplitude + power)[2] == "none"
     with pytest.warns(UserWarning, match="different units"):
         assert _domain(power + amplitude)[2] == "none"
+
+
+_PA_CAL = ChannelCalibration(factor=1.0, unit="Pa", ref=2e-5)
+_PA2_CAL = ChannelCalibration(factor=1.0, unit="Pa^2", ref=4e-10, level="power")
+
+
+class TestRuleEdges:
+    def test_product_and_quotient_of_unrelated_kinds_have_no_level(self) -> None:
+        product = derive_binary("*", _PA2_CAL, _PA_CAL, None, reverse=False)
+        assert (product.unit, product.level) == ("Pa^3", "none")
+        quotient = derive_binary("/", _PA2_CAL, _PA_CAL, None, reverse=False)
+        assert (quotient.unit, quotient.level) == ("Pa", "none")
+
+    def test_a_reference_that_overflows_has_no_level(self) -> None:
+        huge = ChannelCalibration(factor=1.0, unit="V", ref=1e300)
+        assert raised(huge, 2.0) == ChannelCalibration(factor=1.0, unit="V^2", ref=1.0, level="none")
+
+    def test_zero_dimensional_exponent_and_cbrt(self) -> None:
+        assert raised(_PA_CAL, None).unit == ""
+        assert derive_binary("**", _PA_CAL, None, np.array(2.0), reverse=False).level == "power"
+        assert derive_unary("cbrt", _PA_CAL).unit == "Pa^(1/3)"
+
+    def test_frame_operands_of_left_and_unlisted_rules(self) -> None:
+        assert derive_binary("copysign", _PA_CAL, _PA2_CAL, None, reverse=False) == _PA_CAL
+        assert derive_binary("not_a_ufunc", _PA_CAL, None, 2.0, reverse=False).unit == ""
+        assert derive_binary("arctan2", _PA_CAL, None, 2.0, reverse=False).unit == "1"
+        assert derive_binary("**", _PA_CAL, None, 2j, reverse=False).unit == ""
+        assert derive_unary("not_a_ufunc", _PA_CAL).unit == ""
+        assert format_unit(None) == ""
+
+    def test_unreadable_units_stay_one_factor(self) -> None:
+        assert parse_unit("Pa^x") == (("Pa^x", 1),)
+        assert parse_unit("Pa*()") == (("Pa*()", 1),)
+        assert unit_quotient("", "Pa") == ""
+
+
+def test_released_recipe_version_gives_mixed_kinds_no_level() -> None:
+    with operand_units_kept():
+        result = _frame("Pa") * _frame("Pa^2", level="power")
+    assert _domain(result) == ("Pa", 2e-5, "none")
