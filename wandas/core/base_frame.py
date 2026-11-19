@@ -1762,9 +1762,6 @@ class BaseFrame(ABC, Generic[T]):
 
         if not isinstance(result, np.ndarray):
             raise ValueError(f"Computed result is not a np.ndarray: {type(result)}")
-        if not result.flags.writeable:
-            # A view of read-only cached samples: detach only the selected samples.
-            result = result.copy()
 
         logger.debug(f"Computation complete, result shape: {result.shape}")
         return cast(T, result)
