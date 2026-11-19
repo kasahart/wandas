@@ -2412,6 +2412,30 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
+<td>F-02l</td>
+<td>Cache slice read cost / cache の slice 読み出し</td>
+<td>Read one slice of a cached Frame / cache の一部を読む</td>
+<td>Only the slice is copied / slice 分だけコピー</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_cache.py">test_frame_cache.py</a> <code>test_reading_a_slice_of_a_cache_copies_only_the_slice</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-02m</td>
+<td>Single-channel cache materialization / 1 channel cache の materialize</td>
+<td>Mutate returned <code>data</code>, slice, or NumPy array / 取得した配列を変更</td>
+<td>Array is writable and cached values stay unchanged / 書き込み可能で cache 値は不変</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_cache.py">test_frame_cache.py</a> <code>test_single_channel_cache_materializations_are_writable_and_detached</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-02n</td>
+<td>Cached samples are read-only to operations / operation から見た cache は読み取り専用</td>
+<td>Write into an input block of a cached Frame / cache の入力 block に書き込む</td>
+<td>Write is rejected; cached values stay unchanged / 書き込みを拒否し cache 値は不変</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_cache.py">test_frame_cache.py</a> <code>test_operations_on_a_cache_receive_read_only_samples</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
 <td>F-06a</td>
 <td>Calibration replacement / 校正値の置換</td>
 <td>Replace channel factor twice / 係数を2回置換</td>
@@ -3707,7 +3731,7 @@ runtime numerical or browser behavior.
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 23:14:18 UTC">October 26, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 19, 2026 23:43:53 UTC">November 19, 2026</span>
   </span>
 
     
