@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tracemalloc
 from collections.abc import Callable
 from typing import Any
 
@@ -226,6 +227,56 @@ def test_cache_propagates_compute_failures_without_changing_source(
     assert frame.lineage is original_lineage
     assert frame.operation_history == original_history
     assert frame.metadata == original_metadata
+
+
+def test_reading_a_slice_of_a_cache_copies_only_the_slice() -> None:
+    samples = 1_000_000
+    frame = ChannelFrame.from_numpy(np.ones((2, samples)), sampling_rate=8.0)
+    cached = frame.cache()
+    channel_bytes = samples * 8
+
+    tracemalloc.start()
+    try:
+        column = cached[:, 100:101].data
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    np.testing.assert_array_equal(column, np.ones((2, 1)))
+    # Copying a whole channel before slicing would allocate at least one channel.
+    assert peak < channel_bytes / 4
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        pytest.param(lambda frame: frame.data, id="data"),
+        pytest.param(lambda frame: frame[1:3].data, id="slice"),
+        pytest.param(np.asarray, id="asarray"),
+    ],
+)
+def test_single_channel_cache_materializations_are_writable_and_detached(
+    read: Callable[[ChannelFrame], np.ndarray[Any, Any]],
+) -> None:
+    cached = ChannelFrame.from_numpy(np.array([[1.0, 2.0, 4.0, 8.0]]), sampling_rate=8.0).cache()
+
+    materialized = read(cached)
+    assert materialized.flags.writeable
+    materialized[...] = 99.0
+
+    np.testing.assert_array_equal(cached.data, np.array([1.0, 2.0, 4.0, 8.0]))
+
+
+def test_operations_on_a_cache_receive_read_only_samples() -> None:
+    cached = ChannelFrame.from_numpy(np.array([[1.0, -2.0, 4.0]]), sampling_rate=8.0).cache()
+
+    def clip_in_place(block: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        block[block < 0] = 0.0
+        return block
+
+    with pytest.raises(ValueError, match="read-only"):
+        da.map_blocks(clip_in_place, cached._data, dtype=cached._data.dtype).compute()
+    np.testing.assert_array_equal(cached.data, np.array([1.0, -2.0, 4.0]))
 
 
 def test_cache_does_not_add_lineage_history_or_recipe_nodes() -> None:

@@ -303,6 +303,25 @@ def _reverse_binary_recipe_handler(method_name: str) -> Callable[[tuple[Any, ...
     return apply
 
 
+class _ReadOnlySamples:
+    """Hand Dask read-only views of cached samples instead of copies.
+
+    ``dask.array.from_array`` copies a NumPy array (dropping its read-only flag)
+    and every later read would then share that writable copy. This wrapper has no
+    ``copy`` method, so Dask keeps the read-only array, its blocks are views, and
+    a slice of a block is a view too: a read copies only the selected samples.
+    """
+
+    def __init__(self, samples: np.ndarray[Any, Any]) -> None:
+        self._samples = samples
+        self.shape = samples.shape
+        self.dtype = samples.dtype
+        self.ndim = samples.ndim
+
+    def __getitem__(self, key: Any) -> np.ndarray[Any, Any]:
+        return self._samples[key]
+
+
 class _Unary:
     """Marker for a NumPy ufunc call without a second operand."""
 
@@ -1761,7 +1780,11 @@ class BaseFrame(ABC, Generic[T]):
         ``cache()`` computes the raw internal tensor and returns a chainable Frame.
         Calibration remains attached and is applied once by public numerical APIs.
         Later materializations and operations reuse the computed samples, while each
-        materialized array is detached to preserve Frame immutability.
+        materialized array is detached to preserve Frame immutability. The cached
+        samples are read-only, and a materialization copies only the selected
+        samples: reading one slice of a cached Frame does not copy the complete
+        tensor. Operations receive read-only blocks of the cached samples, so a
+        custom operation must return a new array instead of writing into its input.
 
         The complete raw tensor must fit in local process memory. This method provides
         no cache-state query, explicit release, capacity limit, scheduler selection,
@@ -1794,14 +1817,13 @@ class BaseFrame(ABC, Generic[T]):
         if isinstance(computed, np.ma.MaskedArray):
             raise ValueError("cache() does not support np.ma.MaskedArray compute results")
         owned = np.array(computed, copy=True, subok=False)
+        owned.flags.writeable = False
         # A unique name instead of Dask's content hash, which would read every sample again.
-        cached_data = cast(
-            DaArray,
-            cast(Any, da_from_array(owned, chunks=self._data.chunks, name=False)).map_blocks(
-                np.copy,
-                dtype=owned.dtype,
-                meta=np.empty((0,), dtype=owned.dtype),
-            ),
+        cached_data = da_from_array(
+            _ReadOnlySamples(owned),
+            chunks=self._data.chunks,
+            name=False,
+            meta=np.empty((0,) * owned.ndim, dtype=owned.dtype),
         )
         return self._create_new_instance(cached_data)
 
