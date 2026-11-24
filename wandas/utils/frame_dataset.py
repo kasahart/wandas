@@ -844,8 +844,10 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         ``select()`` can pick hits by recording attributes or by event. The
         Frame metadata, such as ``_source_file``, is kept as well.
 
-        A recording that fails to load (cached as ``None``) contributes no
-        hits and is reported in one ``UserWarning``. Errors raised by the
+        A recording that failed to load or transform (cached as ``None``)
+        contributes no hits and is reported in one ``UserWarning``. Events
+        that do not fit inside their recording are skipped as in
+        :meth:`ChannelFrame.trigger`, and that warning names the recording. Errors raised by the
         trigger of a loaded recording, such as an unknown channel label, are
         not hidden and propagate after the failing item is logged.
 
@@ -897,10 +899,21 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
                 failed.append(index)
                 continue
             try:
-                segments = frame.trigger(threshold, duration, pre=pre, channel=channel, slope=slope, holdoff=holdoff)
+                with warnings.catch_warnings(record=True) as caught:
+                    warnings.simplefilter("always")
+                    segments = frame.trigger(
+                        threshold, duration, pre=pre, channel=channel, slope=slope, holdoff=holdoff
+                    )
             except Exception as e:
                 logger.error(f"Trigger failed for index {index} ({lazy_frame.file_path}): {e!s}")
                 raise
+            for caught_warning in caught:
+                # Name the recording, since several recordings can skip events.
+                warnings.warn(
+                    f"Recording index {index} ({lazy_frame.file_path}): {caught_warning.message}",
+                    caught_warning.category,
+                    stacklevel=2,
+                )
             for event_id, event_time, segment in zip(
                 segments.event_ids.tolist(), segments.trigger_times.tolist(), segments, strict=True
             ):
@@ -909,7 +922,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
                 hits.append(segment)
         if failed:
             warnings.warn(
-                f"Skipped {len(failed)} recording(s) that failed to load: indices {failed}",
+                f"Skipped {len(failed)} recording(s) that failed to load or transform: indices {failed}",
                 UserWarning,
                 stacklevel=2,
             )

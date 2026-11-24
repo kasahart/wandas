@@ -91,11 +91,33 @@ class TestDatasetTrigger:
         table, _ = runs
         dataset = from_files([table["audio"][1], tmp_path / "missing.wav"])
 
-        with pytest.warns(UserWarning, match=r"Skipped 1 recording\(s\) that failed to load: indices \[1\]"):
+        with pytest.warns(
+            UserWarning, match=r"Skipped 1 recording\(s\) that failed to load or transform: indices \[1\]"
+        ):
             hits = dataset.trigger(0.1, duration=0.2, pre=0.01)
 
         assert len(hits) == 1
         assert _hit(hits, 0).metadata["trigger_time"] == pytest.approx(1.0)
+
+    def test_failed_transforms_are_skipped_with_a_warning(self, runs) -> None:
+        table, _ = runs
+        dataset = from_files([table["audio"][1]]).resample(-5)
+
+        with pytest.warns(UserWarning, match="failed to load or transform"):
+            hits = dataset.trigger(0.1, duration=0.2)
+
+        assert len(hits) == 0
+
+    def test_skipped_event_warning_names_the_recording(self, runs) -> None:
+        table, _ = runs
+        dataset = from_files(table["audio"][:2])
+
+        with pytest.warns(UserWarning, match=r"Recording index 0 \(.*a\.wav\): Skipped 1 segment") as record:
+            hits = dataset.trigger(0.1, duration=1.2, pre=0.01)
+
+        # a.wav keeps 0.5 s (1.5 s is within the holdoff, 3.0 s does not fit); b.wav keeps 1.0 s.
+        assert len(hits) == 2
+        assert len(record) == 1
 
     def test_trigger_errors_of_a_recording_propagate(self, runs) -> None:
         table, _ = runs
