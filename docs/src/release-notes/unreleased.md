@@ -1,14 +1,9 @@
 # Unreleased changes
 
-Changes after [Wandas 0.13.2](v0.13.2.md).
+Changes after [Wandas 0.14.0](v0.14.0.md).
 
-0.13.2以降の変更です。
+0.14.0以降の変更です。
 
-## Added / 追加
+No changes are currently pending after 0.14.0.
 
-- `ChannelFrameDataset.trigger()` cuts out level-trigger events across every
-  recording of a Dataset and returns one Dataset of all hits. Each hit keeps
-  its recording's metadata plus `trigger_index` and `trigger_time`
-  ([#589](https://github.com/kasahart/wandas/issues/589)).
-  `ChannelFrameDataset.trigger()`で、Datasetの全録音からレベルトリガーのイベントを切り出し、
-  全ヒットを1つのDatasetで返します。各ヒットは元の録音のmetadataと`trigger_index`・`trigger_time`を持ちます。
+0.14.0以降の変更はまだありません。
