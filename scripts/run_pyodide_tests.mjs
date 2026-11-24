@@ -5,9 +5,9 @@ import { pathToFileURL } from "node:url";
 
 // Pyodide errors make Node print a megabyte-long minified source line before the
 // Python traceback, and CI logs cut that line off together with the traceback.
-// Report only the error itself.
+// Report only the error and its stack.
 process.on("uncaughtException", (error) => {
-  console.error(error instanceof Error ? `${error.name}: ${error.message}` : error);
+  console.error(error instanceof Error ? (error.stack ?? `${error.name}: ${error.message}`) : error);
   process.exit(1);
 });
 
