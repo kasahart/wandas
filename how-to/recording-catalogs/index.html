@@ -664,6 +664,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#cut-out-events-across-recordings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cut out events across recordings / 複数の録音からイベントを切り出す
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#keep-sources-available-until-computation" class="md-nav__link">
     <span class="md-ellipsis">
       Keep sources available until computation / 計算まで音源を保持する
@@ -1870,6 +1879,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#cut-out-events-across-recordings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cut out events across recordings / 複数の録音からイベントを切り出す
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#keep-sources-available-until-computation" class="md-nav__link">
     <span class="md-ellipsis">
       Keep sources available until computation / 計算まで音源を保持する
@@ -1977,6 +1995,38 @@ parent explicitly when that is the intended base.</p>
 For typed metadata, prepare a DataFrame with explicit conversions. This catalog
 reader differs from <code>wd.read("signal.csv")</code>, which reads sampled signal values.
 The <a href="../../api/utils/">Dataset API reference</a> defines the complete input contract.</p>
+<h2 id="cut-out-events-across-recordings">Cut out events across recordings / 複数の録音からイベントを切り出す<a class="headerlink" href="#cut-out-events-across-recordings" title="Permanent link">&para;</a></h2>
+<p>Impact tests often keep one file per measurement point or run.
+<code>trigger()</code> on a Dataset runs <code>ChannelFrame.trigger()</code> on every recording and
+returns one Dataset of all hits:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+<span class="n">table</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;audio&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;p1.wav&quot;</span><span class="p">,</span> <span class="s2">&quot;p2.wav&quot;</span><span class="p">],</span> <span class="s2">&quot;point&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">]})</span>
+<span class="n">hits</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">from_table</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">path_column</span><span class="o">=</span><span class="s2">&quot;audio&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">trigger</span><span class="p">(</span>
+    <span class="mf">10.0</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="s2">&quot;force&quot;</span>
+<span class="p">)</span>
+<span class="n">first_hits</span> <span class="o">=</span> <span class="n">hits</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">trigger_index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">hit</span> <span class="o">=</span> <span class="n">hits</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="k">if</span> <span class="n">hit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">point</span><span class="p">,</span> <span class="n">time</span> <span class="o">=</span> <span class="n">hit</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;point&quot;</span><span class="p">],</span> <span class="n">hit</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;trigger_time&quot;</span><span class="p">]</span>
+</code></pre></div>
+<p>Each hit keeps its recording's metadata and adds <code>trigger_index</code> (the event ID
+within that recording) and <code>trigger_time</code> (seconds from the start of the recording
+as it is in this Dataset, so after <code>trim()</code> it is counted from the trim start;
+each hit's <code>source_time_offset</code> still gives its position in the file).
+The number of hits is known only after detection, so this call reads the
+trigger channel of every recording; unlike other Dataset transforms it is not
+lazy per item. The hits themselves stay lazy time slices. A recording that
+failed to load or transform contributes no hits and is named in a warning, as
+is the recording of an event that does not fit inside it; an error from the
+trigger itself, such as an unknown channel label, is raised.</p>
+<p>打撃試験では計測点や試行ごとに1ファイルになることがよくあります。Datasetの<code>trigger()</code>は
+全録音に<code>ChannelFrame.trigger()</code>を行い、全ヒットを1つのDatasetで返します。各ヒットは元の録音の
+metadataに<code>trigger_index</code>（録音内のイベントID）と<code>trigger_time</code>（このDatasetでの録音先頭からの秒。<code>trim()</code>後はtrimの開始点から数え、ファイル上の位置は各ヒットの<code>source_time_offset</code>が示します）を加えて持ちます。
+ヒット数は検出するまで分からないため、この呼び出しは全録音のトリガーチャンネルを読み込みます。
+他のDataset変換と違い項目ごとの遅延にはなりませんが、切り出した区間は遅延のままです。
+読込や変換に失敗した録音はヒットを出さず警告に示され、録音に収まらないイベントの警告にも録音が示されます。未知のチャンネル名などトリガー自体のエラーは例外になります。</p>
 <h2 id="keep-sources-available-until-computation">Keep sources available until computation / 計算まで音源を保持する<a class="headerlink" href="#keep-sources-available-until-computation" title="Permanent link">&para;</a></h2>
 <p>Construction, metadata summaries, <code>select()</code>, and <code>sample()</code> do not open audio
 sources. Reading the catalog itself is separate from reading its audio files.
@@ -2038,7 +2088,7 @@ symlink対象の固定ではありません。NumPy浮動小数metadataはPython
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 2, 2026 18:03:18 UTC">October 2, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 24, 2026 15:03:35 UTC">November 24, 2026</span>
   </span>
 
     
