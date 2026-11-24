@@ -1,9 +1,9 @@
 # Unreleased changes
 
-Changes after [Wandas 0.13.3](v0.13.3.md).
+Changes after [Wandas 0.14.0](v0.14.0.md).
 
-0.13.3以降の変更です。
+0.14.0以降の変更です。
 
-No changes are currently pending after 0.13.3.
+No changes are currently pending after 0.14.0.
 
-0.13.3以降の変更はまだありません。
+0.14.0以降の変更はまだありません。
