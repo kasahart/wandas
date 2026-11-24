@@ -3,6 +3,14 @@ import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 
+// Pyodide errors make Node print a megabyte-long minified source line before the
+// Python traceback, and CI logs cut that line off together with the traceback.
+// Report only the error itself.
+process.on("uncaughtException", (error) => {
+  console.error(error instanceof Error ? `${error.name}: ${error.message}` : error);
+  process.exit(1);
+});
+
 function parseArguments(argv) {
   const parsed = {};
   for (let index = 0; index < argv.length; index += 2) {
