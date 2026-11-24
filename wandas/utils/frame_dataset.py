@@ -17,6 +17,7 @@ from wandas.frames._frame_time import TimeReference, TimeValue
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.io.readers import supported_formats
+from wandas.processing.trigger import TriggerSlope
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -27,6 +28,7 @@ FrameType = ChannelFrame | SpectrogramFrame
 F = TypeVar("F", bound=FrameType)
 F_out = TypeVar("F_out", bound=FrameType)
 MetadataResolver = Callable[[Path], Mapping[str, object]]
+_TRIGGER_METADATA_KEYS = frozenset({"trigger_index", "trigger_time"})
 
 
 def _progress(iterable: range, *, desc: str) -> Any:
@@ -816,6 +818,114 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
 
         new_dataset = self.apply(_normalize_func)
         return cast(ChannelFrameDataset, new_dataset)
+
+    def trigger(
+        self,
+        threshold: float,
+        duration: float,
+        pre: float = 0.0,
+        channel: int | str = 0,
+        slope: TriggerSlope = "rising",
+        holdoff: float | None = None,
+    ) -> "ChannelFrameDataset":
+        """Cut out trigger events across every recording into one dataset of hits.
+
+        Runs :meth:`ChannelFrame.trigger` with the same arguments on each
+        recording, in dataset order, and returns one item per detected event.
+        Unlike other dataset transforms this is not lazy per item: the number
+        of hits is known only after detection, so this call loads every
+        recording and computes its trigger channel. The segments themselves
+        stay lazy time slices, as with :meth:`ChannelFrame.trigger`.
+
+        Each hit carries the metadata of its source item plus
+        ``trigger_index`` (the event ID within its recording, as in
+        ``ChannelFrameSegments.event_ids``) and ``trigger_time`` (the event
+        time in seconds from the start of that recording in this dataset), so
+        ``select()`` can pick hits by recording attributes or by event. The
+        Frame metadata, such as ``_source_file``, is kept as well.
+
+        A recording that fails to load (cached as ``None``) contributes no
+        hits and is reported in one ``UserWarning``. Errors raised by the
+        trigger of a loaded recording, such as an unknown channel label, are
+        not hidden and propagate after the failing item is logged.
+
+        Args:
+            threshold: Trigger level in the trigger channel's physical unit.
+            duration: Segment length in seconds, including ``pre``.
+            pre: Pre-trigger time in seconds kept before each event. Default
+                is 0.0.
+            channel: Index or label of the trigger channel. Default is 0.
+            slope: ``"rising"`` (default) or ``"falling"``.
+            holdoff: Minimum time in seconds between two triggers in one
+                recording; ``None`` (default) uses ``duration - pre``.
+
+        Returns:
+            ChannelFrameDataset with one loaded item per hit, ordered by
+                recording and then by event.
+
+        Raises:
+            ValueError: If the source item metadata already uses
+                ``trigger_index`` or ``trigger_time``, or for invalid trigger
+                arguments as in :meth:`ChannelFrame.trigger`.
+            IndexError: If ``channel`` is an out-of-range index.
+            KeyError: If ``channel`` is an unknown label.
+
+        Examples:
+            >>> import wandas as wd
+            >>> hits = wd.from_table("runs.csv", path_column="audio").trigger(
+            ...     10.0, duration=1.0, pre=0.01, channel="force"
+            ... )
+            >>> point_a = hits.select(point="A")
+        """
+        clashing = sorted(
+            {key for lazy_frame in self._lazy_frames for key in lazy_frame.metadata}.intersection(
+                _TRIGGER_METADATA_KEYS
+            )
+        )
+        if clashing:
+            raise ValueError(
+                f"Item metadata already uses key(s) {', '.join(clashing)}, which trigger() sets for each hit; "
+                "rename those metadata columns"
+            )
+        items: list[tuple[Path, Mapping[str, object]]] = []
+        hits: list[ChannelFrame] = []
+        failed: list[int] = []
+        for index in _progress(range(len(self._lazy_frames)), desc="Triggering"):
+            lazy_frame = self._lazy_frames[index]
+            frame = self._ensure_loaded(index)
+            if frame is None:
+                failed.append(index)
+                continue
+            try:
+                segments = frame.trigger(threshold, duration, pre=pre, channel=channel, slope=slope, holdoff=holdoff)
+            except Exception as e:
+                logger.error(f"Trigger failed for index {index} ({lazy_frame.file_path}): {e!s}")
+                raise
+            for event_id, event_time, segment in zip(
+                segments.event_ids.tolist(), segments.trigger_times.tolist(), segments, strict=True
+            ):
+                metadata = {**lazy_frame.metadata, "trigger_index": event_id, "trigger_time": event_time}
+                items.append((lazy_frame.file_path, metadata))
+                hits.append(segment)
+        if failed:
+            warnings.warn(
+                f"Skipped {len(failed)} recording(s) that failed to load: indices {failed}",
+                UserWarning,
+                stacklevel=2,
+            )
+        result = ChannelFrameDataset(
+            folder_path=None,
+            sampling_rate=self.sampling_rate,
+            file_extensions=self.file_extensions,
+            dtype=self._dtype,
+            _items=items,
+        )
+        result.folder_path = self.folder_path
+        for lazy_frame, hit in zip(result._lazy_frames, hits, strict=True):
+            lazy_frame.frame = self._attach_metadata(hit, lazy_frame.metadata)
+            lazy_frame.is_loaded = True
+            lazy_frame.load_attempted = True
+        return result
 
     def stft(
         self,
