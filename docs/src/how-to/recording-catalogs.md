@@ -97,6 +97,44 @@ For typed metadata, prepare a DataFrame with explicit conversions. This catalog
 reader differs from `wd.read("signal.csv")`, which reads sampled signal values.
 The [Dataset API reference](../api/utils.md) defines the complete input contract.
 
+## Cut out events across recordings / 複数の録音からイベントを切り出す
+
+Impact tests often keep one file per measurement point or run.
+`trigger()` on a Dataset runs `ChannelFrame.trigger()` on every recording and
+returns one Dataset of all hits:
+
+```python
+import pandas as pd
+import wandas as wd
+
+table = pd.DataFrame({"audio": ["p1.wav", "p2.wav"], "point": ["A", "B"]})
+hits = wd.from_table(table, path_column="audio").trigger(
+    10.0, duration=1.0, pre=0.01, channel="force"
+)
+first_hits = hits.select(trigger_index=0)
+hit = hits[0]
+if hit is not None:
+    point, time = hit.metadata["point"], hit.metadata["trigger_time"]
+```
+
+Each hit keeps its recording's metadata and adds `trigger_index` (the event ID
+within that recording) and `trigger_time` (seconds from the start of the recording
+as it is in this Dataset, so after `trim()` it is counted from the trim start;
+each hit's `source_time_offset` still gives its position in the file).
+The number of hits is known only after detection, so this call reads the
+trigger channel of every recording; unlike other Dataset transforms it is not
+lazy per item. The hits themselves stay lazy time slices. A recording that
+failed to load or transform contributes no hits and is named in a warning, as
+is the recording of an event that does not fit inside it; an error from the
+trigger itself, such as an unknown channel label, is raised.
+
+打撃試験では計測点や試行ごとに1ファイルになることがよくあります。Datasetの`trigger()`は
+全録音に`ChannelFrame.trigger()`を行い、全ヒットを1つのDatasetで返します。各ヒットは元の録音の
+metadataに`trigger_index`（録音内のイベントID）と`trigger_time`（このDatasetでの録音先頭からの秒。`trim()`後はtrimの開始点から数え、ファイル上の位置は各ヒットの`source_time_offset`が示します）を加えて持ちます。
+ヒット数は検出するまで分からないため、この呼び出しは全録音のトリガーチャンネルを読み込みます。
+他のDataset変換と違い項目ごとの遅延にはなりませんが、切り出した区間は遅延のままです。
+読込や変換に失敗した録音はヒットを出さず警告に示され、録音に収まらないイベントの警告にも録音が示されます。未知のチャンネル名などトリガー自体のエラーは例外になります。
+
 ## Keep sources available until computation / 計算まで音源を保持する
 
 Construction, metadata summaries, `select()`, and `sample()` do not open audio
