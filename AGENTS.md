@@ -11,6 +11,8 @@
   `operation_history` is a derived compatibility view of lineage.
 - Keep orchestration and metadata in `wandas/frames`; keep numerical algorithms
   in `wandas/processing`.
+- Set up with the CI extras: `uv sync --frozen --all-groups --extra io --extra effects --extra marimo --extra psychoacoustic`
+  (see `docs/src/contributing.md`).
 - Update tests when behavior changes. Guard tests that enforce a repository
   rule fail with what broke, `Rule: <rule> (see <doc path>)`, and `Fix: <what to edit>`.
 - Run relevant `uv run pytest`, `uv run ruff check`, and `uv run ty check`

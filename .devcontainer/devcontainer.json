@@ -50,7 +50,7 @@
     ],
     // worktreesディレクトリはgitがroot所有で作る場合があるため、作成時にvscode所有へ揃える
     // ローカル開発では全グループをインストール (test, docs, dev)
-    "postCreateCommand": "sudo mkdir -p /workspaces/wandas.worktrees && sudo chown vscode:vscode /workspaces/wandas.worktrees && uv venv --allow-existing .venv && uv sync --frozen --all-groups",
+    "postCreateCommand": "sudo mkdir -p /workspaces/wandas.worktrees && sudo chown vscode:vscode /workspaces/wandas.worktrees && uv venv --allow-existing .venv && uv sync --frozen --all-groups --extra io --extra effects --extra marimo --extra psychoacoustic",
     "postStartCommand": "uv run pre-commit install",
     "remoteUser": "vscode",
     "runArgs": [

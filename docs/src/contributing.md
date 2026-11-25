@@ -14,8 +14,13 @@ This project uses `uv` for package management.
    依存関係をインストールします:
 
   ```bash
-  uv sync --frozen --all-groups
+  uv sync --frozen --all-groups --extra io --extra effects --extra marimo --extra psychoacoustic
   ```
+
+   If your environment was synced without `--extra marimo`, run this command again:
+   the `ty` pre-commit hook and `uv run ty check` now also check `learning-path`, which imports `marimo`.
+   `--extra marimo` なしで作成した環境では、上のコマンドを再実行してください。
+   `ty` の pre-commit hook と `uv run ty check` は `marimo` を import する `learning-path` も検査します。
 
 `[project.dependencies]` in `pyproject.toml` lists only packages that the core
 library under `wandas/` imports; anything else belongs in an optional extra or a
@@ -93,9 +98,9 @@ gh workflow run full-compatibility.yml \
 to require it instead of a matrix job. `CI Gate`を`main`のstable required checkとし、
 branch protectionではmatrix job名ではなくこれを必須に設定します。
 
-Every `uv sync` in the CI, Full Compatibility, and docs deployment workflows uses
+Every step that syncs dependencies with uv in the CI, Full Compatibility, and docs deployment workflows uses
 `--locked`, so a stale `uv.lock` fails CI instead of being re-resolved.
-CI、Full Compatibility、docs deployのworkflowにある`uv sync`はすべて`--locked`を付け、
+CI、Full Compatibility、docs deployのworkflowで uv により依存関係を同期する step はすべて`--locked`を付け、
 古い`uv.lock`は再解決せずCIを失敗させます。
 
 ### Pyodide checks / Pyodideの検証
@@ -176,7 +181,7 @@ Please perform the following checks before submitting a pull request.
   - `Run ty (red-knot) check`
 
   ```bash
-  uv run ty check wandas tests
+  uv run ty check wandas tests scripts learning-path
   ```
 
 - Format (ruff):
@@ -188,7 +193,7 @@ Please perform the following checks before submitting a pull request.
   - `Run ruff format`
 
   ```bash
-  uv run ruff format wandas tests
+  uv run ruff format wandas tests scripts learning-path
   ```
 
 - Lint (ruff):
@@ -200,7 +205,7 @@ Please perform the following checks before submitting a pull request.
   - `Run ruff check`
 
   ```bash
-  uv run ruff check wandas tests --config=pyproject.toml -v
+  uv run ruff check wandas tests scripts learning-path --config=pyproject.toml -v
   ```
 
 - Lint with auto-fix (ruff, only when modifying the affected files):
@@ -212,7 +217,7 @@ Please perform the following checks before submitting a pull request.
   - `Run ruff check --fix`
 
   ```bash
-  uv run ruff check --fix wandas tests --config=pyproject.toml -v
+  uv run ruff check --fix wandas tests scripts learning-path --config=pyproject.toml -v
   ```
 
 ## Building Documentation / ドキュメントのビルド
@@ -224,7 +229,7 @@ Documentation is built with MkDocs.
   ビルド:
 
   ```bash
-  uv run mkdocs build -f docs/mkdocs.yml
+  uv run mkdocs build --strict -f docs/mkdocs.yml
   ```
 
 - Serve locally:

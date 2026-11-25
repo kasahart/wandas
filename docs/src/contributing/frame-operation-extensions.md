@@ -122,6 +122,15 @@ Frame metadataを変更してはいけません。
    `wandas.processing`から公開importする場合は、eager importまたはlazy-operation mappingと
    `__all__`も更新します。`name`を持つ組み込みclassが解決できないと
    `tests/processing/test_operation_registration_completeness.py`が失敗します。
+7. Add an `OperationCase` for the public registry `name` to `_operation_cases()`
+   (`OPERATION_CASES`) in
+   `tests/processing/test_operation_lazy_metadata_contract.py`. That test compares
+   the declared shape and dtype with the computed result and fails when a public
+   registered name has no case.
+   公開registry `name`の`OperationCase`を
+   `tests/processing/test_operation_lazy_metadata_contract.py`の`_operation_cases()`
+   （`OPERATION_CASES`）へ追加します。このtestは宣言されたshape／dtypeを計算結果と比較し、
+   caseのない公開登録名があると失敗します。
 
 The following sketch shows the required boundaries. Use the exact validation and
 dtype appropriate for the real operation.
@@ -153,7 +162,8 @@ class Gain(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         input_dtype: np.dtype[Any],
         *input_dtypes: np.dtype[Any],
     ) -> np.dtype[Any]:
-        return np.result_type(input_dtype, np.float64)
+        # float32 stays float32; integer and float64 input become float64.
+        return precision_real_dtype(input_dtype)
 
 
 register_operation(Gain)
@@ -292,6 +302,14 @@ Then implement the smallest `BaseFrame` subclass that satisfies them:
    that is the intended public UX. Add it to the Frame API reference.
    classを`wandas.frames`からexportします。top-level `wandas` exportは意図した公開UXの場合だけ
    追加し、Frame API referenceにも追加します。
+7. Give every concrete type exported from `wandas.frames` a `FrameCodec` in
+   `_codecs()` in `wandas/io/wdf_frames.py` and a `BuiltinFrameCase` in
+   `BUILTIN_FRAME_CASES` in `tests/builtin_frame_cases.py`.
+   `tests/frames/test_builtin_frame_contracts.py` fails when either is missing.
+   `wandas.frames`からexportする具象型ごとに、`wandas/io/wdf_frames.py`の`_codecs()`へ
+   `FrameCodec`を、`tests/builtin_frame_cases.py`の`BUILTIN_FRAME_CASES`へ
+   `BuiltinFrameCase`を追加します。どちらかが欠けると
+   `tests/frames/test_builtin_frame_contracts.py`が失敗します。
 
 `previous` is the immediate receiver Frame for runtime data comparison in notebooks.
 For binary or multi-input operations it follows only the left/base receiver. It is a
@@ -399,8 +417,10 @@ Add focused tests under `tests/processing/` for:
   constructor検証とWHAT/WHY/HOW形式のerror。
 - operation registration and the public registry key;
   Operation登録と公開registry key。
-- output shape and dtype metadata before compute;
-  compute前の出力shape／dtype metadata。
+- output shape and dtype metadata before compute, including an `OperationCase` in
+  `tests/processing/test_operation_lazy_metadata_contract.py`;
+  compute前の出力shape／dtype metadata（`tests/processing/test_operation_lazy_metadata_contract.py`
+  の`OperationCase`を含む）。
 - no eager `.compute()` while `process()` builds the graph;
   `process()`のgraph構築中にeagerな`.compute()`がないこと。
 - numerical equivalence to SciPy/librosa/MoSQITo for wrappers, or an analytical
@@ -463,8 +483,9 @@ Run focused tests first, then the repository gates appropriate to the change.
 uv run pytest tests/processing/<module-test>.py -q
 uv run pytest tests/frames/<frame-test>.py -q
 uv run pytest tests/pipeline -q  # when Recipe behavior changes
-uv run ruff check wandas tests scripts
-uv run ty check wandas tests
+uv run ruff format --check wandas tests scripts learning-path
+uv run ruff check wandas tests scripts learning-path
+uv run ty check wandas tests scripts learning-path
 uv run pytest -q
 uv run mkdocs build --strict -f docs/mkdocs.yml
 ```
