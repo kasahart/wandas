@@ -1863,6 +1863,15 @@ signal processing は <code>wandas/processing</code>、axis、metadata、domain 
   これを追加する format contract は WDF です。派生表示である <code>operation_history</code> を root
   attribute <code>operation_history_json</code> として保存しますが、lineage、<code>previous</code>、Recipe の intent は
   保存しません。読み込んだ history は表示専用です。</li>
+<li>WDF stores one built-in Frame type per file. A subclass of a built-in Frame
+  without its own <code>__init__</code> is saved as its nearest built-in base class and
+  loads back as that class; a subclass that defines <code>__init__</code> is rejected,
+  because WDF cannot store the constructor state it adds
+  (<code>test_subclass_of_builtin_frame_saves_as_its_builtin_base</code> and
+  <code>test_subclass_with_own_init_is_rejected_with_reason</code> in <code>tests/io/test_wdf_io.py</code>).
+  WDF は 1 file に 1 つの built-in Frame 型を保存します。独自の <code>__init__</code> を持たない built-in
+  Frame の subclass は最も近い built-in の親クラスとして保存し、読み込むとその型になります。
+  <code>__init__</code> を定義した subclass は、追加した constructor の状態を保存できないため拒否します。</li>
 <li>For lossy or metadata-limited formats such as WAV and CSV, define and test what
   is retained, reconstructed, normalized, or rejected.
   WAV や CSV のような lossy／metadata 制限 format では、保持、再構築、normalize、reject の契約を
@@ -1915,7 +1924,7 @@ after writing.
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 25, 2026 09:34:35 UTC">November 25, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 25, 2026 10:47:42 UTC">November 25, 2026</span>
   </span>
 
     

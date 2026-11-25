@@ -2179,7 +2179,10 @@ This does not add <code>.gain()</code> to ordinary <code>ChannelFrame</code> obj
 with <code>ProjectFrame.from_numpy()</code>, <code>ProjectFrame.read_wav()</code>, <code>ProjectFrame.read_csv()</code>
 or <code>ProjectFrame.from_file()</code> to call your new method. Processing methods and
 channel changes such as <code>add_channel()</code> keep returning <code>ProjectFrame</code>. <code>save()</code> to WDF
-supports only the built-in Frame classes, so it rejects a <code>ProjectFrame</code>.</p>
+stores a <code>ProjectFrame</code> as its built-in base class, so loading the file returns a
+<code>ChannelFrame</code>. <code>ProjectFrame.load()</code> also returns a <code>ChannelFrame</code>; to call <code>.gain()</code> again,
+rebuild the input with <code>ProjectFrame.from_numpy(loaded.data, loaded.sampling_rate)</code>. A subclass that defines its own <code>__init__</code> cannot be saved, because
+WDF does not store the constructor state it adds.</p>
 <p>この例は<code>Gain(...)</code>で処理を直接作るため、数値処理を名前から探すための別の登録関数
 <code>register_operation()</code>は不要です。ここで作るRecipe registryは、<strong>Recipeに保存した処理名</strong>を
 探すためのものです。<code>default_recipe_registry()</code>で標準の対応表を取得し、<code>with_operation()</code>で
@@ -2187,7 +2190,10 @@ supports only the built-in Frame classes, so it rejects a <code>ProjectFrame</co
 通常の<code>ChannelFrame</code>に<code>.gain()</code>が追加されるわけではないので、自分のメソッドを使う入力は
 <code>ProjectFrame.from_numpy()</code>・<code>ProjectFrame.read_wav()</code>・<code>ProjectFrame.read_csv()</code>・
 <code>ProjectFrame.from_file()</code>で作ります。処理メソッドや<code>add_channel()</code>などのチャンネル操作の結果も
-<code>ProjectFrame</code>のままです。WDFへの<code>save()</code>は組み込みのFrameクラスだけに対応しているため、<code>ProjectFrame</code>は保存できません。</p>
+<code>ProjectFrame</code>のままです。WDFへの<code>save()</code>は<code>ProjectFrame</code>を組み込みの親クラスとして保存するため、
+読み込むと<code>ChannelFrame</code>が返ります。<code>ProjectFrame.load()</code>も<code>ChannelFrame</code>を返すため、<code>.gain()</code>を続けて使うには
+<code>ProjectFrame.from_numpy(loaded.data, loaded.sampling_rate)</code>などで作り直します。独自の<code>__init__</code>を定義したsubclassは、追加したconstructorの状態を
+WDFに保存できないため保存できません。</p>
 <h2 id="extract-save-and-replay">Extract, save, and replay / 処理手順を取り出して保存・再実行する<a class="headerlink" href="#extract-save-and-replay" title="Permanent link">&para;</a></h2>
 <p><code>RecipePlan.from_frame()</code> builds a Recipe from the processing recorded on the
 result Frame. We call this <strong>extraction</strong>. <code>input_names=("signal",)</code> gives the
@@ -2264,7 +2270,7 @@ Test numerical results, unchanged inputs, attached information and axes, deferre
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 3, 2026 13:34:25 UTC">November 3, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 25, 2026 10:47:42 UTC">November 25, 2026</span>
   </span>
 
     

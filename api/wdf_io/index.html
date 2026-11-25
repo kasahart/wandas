@@ -1913,7 +1913,9 @@ WDFと、別入力へ処理を再実行するRecipeの使い分けは<a href="..
 
     <div class="doc doc-contents first">
 
-        <p>Save an exact built-in Frame as WDF 0.4, 0.5 or sparse 0.6.</p>
+        <p>Save a built-in Frame as WDF 0.4, 0.5 or sparse 0.6.</p>
+<p>A subclass of a built-in Frame without its own <code>__init__</code> is saved as its
+nearest built-in base class, and loading returns that built-in class.</p>
 <p>A time-frequency Frame with a known physical frame origin uses WDF 0.5.
 Sparse time-frequency results use WDF 0.6 with explicit sparse state.
 All other Frames retain WDF 0.4. Older readers reject new versions explicitly; this
@@ -2023,14 +2025,20 @@ leave the existing file incomplete.</p>
 <span class="normal">240</span>
 <span class="normal">241</span>
 <span class="normal">242</span>
-<span class="normal">243</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
     <span class="n">frame</span><span class="p">:</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">compress</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">&quot;gzip&quot;</span><span class="p">,</span>
     <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save an exact built-in Frame as WDF 0.4, 0.5 or sparse 0.6.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save a built-in Frame as WDF 0.4, 0.5 or sparse 0.6.</span>
+
+<span class="sd">    A subclass of a built-in Frame without its own ``__init__`` is saved as its</span>
+<span class="sd">    nearest built-in base class, and loading returns that built-in class.</span>
 
 <span class="sd">    A time-frequency Frame with a known physical frame origin uses WDF 0.5.</span>
 <span class="sd">    Sparse time-frequency results use WDF 0.6 with explicit sparse state.</span>
@@ -2141,10 +2149,7 @@ values through <code>frame.data</code> without managing the storage backend dire
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">329</span>
-<span class="normal">330</span>
-<span class="normal">331</span>
-<span class="normal">332</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">332</span>
 <span class="normal">333</span>
 <span class="normal">334</span>
 <span class="normal">335</span>
@@ -2277,7 +2282,10 @@ values through <code>frame.data</code> without managing the storage backend dire
 <span class="normal">462</span>
 <span class="normal">463</span>
 <span class="normal">464</span>
-<span class="normal">465</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="normal">465</span>
+<span class="normal">466</span>
+<span class="normal">467</span>
+<span class="normal">468</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a local WDF 0.4, 0.5 or 0.6 artifact as its exact built-in Frame type.</span>
 
 <span class="sd">    WDF 0.4 time-frequency Frames have unknown physical center times; their</span>
