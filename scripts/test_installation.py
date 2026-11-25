@@ -22,7 +22,11 @@ def main() -> int:
         import numpy as np
 
         import wandas as wd
+    except ImportError as exc:
+        print(f"Error: Failed to import wandas: {exc}")
+        return 1
 
+    try:
         print(f"Successfully imported wandas version: {wd.__version__} from {wd.__file__}")
         package_dir = Path(wd.__file__).parent.resolve()
         # An installed wheel lives under the interpreter's prefix; a checkout does not.
@@ -67,9 +71,6 @@ def main() -> int:
                 print("Error: describe(image_save=...) wrote no file in a core-only install.")
                 return 1
         return 0
-    except ImportError as exc:
-        print(f"Error: Failed to import wandas: {exc}")
-        return 1
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return 1

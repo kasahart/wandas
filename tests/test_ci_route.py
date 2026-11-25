@@ -318,15 +318,20 @@ def _step_commands(workflow_name: str, job_name: str) -> list[str]:
     return [step["run"] for step in steps if isinstance(step, dict) and "run" in step]
 
 
+def _step_env_and_commands(workflow_name: str, job_name: str) -> list[tuple[object, str]]:
+    steps = _workflow(workflow_name)["jobs"][job_name]["steps"]
+    return [(step.get("env"), step["run"]) for step in steps if isinstance(step, dict) and "run" in step]
+
+
 def test_full_lane_docs_job_runs_every_pr_lane_docs_step() -> None:
-    pr_commands = _step_commands("ci.yml", "docs")
-    full_commands = _step_commands("full-compatibility.yml", "docs")
+    pr_commands = _step_env_and_commands("ci.yml", "docs")
+    full_commands = _step_env_and_commands("full-compatibility.yml", "docs")
     missing = [command for command in pr_commands if command not in full_commands]
 
     assert missing == [], (
-        f"full-compatibility.yml docs job lacks steps that ci.yml docs runs: {missing}\n"
+        f"full-compatibility.yml docs job lacks (env, run) steps that ci.yml docs runs: {missing}\n"
         f"Rule: the release (Full) lane checks at least what the PR lane checks (see {LANES_DOC}).\n"
-        "Fix: copy the missing step from the ci.yml docs job into the full-compatibility.yml docs job."
+        "Fix: copy the missing step, with its env, from the ci.yml docs job into the full-compatibility.yml docs job."
     )
 
 
