@@ -7,9 +7,10 @@ frequency-domain, time-frequency, cepstral, octave-band, and roughness results.
 ラフネス結果を表すimmutableなFrameファミリーを提供します。
 
 `wandas.frames.__all__` exports every concrete public frame class defined under
-`wandas/frames/` exactly once.
+`wandas/frames/` exactly once, and each name is the class object from its
+defining module, not a copy or alias.
 `wandas.frames.__all__`は、`wandas/frames/`以下で定義された具象の公開Frameクラスを
-それぞれ1回ずつexportします。
+それぞれ1回ずつexportし、各名前は定義モジュールのクラスそのもの(コピーや別名ではない)です。
 
 For callable input/output contracts and a complete extension example, see
 [Add your own processing](../how-to/custom-processing.md).

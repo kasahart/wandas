@@ -326,6 +326,8 @@ Other technical pages may be English-only; do not duplicate API contracts there.
   installation, optional-extra summary, one Quick Start, and primary links.
   `README.md` と `README.ja.md` は、製品概要、最小インストール、optional
   extra の概要、1つの Quick Start、主要リンクを正本として持ちます。
+  README images point at checked-in, valid image files in this repository.
+  README の画像は、このリポジトリにコミットされた有効な画像ファイルを指します。
 - `docs/src/index.md` is the documentation home and routes readers by goal;
   it is not another product overview or tutorial.
   `docs/src/index.md` は目的別に読者を案内する入口であり、製品概要や

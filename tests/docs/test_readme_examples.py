@@ -174,7 +174,8 @@ def test_readme_referenced_images_exist_and_have_valid_headers() -> None:
     )
     assert not bad, (
         f"README images are missing, empty, or have an invalid PNG/JPEG/GIF/WEBP header: {bad}.\n"
-        "Rule: README images point at checked-in, valid image assets in this repository.\n"
+        "Rule: README images point at checked-in, valid image assets in this repository "
+        "(see docs/src/contributing.md).\n"
         "Fix: commit the image at that path, or correct the image link in README.md / README.ja.md."
     )
 

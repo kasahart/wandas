@@ -196,7 +196,8 @@ def test_frames_module_all_exports_every_defined_public_frame_once() -> None:
     mismatched = sorted(name for name, frame_type in defined.items() if getattr(frames, name, None) is not frame_type)
     assert not mismatched, (
         f"wandas.frames exposes a different object for these frame classes: {mismatched}.\n"
-        "Rule: wandas.frames re-exports the class defined in its module, not a copy or alias.\n"
+        "Rule: wandas.frames re-exports the class defined in its module, not a copy or alias "
+        "(see docs/src/api/frames.md).\n"
         "Fix: import these classes from their defining modules in wandas/frames/__init__.py."
     )
 
