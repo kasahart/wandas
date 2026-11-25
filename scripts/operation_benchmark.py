@@ -5,7 +5,9 @@ its result, so the time covers graph construction and materialization. The
 same harness file can measure an older checkout: run it with that checkout's
 environment and pass ``--repository-root`` so the report names the measured
 revision. A case whose API does not exist in the measured revision is reported
-as ``unavailable`` instead of failing the run.
+as ``unavailable`` instead of failing the run, and so is a case whose optional
+dependency is not installed. Sync with ``--extra io --extra psychoacoustic`` to
+run every case.
 
 Timings depend on the machine. Compare two reports only when they were taken
 on the same machine with the same settings, and prefer alternating runs of the
@@ -145,8 +147,9 @@ def _cases(frame: Any, wav_path: Path) -> dict[str, Callable[[], Any]]:
 def _time_case(case: Callable[[], Any], repeat: int) -> dict[str, Any]:
     try:
         case()  # Warm-up: imports, filter design caches, first allocations.
-    except (AttributeError, TypeError) as error:
-        # The measured revision does not provide this API or parameter.
+    except (AttributeError, TypeError, ImportError) as error:
+        # The measured revision does not provide this API or parameter, or the
+        # case needs an optional extra (noct_spectrum needs psychoacoustic).
         return {"status": "unavailable", "reason": f"{type(error).__name__}: {error}"}
     seconds = []
     for _ in range(repeat):

@@ -50,12 +50,17 @@ def test_missing_api_is_reported_as_unavailable(monkeypatch: pytest.MonkeyPatch)
     def with_missing_api(frame: Any, wav_path: Path) -> dict[str, Any]:
         cases = original(frame, wav_path)
         cases["stft"] = lambda: frame.no_such_operation()
+        cases["fft"] = missing_extra
         return cases
 
-    monkeypatch.setattr(operation_benchmark, "_cases", with_missing_api)
-    report = _small_report(only=["stft"])
+    def missing_extra() -> None:
+        raise ImportError("requires optional dependency 'mosqito'")
 
-    assert report["cases"]["stft"]["status"] == "unavailable"
+    monkeypatch.setattr(operation_benchmark, "_cases", with_missing_api)
+    report = _small_report(only=["stft", "fft", "welch"])
+
+    statuses = {name: result["status"] for name, result in report["cases"].items()}
+    assert statuses == {"stft": "unavailable", "fft": "unavailable", "welch": "ok"}
 
 
 def test_compare_prints_ratio_per_case(tmp_path: Path) -> None:

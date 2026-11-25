@@ -77,11 +77,12 @@ the PR as the durable review and evidence record.
 operations (STFT, dB, Welch, FFT, octave bands, filters, sound level, RMS trend,
 resampling, WAV reading, cached slice reads) end to end. Use it when a change may slow
 one of them. Measure base and candidate on the same machine, alternating runs, then
-print the ratio table:
+print the ratio table. Sync each checkout with `--extra io --extra psychoacoustic`
+(`noct_spectrum` needs it; without it that case is reported as `unavailable`):
 
 ```bash
-uv run python scripts/operation_benchmark.py --output /tmp/ops-base-1.json   # on base
-uv run python scripts/operation_benchmark.py --output /tmp/ops-cand-1.json   # on candidate
+uv run --extra psychoacoustic python scripts/operation_benchmark.py --output /tmp/ops-base-1.json   # on base
+uv run --extra psychoacoustic python scripts/operation_benchmark.py --output /tmp/ops-cand-1.json   # on candidate
 uv run python scripts/operation_benchmark.py --compare \
   /tmp/ops-base-1.json,/tmp/ops-base-2.json /tmp/ops-cand-1.json,/tmp/ops-cand-2.json
 ```
