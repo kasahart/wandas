@@ -791,7 +791,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             Frames are mean-averaged. Detrending happens in the STFT, so the
             result equals ``ChannelFrame.csd(detrend=...)`` over the same
             segments when the STFT used the same ``detrend``. The default
-            ``stft()`` does not detrend, so it matches ``csd(detrend=False)``,
+            ``stft()`` does not detrend, so it matches ``csd(detrend=None)``,
             not the ``csd()`` default of ``"constant"``. The STFT pads the
             signal, so its first and last frames include zeros; slice the time
             axis (``spec[:, :, a:b]``) to choose which frames are averaged. Each

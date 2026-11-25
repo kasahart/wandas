@@ -9,6 +9,7 @@ from dask.array.core import Array as DaArray
 
 from wandas.pipeline.decorators import recipe_operation
 from wandas.processing.spectral import (
+    _validate_spectral_params,
     validate_noct_recipe_params,
     validate_stft_recipe_params,
 )
@@ -567,9 +568,11 @@ class ChannelTransformMixin:
 
         validate_stft_recipe_params({"allow_sparse": allow_sparse, "detrend": detrend})
 
-        # Set hop length and window length
-        _win_length = win_length if win_length is not None else n_fft
-        _hop_length = hop_length if hop_length is not None else _win_length // 4
+        # Resolve defaults with the shared segmentation validator so stft() fails
+        # with the same messages as welch() and csd().
+        _win_length, _hop_length = _validate_spectral_params(
+            n_fft, win_length, hop_length, "STFT", allow_sparse=allow_sparse
+        )
 
         params = {
             "n_fft": n_fft,
@@ -621,7 +624,7 @@ class ChannelTransformMixin:
         hop_length: int | None = None,
         win_length: int | None = None,
         window: str = "hann",
-        detrend: str = "constant",
+        detrend: Literal["constant", "linear", False] | None = "constant",
     ) -> "CoherenceFrame":
         """Calculate typed magnitude-squared coherence for every channel pair.
 
@@ -649,7 +652,8 @@ class ChannelTransformMixin:
                 Default is ``win_length // 4``.
             win_length: Window length. Default is n_fft.
             window: Window type. Default is "hann".
-            detrend: Detrend method. Options: "constant", "linear", None.
+            detrend: Detrend method. Options: "constant", "linear", None (no detrend).
+                ``False`` is also accepted as no detrend for backward compatibility.
 
         Returns:
             CoherenceFrame whose public single-pair shape is ``(frequency,)`` and
@@ -745,7 +749,7 @@ class ChannelTransformMixin:
         hop_length: int | None = None,
         win_length: int | None = None,
         window: str = "hann",
-        detrend: str = "constant",
+        detrend: Literal["constant", "linear", False] | None = "constant",
         scaling: Literal["spectrum", "density"] = "spectrum",
         average: Literal["mean", "median"] = "mean",
     ) -> "CrossSpectralFrame":
@@ -773,7 +777,8 @@ class ChannelTransformMixin:
                 Default is ``win_length // 4``.
             win_length: Window length. Default is n_fft.
             window: Window type. Default is "hann".
-            detrend: Detrend method. Options: "constant", "linear", None.
+            detrend: Detrend method. Options: "constant", "linear", None (no detrend).
+                ``False`` is also accepted as no detrend for backward compatibility.
             scaling: Scaling method. Options: "spectrum", "density".
             average: Method for averaging segments. Default is "mean".
 
@@ -809,7 +814,7 @@ class ChannelTransformMixin:
         hop_length: int | None = None,
         win_length: int | None = None,
         window: str = "hann",
-        detrend: str = "constant",
+        detrend: Literal["constant", "linear", False] | None = "constant",
         scaling: Literal["spectrum", "density"] = "spectrum",
         average: Literal["mean", "median"] = "mean",
         estimator: Literal["H1", "H2"] = "H1",
@@ -843,7 +848,8 @@ class ChannelTransformMixin:
                 Default is ``win_length // 4``.
             win_length: Window length. Default is n_fft.
             window: Window type. Default is "hann".
-            detrend: Detrend method. Options: "constant", "linear", None.
+            detrend: Detrend method. Options: "constant", "linear", None (no detrend).
+                ``False`` is also accepted as no detrend for backward compatibility.
             scaling: Scaling method. Options: "spectrum", "density".
             average: Method for averaging segments. Default is "mean".
             estimator: ``"H1"`` (default) when the output is the noisy

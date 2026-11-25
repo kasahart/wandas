@@ -98,6 +98,20 @@ def test_loader_rejects_unsupported_schema_versions(version: object) -> None:
         RecipePlan.from_dict(payload)
 
 
+def test_unsupported_schema_version_lists_supported_versions_and_remedy() -> None:
+    payload = RecipePlan.from_frame(_frame().normalize()).to_dict()
+    payload["version"] = 5
+
+    with pytest.raises(RecipeSerializationError, match="Unsupported Recipe schema version") as exc_info:
+        RecipePlan.from_dict(payload)
+
+    message = str(exc_info.value)
+    assert "Got: 5" in message
+    assert "Supported: 2, 3, 4" in message
+    assert "Use a compatible Wandas version" in message
+    assert "upgrade Wandas to read this schema" in message
+
+
 def test_schema_3_writes_finite_floats_as_json_numbers_and_reads_schema_2() -> None:
     plan = _plan_for_operand(1000.0)
     payload = plan.to_dict()

@@ -882,3 +882,13 @@ def test_spectra_record_the_analysis_window_length() -> None:
     assert frame.fft(n_fft=1024).win_length == 1024
     assert frame.welch(n_fft=1024, win_length=256).win_length == 256
     assert frame.stft(n_fft=1024, win_length=512, hop_length=128).get_frame_at(0).win_length == 512
+
+
+@pytest.mark.parametrize("method", ["stft", "welch", "csd", "coherence", "transfer_function"])
+def test_too_small_window_without_hop_reports_the_shared_segmentation_rule(method: str) -> None:
+    frame = ChannelFrame.from_numpy(np.ones((2, 256)), sampling_rate=1000)
+
+    with pytest.raises(ValueError, match="Window length too small to compute default hop length") as exc_info:
+        getattr(frame, method)(n_fft=8, win_length=3)
+
+    assert "provide hop_length explicitly" in str(exc_info.value)

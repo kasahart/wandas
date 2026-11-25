@@ -320,12 +320,17 @@ class TestChannelProcessing:
             channel_metadata=[{"label": "sig", "unit": "V", "extra": {}}],
         )
 
-        with pytest.raises(ValueError, match=r"Parameter name conflict"):
+        with pytest.raises(ValueError, match=r"Parameter name conflict") as exc_info:
             frame.apply(
                 process_with_sr,
                 output_shape_func=lambda shape: shape,
                 sampling_rate=frame.sampling_rate,
             )
+
+        message = str(exc_info.value)
+        assert "automatically provided" not in message
+        assert "does not pass a sampling rate" in message
+        assert "fs=frame.sampling_rate" in message
 
     def test_apply_domain_transition_returns_requested_frame(self) -> None:
         """apply() should support domain transitions with output_frame_class."""
