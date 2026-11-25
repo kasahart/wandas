@@ -19,7 +19,7 @@ from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing import create_operation
 from wandas.processing.semantic import InputBinding, LineageNode
 
-from .protocols import ProcessingFrameProtocol, T_Processing
+from .protocols import BaseFrameProtocol, ProcessingFrameProtocol, T_Processing
 
 T_OutputFrame = TypeVar("T_OutputFrame")
 HpssIntLike: TypeAlias = SupportsIndex
@@ -132,7 +132,7 @@ class ChannelProcessingMixin:
     """
 
     def _get_ref_values(
-        self: ProcessingFrameProtocol,
+        self: BaseFrameProtocol,
         *,
         require_non_default: bool = False,
     ) -> list[float]:
@@ -187,7 +187,7 @@ class ChannelProcessingMixin:
         )
 
     def _compute_scalar_metric(
-        self: ProcessingFrameProtocol,
+        self: BaseFrameProtocol,
         operation: Any,
     ) -> "NDArrayReal":
         """Run *operation* per-channel and return a 1-D NumPy result.

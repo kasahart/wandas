@@ -4,13 +4,16 @@ This module contains common protocols used by mixin classes.
 """
 
 import logging
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 from dask.array.core import Array as DaArray
 
 from wandas.core.metadata import ChannelMetadata
 from wandas.processing.semantic import LineageNode
 from wandas.utils.types import NDArrayReal
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +34,25 @@ class BaseFrameProtocol(Protocol):
     Defines the basic methods and properties provided by all frame classes.
     """
 
-    _data: DaArray
-    _effective_data: DaArray
-    sampling_rate: float
-    _channel_metadata: list[ChannelMetadata]
-    metadata: dict[str, Any]
-    label: str
+    # Frames expose these as read-only properties, so the protocol declares them
+    # as properties too; a plain attribute here would also require writes.
+    @property
+    def _data(self) -> DaArray: ...
+
+    @property
+    def _effective_data(self) -> DaArray: ...
+
+    @property
+    def sampling_rate(self) -> float: ...
+
+    @property
+    def _channel_metadata(self) -> list[ChannelMetadata]: ...
+
+    @property
+    def metadata(self) -> dict[str, Any]: ...
+
+    @property
+    def label(self) -> str: ...
 
     @property
     def operation_history(self) -> list[dict[str, Any]]:
@@ -76,7 +92,7 @@ class BaseFrameProtocol(Protocol):
         """
         ...
 
-    def _create_new_instance(self: T_Base, data: DaArray, **kwargs: Any) -> T_Base:
+    def _create_new_instance(self, data: DaArray, **kwargs: Any) -> "Self":
         """Create a new instance of the frame with updated data and metadata.
         Args:
             data: The new data for the frame
@@ -143,7 +159,10 @@ class TransformFrameProtocol(BaseFrameProtocol, Protocol):
     @property
     def _as_base_frame(self) -> BaseFrame[Any]: ...
 
-    _channel_ids: list[str]
+    @property
+    def _channel_ids(self) -> list[str]:
+        """Stable channel identifiers (read-only; derived from the frame coordinates)."""
+        ...
 
     def _required_semantic_lineage(self) -> LineageNode: ...
 
