@@ -62,7 +62,7 @@ For a lesson that is being prepared for Japanese and English static export:
 4. Move learner-facing prose, headings, tables, output descriptions, and figure explanations into the lesson catalog.
 5. Use only `[[name]]` for dynamic values; keep the placeholder set identical in Japanese and English.
 6. Reuse common catalog keys instead of copying common navigation or language strings into the lesson catalog.
-7. Declare `en` and the lesson catalog in `learning-path/manifest.json`; do not create locale-specific Python source files.
+7. Declare `en` and the lesson catalog in `learning-path/manifest.json`; do not create locale-specific Python source files. The manifest lists every git-tracked numbered lesson (`learning-path/NN_*.py`), and only those.
 8. Export the same source once for `ja` and once for `en` through `scripts/export_learning_path.py`.
 9. Validate both generated pages, including title, language switch, navigation, links, visible-cell i18n leakage, and shared visible code.
 10. Do not add new Japanese text to Matplotlib titles, legends, or axis labels; put localized explanation next to the figure to avoid missing-glyph warnings.

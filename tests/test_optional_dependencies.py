@@ -42,10 +42,12 @@ PROJECT_PACKAGE_BY_REGISTRY_KEY = {
     "torch": "torch",
     "tensorflow": "tensorflow",
 }
+REPO_ROOT = Path(__file__).resolve().parents[1]
+REGISTRY_RULE_DOC = "docs/design/2026-06-17-ci-extras-strategy.md"
 
 
 def _pyproject() -> dict:
-    return tomli.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    return tomli.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
 
 def _dependency_names(requirements: list[str]) -> set[str]:
@@ -90,10 +92,15 @@ def test_runtime_dependencies_are_balanced_core_only() -> None:
 
 def test_every_runtime_dependency_is_imported_by_wandas() -> None:
     names = _dependency_names(_pyproject()["project"]["dependencies"])
-    source = "\n".join(path.read_text(encoding="utf-8") for path in Path("wandas").rglob("*.py"))
+    source = "\n".join(path.read_text(encoding="utf-8") for path in (REPO_ROOT / "wandas").rglob("*.py"))
     imported = set(re.findall(r"^\s*(?:import|from)\s+(\w+)", source, flags=re.MULTILINE))
 
-    assert names - imported == set()
+    assert names - imported == set(), (
+        f"Core dependencies never imported under wandas/: {sorted(names - imported)}.\n"
+        "Rule: [project.dependencies] lists only packages the core library imports "
+        "(see docs/src/contributing.md, Development Environment Setup).\n"
+        "Fix: remove the package from [project.dependencies] in pyproject.toml or move it to an optional extra."
+    )
 
 
 def test_optional_dependency_groups_exist() -> None:
@@ -129,7 +136,7 @@ def test_tensorflow_requirements_skip_python_versions_without_wheels() -> None:
 
 
 def test_third_party_notices_list_apache_licensed_dependencies() -> None:
-    notices = Path("LICENSE-THIRD-PARTY").read_text(encoding="utf-8")
+    notices = (REPO_ROOT / "LICENSE-THIRD-PARTY").read_text(encoding="utf-8")
 
     for name in ("xarray", "MoSQITo"):
         assert f"\n{name}\n" in notices
@@ -159,18 +166,39 @@ def test_dependency_registry_matches_project_dependency_groups() -> None:
         },
     }
 
-    assert set(PROJECT_PACKAGE_BY_REGISTRY_KEY) == set(DEPENDENCY_REGISTRY)
+    fix = (
+        "Fix: keep DEPENDENCY_REGISTRY in wandas/utils/optional_imports.py, "
+        "[project.dependencies] / [project.optional-dependencies] in pyproject.toml, and "
+        "PROJECT_PACKAGE_BY_REGISTRY_KEY in tests/test_optional_dependencies.py in step."
+    )
+    rule = (
+        "Rule: every DEPENDENCY_REGISTRY entry points at the core dependencies or the matching "
+        f"optional extra in pyproject.toml (see {REGISTRY_RULE_DOC})."
+    )
+    assert set(PROJECT_PACKAGE_BY_REGISTRY_KEY) == set(DEPENDENCY_REGISTRY), (
+        f"DEPENDENCY_REGISTRY keys and PROJECT_PACKAGE_BY_REGISTRY_KEY keys differ.\n{rule}\n{fix}"
+    )
 
     for key, spec in DEPENDENCY_REGISTRY.items():
-        assert spec.extra in dependency_names_by_extra, key
-        assert spec.import_name, key
-        assert PROJECT_PACKAGE_BY_REGISTRY_KEY[key] in dependency_names_by_extra[spec.extra], key
+        assert spec.extra in dependency_names_by_extra, (
+            f"DEPENDENCY_REGISTRY[{key!r}] names extra {spec.extra!r}, which pyproject.toml does not define.\n"
+            f"{rule}\n{fix}"
+        )
+        assert spec.import_name, f"DEPENDENCY_REGISTRY[{key!r}] has an empty import_name.\n{rule}\n{fix}"
+        assert PROJECT_PACKAGE_BY_REGISTRY_KEY[key] in dependency_names_by_extra[spec.extra], (
+            f"DEPENDENCY_REGISTRY[{key!r}] says package {PROJECT_PACKAGE_BY_REGISTRY_KEY[key]!r} comes with "
+            f"{spec.extra!r}, but pyproject.toml does not list it there.\n{rule}\n{fix}"
+        )
 
 
 def test_dependency_registry_install_hints_match_registered_extras() -> None:
     for key, spec in DEPENDENCY_REGISTRY.items():
         expected_hint = 'pip install "wandas"' if spec.extra == "core" else f'pip install "wandas[{spec.extra}]"'
-        assert (spec.install_hint or expected_hint).startswith(expected_hint), key
+        assert (spec.install_hint or expected_hint).startswith(expected_hint), (
+            f"DEPENDENCY_REGISTRY[{key!r}] install hint {spec.install_hint!r} does not start with {expected_hint!r}.\n"
+            f"Rule: install hints match the registered extra (see {REGISTRY_RULE_DOC}).\n"
+            "Fix: correct install_hint or extra for this entry in wandas/utils/optional_imports.py."
+        )
 
 
 def test_require_dependency_imports_registered_module() -> None:
