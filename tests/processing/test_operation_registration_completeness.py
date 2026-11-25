@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import json
+import os
 import pkgutil
 import subprocess
 import sys
@@ -29,6 +30,7 @@ _FIX = (
 _FRESH_IMPORT_CHECK = """
 import json, sys
 import wandas
+import wandas.processing
 from wandas.processing.base import get_operation
 
 results = []
@@ -40,7 +42,7 @@ for name, module, qualname in json.loads(sys.argv[1]):
         found = repr(error)
     if found != f"{module}.{qualname}":
         results.append(f"{module}.{qualname} (name={name!r}): {found}")
-print(json.dumps(results))
+print(json.dumps({"package": wandas.processing.__file__, "unresolved": results}))
 """
 
 
@@ -86,7 +88,13 @@ def test_every_operation_class_declaring_a_name_resolves_after_fresh_import() ->
         check=False,
     )
     assert result.returncode == 0, result.stderr or result.stdout
-    unresolved = json.loads(result.stdout.strip().splitlines()[-1])
+    report = json.loads(result.stdout.strip().splitlines()[-1])
+    # The child puts its cwd first on sys.path, so make sure it inspected the
+    # same wandas package as this process.
+    assert os.path.realpath(report["package"]) == os.path.realpath(processing.__file__), (
+        f"Subprocess imported {report['package']}, but the test enumerated {processing.__file__}."
+    )
+    unresolved = report["unresolved"]
 
     assert not unresolved, (
         "Operation classes not reachable by name after a fresh `import wandas`:\n"
