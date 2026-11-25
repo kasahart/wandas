@@ -488,7 +488,7 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
             hop_length=self.n_samples,
             win_length=self.n_samples,
             window=window,
-            detrend=cast(str, detrend),
+            detrend=detrend,
         )
         return result.select_pairs([row * n_channels for row in range(1, n_channels)])
 
@@ -539,7 +539,7 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
             hop_length=self.n_samples,
             win_length=self.n_samples,
             window=window,
-            detrend=cast(str, detrend),
+            detrend=detrend,
         )
         return result.select_pairs([row * n_channels for row in range(1, n_channels)])
 

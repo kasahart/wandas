@@ -302,6 +302,9 @@ def test_add_channel_v1_recipe_is_rejected_as_unknown_version() -> None:
 
     assert "Recipe node uses an unregistered operation" in str(exc_info.value)
     assert "wandas.channel.add_channel" in str(exc_info.value)
+    assert "Version: 1" in str(exc_info.value)
+    assert "Registered versions: 2" in str(exc_info.value)
+    assert "save it again" in str(exc_info.value)
 
 
 def test_sparse_stft_recipe_round_trip_preserves_opt_in_and_frame_times() -> None:

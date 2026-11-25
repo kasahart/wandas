@@ -309,7 +309,9 @@ class ChannelProcessingMixin:
             raise ValueError(
                 "Parameter name conflict\n"
                 "  Cannot use 'sampling_rate' as a parameter in apply().\n"
-                "  The sampling rate is automatically provided from the frame.\n"
+                "  apply() reserves this name and does not pass a sampling rate to the function.\n"
+                "  Pass the rate under another name, e.g. fs=frame.sampling_rate,\n"
+                "  or read frame.sampling_rate before calling apply().\n"
                 "  Suggested alternatives: 'sr', 'sample_rate', or 'fs'\n"
                 f"  Received params: {list(kwargs.keys())}"
             )

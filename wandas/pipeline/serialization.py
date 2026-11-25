@@ -84,7 +84,13 @@ class RecipeLoader:
         if payload.get("schema") != SCHEMA or type(payload.get("version")) is not int:
             raise RecipeSerializationError("Unknown Recipe schema or invalid schema version")
         if payload["version"] not in _READABLE_SCHEMA_VERSIONS:
-            raise RecipeSerializationError(f"Unsupported Recipe schema version\n  Got: {payload['version']!r}")
+            raise RecipeSerializationError(
+                "Unsupported Recipe schema version\n"
+                f"  Got: {payload['version']!r}\n"
+                f"  Supported: {', '.join(map(str, sorted(_READABLE_SCHEMA_VERSIONS)))}\n"
+                "Use a compatible Wandas version or save the Recipe again with a release that\n"
+                "reads this schema."
+            )
         expected_fields = _FIELDS | {"steps"} if payload["version"] == STEPS_SCHEMA_VERSION else _FIELDS
         if set(payload) != expected_fields:
             raise RecipeSerializationError("Recipe payload fields do not match the Recipe schema")

@@ -400,8 +400,15 @@ def _definition_for_node(
     try:
         definition = registry.require(node.operation, node.version)
     except KeyError as exc:
+        registered = sorted(op.version for op in registry.operations if op.operation_id == node.operation)
         raise ValueError(
-            f"Recipe node uses an unregistered operation\n  Node: {node.id!r}\n  Operation: {node.operation!r}"
+            "Recipe node uses an unregistered operation\n"
+            f"  Node: {node.id!r}\n"
+            f"  Operation: {node.operation!r}\n"
+            f"  Version: {node.version!r}\n"
+            f"  Registered versions: {', '.join(map(str, registered)) or 'none'}\n"
+            "This Wandas release does not replay this operation version. Load the Recipe with\n"
+            "a release that still replays it, save it again, or rebuild the Recipe."
         ) from exc
     matching_patterns = tuple(
         pattern for pattern in definition.binding_patterns if tuple(binding.kind for binding in pattern) == input_kinds

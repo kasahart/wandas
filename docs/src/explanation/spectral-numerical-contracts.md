@@ -201,7 +201,7 @@ frame, so detrend when computing the STFT: `stft(detrend="constant")` or
 `stft(detrend="linear")` removes each frame's trend before windowing, as SciPy's
 `ShortTimeFFT.stft_detrend` does. The result then equals
 `ChannelFrame.csd(detrend=...)` with the same `detrend` over the same segments.
-The default `stft()` does not detrend, so it matches `csd(detrend=False)`, not
+The default `stft()` does not detrend, so it matches `csd(detrend=None)`, not
 the `csd()` default of `"constant"`. A detrended STFT cannot reconstruct the signal with
 `istft()`. The STFT pads the signal, so its first and last
 frames contain zeros; slice the time axis to choose the averaged frames. Each
