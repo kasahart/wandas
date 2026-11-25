@@ -1276,17 +1276,53 @@ def test_roughness_codec_rejects_bark_axis_tensor_mismatch() -> None:
         wdf_frames._roughness_decode({"data": da.ones((1, 46, 3))}, state)
 
 
-def test_codec_rejects_unsupported_rank_and_exact_subclass(tmp_path: Path) -> None:
+def test_codec_rejects_unsupported_rank(tmp_path: Path) -> None:
     codec = wdf_frames._codecs_by_name()["ChannelFrame"]
     with pytest.raises(ValueError, match="tensor rank"):
         wdf_frames._validate_codec_tensor(codec, da.ones((1, 2, 3)))
 
-    class CustomChannelFrame(ChannelFrame):
+
+def test_subclass_of_builtin_frame_saves_as_its_builtin_base(tmp_path: Path) -> None:
+    class ProjectFrame(ChannelFrame):
         pass
 
-    frame = CustomChannelFrame.from_numpy(np.ones((1, 4)), 8.0)
-    with pytest.raises(TypeError, match="Unsupported Frame type"):
-        frame.save(tmp_path / "custom.wdf")
+    frame = ProjectFrame.from_numpy(np.arange(128, dtype=float).reshape(2, 64), 64.0, ch_labels=["a", "b"])
+    processed = frame.low_pass_filter(cutoff=8.0)
+    assert type(processed) is ProjectFrame
+
+    processed.save(tmp_path / "project.wdf")
+    loaded = wd.load(tmp_path / "project.wdf")
+
+    assert type(loaded) is ChannelFrame
+    np.testing.assert_array_equal(loaded.data, processed.data)
+    assert loaded.labels == processed.labels
+    assert loaded.sampling_rate == processed.sampling_rate
+
+
+def test_subclass_of_builtin_spectral_frame_saves_as_its_builtin_base(tmp_path: Path) -> None:
+    class ProjectSpectrum(SpectralFrame):
+        pass
+
+    spectrum = ChannelFrame.from_numpy(np.arange(16, dtype=float).reshape(1, 16), 16.0).fft()
+    frame = copy.copy(spectrum)
+    frame.__class__ = ProjectSpectrum
+
+    frame.save(tmp_path / "spectrum.wdf")
+    loaded = wd.load(tmp_path / "spectrum.wdf")
+
+    assert type(loaded) is SpectralFrame
+    np.testing.assert_array_equal(loaded.data, spectrum.data)
+
+
+def test_subclass_with_own_init_is_rejected_with_reason(tmp_path: Path) -> None:
+    class StatefulFrame(ChannelFrame):
+        def __init__(self, *args: Any, gain: float = 1.0, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            self.gain = gain
+
+    frame = StatefulFrame.from_numpy(np.ones((1, 4)), 8.0)
+    with pytest.raises(TypeError, match=r"Defines __init__: StatefulFrame"):
+        frame.save(tmp_path / "stateful.wdf")
 
 
 def test_generic_coordinate_helpers_cover_singleton_length_and_unexpected_coordinate() -> None:
