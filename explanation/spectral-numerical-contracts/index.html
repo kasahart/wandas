@@ -2137,14 +2137,24 @@ correctly:</p>
 <code>Pa</code> defaults to <code>20 µPa</code>, while reader-created canonical audio explicitly uses
 <code>FS</code> with reference <code>1</code>. Identity calibration with an empty unit also has a
 numeric reference of <code>1</code>, but its level label remains generic <code>dB re 1 input
-unit</code>, never dBFS. All amplitude conversions floor the magnitude/reference
+unit</code>, never dBFS. The Frame dB and level conversions floor the magnitude/reference
 ratio at <code>1e-12</code>, so zero returns <code>-240 dB</code>.
 The <code>20 log10</code> conversions in the table are for channels whose
 <code>calibration.level</code> is <code>"amplitude"</code>, the kind these results keep from an
 amplitude input. A channel whose level kind is <code>"power"</code> uses
 <code>10 log10(value / channel_ref)</code>, and one whose level kind is <code>"none"</code> warns
-and uses the amplitude rule, whose result may be meaningless.
-For the amplitude results above, <code>dBA</code> adds the IEC 61672 A-weighting curve to
+and uses the amplitude rule, whose result may be meaningless.</p>
+<div class="admonition note">
+<p class="admonition-title">Exception: <code>wandas.utils.amplitude_to_db</code></p>
+<p>The standalone helper <code>amplitude_to_db(amplitude, ref)</code> does not use the
+ratio floor. It returns
+<code>20 log10(max(|amplitude|, 1e-15)) - 20 log10(max(|ref|, 1e-15))</code>, so the
+absolute floor <code>1e-15</code> applies to the magnitude and to <code>|ref|</code> separately.
+Zero input therefore returns <code>-300 dB</code> minus the reference level, for
+example about <code>-206 dB</code> with <code>ref=2e-5</code>, not <code>-240 dB</code>. A negative <code>ref</code> is
+used by its magnitude.</p>
+</div>
+<p>For the amplitude results above, <code>dBA</code> adds the IEC 61672 A-weighting curve to
 that amplitude level; it does not change the underlying stored amplitude.</p>
 <h2 id="pairwise-spectral-contracts">Pairwise spectral contracts<a class="headerlink" href="#pairwise-spectral-contracts" title="Permanent link">&para;</a></h2>
 <p>The pairwise contracts below are the mathematical authority for the dedicated
@@ -2394,7 +2404,7 @@ boundary.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 25, 2026 10:06:20 UTC">November 25, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 25, 2026 10:06:31 UTC">November 25, 2026</span>
   </span>
 
     

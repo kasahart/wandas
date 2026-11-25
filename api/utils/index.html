@@ -10688,6 +10688,12 @@ Can be a single value or an array for multi-channel.</p>
     <div class="doc doc-contents ">
 
         <p>Convert amplitude to decibel.</p>
+<p>Computes <code>20 * log10(max(|amplitude|, DB_AMIN)) - 20 * log10(max(|ref|, DB_AMIN))</code>
+with <code>DB_AMIN = 1e-15</code>. The floor is absolute and applied to the magnitude and to
+<code>|ref|</code> separately, not to their ratio, so this helper differs from the Frame dB
+conversions (ratio floor <code>1e-12</code>, -240 dB). Zero input returns <code>-300 dB</code> minus the
+reference level (about -206 dB for <code>ref=2e-5</code>), and a negative <code>ref</code> is used by
+its magnitude.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -10730,7 +10736,7 @@ Can be a single value or an array for multi-channel.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>float. Reference value for conversion.</p>
+                <p>float. Reference value for conversion. Its absolute value is used.</p>
               </div>
             </td>
             <td>
@@ -10784,13 +10790,27 @@ Can be a single value or an array for multi-channel.</p>
 <span class="normal">159</span>
 <span class="normal">160</span>
 <span class="normal">161</span>
-<span class="normal">162</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">amplitude_to_db</span><span class="p">(</span><span class="n">amplitude</span><span class="p">:</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">,</span> <span class="n">ref</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">amplitude_to_db</span><span class="p">(</span><span class="n">amplitude</span><span class="p">:</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">,</span> <span class="n">ref</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert amplitude to decibel.</span>
 
+<span class="sd">    Computes ``20 * log10(max(|amplitude|, DB_AMIN)) - 20 * log10(max(|ref|, DB_AMIN))``</span>
+<span class="sd">    with ``DB_AMIN = 1e-15``. The floor is absolute and applied to the magnitude and to</span>
+<span class="sd">    ``|ref|`` separately, not to their ratio, so this helper differs from the Frame dB</span>
+<span class="sd">    conversions (ratio floor ``1e-12``, -240 dB). Zero input returns ``-300 dB`` minus the</span>
+<span class="sd">    reference level (about -206 dB for ``ref=2e-5``), and a negative ``ref`` is used by</span>
+<span class="sd">    its magnitude.</span>
+
 <span class="sd">    Args:</span>
 <span class="sd">        amplitude: NDArrayReal. Input amplitude data.</span>
-<span class="sd">        ref: float. Reference value for conversion.</span>
+<span class="sd">        ref: float. Reference value for conversion. Its absolute value is used.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        NDArrayReal: Amplitude data converted to decibels.</span>
@@ -10927,14 +10947,7 @@ Can be a single value or an array for multi-channel.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/util.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">165</span>
-<span class="normal">166</span>
-<span class="normal">167</span>
-<span class="normal">168</span>
-<span class="normal">169</span>
-<span class="normal">170</span>
-<span class="normal">171</span>
-<span class="normal">172</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">172</span>
 <span class="normal">173</span>
 <span class="normal">174</span>
 <span class="normal">175</span>
@@ -10957,7 +10970,14 @@ Can be a single value or an array for multi-channel.</p>
 <span class="normal">192</span>
 <span class="normal">193</span>
 <span class="normal">194</span>
-<span class="normal">195</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">level_trigger</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">hold</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">level_trigger</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">hold</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Find points where the signal crosses the specified level from below.</span>
 
@@ -11137,14 +11157,7 @@ A value of 0 means no tapering, 1 means full tapering.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/util.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">198</span>
-<span class="normal">199</span>
-<span class="normal">200</span>
-<span class="normal">201</span>
-<span class="normal">202</span>
-<span class="normal">203</span>
-<span class="normal">204</span>
-<span class="normal">205</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">205</span>
 <span class="normal">206</span>
 <span class="normal">207</span>
 <span class="normal">208</span>
@@ -11169,7 +11182,14 @@ A value of 0 means no tapering, 1 means full tapering.</p>
 <span class="normal">227</span>
 <span class="normal">228</span>
 <span class="normal">229</span>
-<span class="normal">230</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">cut_sig</span><span class="p">(</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">cut_sig</span><span class="p">(</span>
     <span class="n">data</span><span class="p">:</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">,</span>
     <span class="n">point_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
     <span class="n">cut_len</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
