@@ -85,6 +85,15 @@ type checking, docs, core-only wheel smoke, and Pyodide. `Full Compatibility`は
 Ubuntu/WindowsのPython 3.10–3.14、lint、type check、docs、core-only wheel smoke、
 Pyodideを実行します。
 
+Full Compatibility also gates releases, so it checks at least what the PR lane
+checks: its docs job runs every step of the `ci.yml` docs job, both lanes'
+wheel smoke runs `scripts/test_installation.py` (the script `cd.yml` runs), and
+the Pages deploy uses the docs jobs' Python. `tests/test_ci_route.py` enforces
+this. Full Compatibilityはreleaseのgateでもあるため、PR laneが確認する内容を
+すべて確認します。docs jobは`ci.yml`のdocs jobの全stepを実行し、両laneのwheel
+smokeは`cd.yml`と同じ`scripts/test_installation.py`を実行し、Pages deployはdocs
+jobと同じPythonを使います。`tests/test_ci_route.py`がこれを確認します。
+
 Run it manually from the repository root: リポジトリrootから手動実行します:
 
 ```bash
