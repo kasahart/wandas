@@ -18,7 +18,7 @@ jobs:
           version: "latest"
 
       - name: 依存関係をインストール
-        run: uv sync --frozen --all-groups
+        run: uv sync --frozen --all-groups --extra io --extra effects --extra marimo --extra psychoacoustic
 
       - name: pre-commit をインストール
         run: |

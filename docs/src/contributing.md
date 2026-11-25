@@ -14,7 +14,7 @@ This project uses `uv` for package management.
    依存関係をインストールします:
 
   ```bash
-  uv sync --frozen --all-groups
+  uv sync --frozen --all-groups --extra io --extra effects --extra marimo --extra psychoacoustic
   ```
 
 ## Branch Naming Policy / ブランチ命名ポリシー
@@ -164,7 +164,7 @@ Please perform the following checks before submitting a pull request.
   - `Run ty (red-knot) check`
 
   ```bash
-  uv run ty check wandas tests
+  uv run ty check wandas tests scripts learning-path
   ```
 
 - Format (ruff):
@@ -176,7 +176,7 @@ Please perform the following checks before submitting a pull request.
   - `Run ruff format`
 
   ```bash
-  uv run ruff format wandas tests
+  uv run ruff format wandas tests scripts learning-path
   ```
 
 - Lint (ruff):
@@ -188,7 +188,7 @@ Please perform the following checks before submitting a pull request.
   - `Run ruff check`
 
   ```bash
-  uv run ruff check wandas tests --config=pyproject.toml -v
+  uv run ruff check wandas tests scripts learning-path --config=pyproject.toml -v
   ```
 
 - Lint with auto-fix (ruff, only when modifying the affected files):
@@ -200,7 +200,7 @@ Please perform the following checks before submitting a pull request.
   - `Run ruff check --fix`
 
   ```bash
-  uv run ruff check --fix wandas tests --config=pyproject.toml -v
+  uv run ruff check --fix wandas tests scripts learning-path --config=pyproject.toml -v
   ```
 
 ## Building Documentation / ドキュメントのビルド
@@ -212,7 +212,7 @@ Documentation is built with MkDocs.
   ビルド:
 
   ```bash
-  uv run mkdocs build -f docs/mkdocs.yml
+  uv run mkdocs build --strict -f docs/mkdocs.yml
   ```
 
 - Serve locally:

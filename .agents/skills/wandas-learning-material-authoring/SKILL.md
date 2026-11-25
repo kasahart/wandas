@@ -49,7 +49,7 @@ Do not encode static explanation as executable code. Do not prescribe a particul
 - Add a short purpose comment, in the material's language, when a visible cell's teaching role is not already clear from its code and surrounding prose.
 - Keep operations together when their combination proves one claim, such as a meaningful before/after comparison.
 - Give every cross-cell variable exactly one definition. Use a descriptive unique name, or prefix disposable cell-local values with `_`.
-- Run `uv run marimo check <notebook>` after adding, splitting, merging, or renaming cells. Do not rely only on export execution to detect reactive-definition conflicts.
+- Run `uv run marimo check --strict <notebook>` after adding, splitting, merging, or renaming cells. Do not rely only on export execution to detect reactive-definition conflicts.
 - Make output explain what it proves. Avoid unexplained counts, dumps, and intermediate state.
 
 ## Standard Learning Path internationalization procedure
@@ -89,17 +89,18 @@ For a lesson that is being prepared for Japanese and English static export:
 Run checks proportional to the touched files:
 
 ```bash
-uv run marimo check learning-path/<notebook>.py
+uv run marimo check --strict learning-path/<notebook>.py
 uv run marimo export html learning-path/<notebook>.py -o /tmp/<notebook>.html --no-include-code -f
-uv run ruff check learning-path/<notebook>.py --config=pyproject.toml
-uv run ty check learning-path/<notebook>.py
+uv run ruff format --check wandas tests scripts learning-path
+uv run ruff check wandas tests scripts learning-path
+uv run ty check wandas tests scripts learning-path
 ```
 
 Also:
 
 - Inspect exported output for the intended evidence and absence of cell errors.
 - Run `git diff --check`.
-- Run `uv run mkdocs build -f docs/mkdocs.yml` when MkDocs-backed documentation changes.
+- Run `uv run mkdocs build --strict -f docs/mkdocs.yml` when MkDocs-backed documentation changes.
 - Search touched files for obsolete terminology and APIs.
 
 Before finishing, ask:

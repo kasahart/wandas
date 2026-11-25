@@ -463,8 +463,9 @@ Run focused tests first, then the repository gates appropriate to the change.
 uv run pytest tests/processing/<module-test>.py -q
 uv run pytest tests/frames/<frame-test>.py -q
 uv run pytest tests/pipeline -q  # when Recipe behavior changes
-uv run ruff check wandas tests scripts
-uv run ty check wandas tests
+uv run ruff format --check wandas tests scripts learning-path
+uv run ruff check wandas tests scripts learning-path
+uv run ty check wandas tests scripts learning-path
 uv run pytest -q
 uv run mkdocs build --strict -f docs/mkdocs.yml
 ```
