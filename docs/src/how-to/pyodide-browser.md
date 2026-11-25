@@ -23,10 +23,10 @@ loads. The release workflow checks each published Wandas version in it.
 
 | Feature / 機能 | Install / インストール | In Pyodide / Pyodideでは | Checked by / 確認方法 |
 | --- | --- | --- | --- |
-| Core: Frames, filters, FFT, STFT, Welch, weighting, levels, Recipes / 基本機能 | `wandas` | Works / 使える | Core tests on every pull request / pull requestごとにcore tests |
-| WAV read and write / WAVの読み書き | `wandas` | Works, from bytes or the virtual file system / bytesか仮想ファイルから使える | WAV smoke tests on every pull request / pull requestごとにWAV smoke |
+| Core: Frames, filters, FFT, STFT, Welch, weighting, levels, Recipes / 基本機能 | `wandas` | Works / 使える | Core tests on each pull request that changes `wandas/` or the build / `wandas/`やビルド設定を変えるpull requestごとにcore tests |
+| WAV read and write / WAVの読み書き | `wandas` | Works, from bytes or the virtual file system / bytesか仮想ファイルから使える | WAV smoke tests on the same pull requests / 同じpull requestでWAV smoke |
 | Matplotlib plots, `describe()` / 図 | `wandas` | Works / 使える | Browser-guide check / ブラウザガイドの検証 |
-| Psychoacoustic metrics, `noct_spectrum()` / 心理音響指標、`noct_spectrum()` | `wandas[psychoacoustic]` (MoSQITo) | Works / 使える | Nightly extras check / 毎晩の追加機能の検証 |
+| `loudness_zwst()`, `sharpness_din_st()`, `roughness_dw()`, `noct_spectrum()` / 心理音響指標の一部と`noct_spectrum()` | `wandas[psychoacoustic]` (MoSQITo) | Works / 使える | Nightly extras check / 毎晩の追加機能の検証 |
 | WDF save and load / WDFの保存と読込 | `wandas[io]` (h5netcdf, h5py) | Works / 使える | Nightly extras check / 毎晩の追加機能の検証 |
 | HPSS (`hpss_harmonic()`, `hpss_percussive()`) | `wandas[effects]` (librosa) | Not available: librosa needs numba, which has no Pyodide build. The call raises `ImportError` naming the extra / 使えない。librosaが必要とするnumbaにPyodide版がない。呼ぶと追加機能名を示す`ImportError`になる | Nightly extras check / 毎晩の追加機能の検証 |
 | `to_tensor()` for PyTorch / TensorFlow / テンソル変換 | `wandas[ml]` | Not available: no Pyodide builds / 使えない。Pyodide版がない | Skipped in Pyodide core tests / core testsで除外 |

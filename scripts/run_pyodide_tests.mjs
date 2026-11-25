@@ -293,6 +293,12 @@ await micropip.install(["mosqito", "h5netcdf[h5py]"], constraints=constraints)
 loudness = frame.loudness_zwst()
 if loudness.shape != (1,) or not np.isfinite(loudness).all() or loudness[0] <= 0:
     raise RuntimeError(f"loudness_zwst returned {loudness!r}")
+sharpness = frame.sharpness_din_st()
+if sharpness.shape != (1,) or not np.isfinite(sharpness).all():
+    raise RuntimeError(f"sharpness_din_st returned {sharpness!r}")
+roughness = frame.roughness_dw()
+if roughness.n_channels != 1 or not np.isfinite(roughness.data).all():
+    raise RuntimeError("roughness_dw returned non-finite values")
 bands = frame.noct_spectrum(fmin=100, fmax=5_000)
 if not np.isfinite(bands.data).all():
     raise RuntimeError("noct_spectrum returned non-finite values")
