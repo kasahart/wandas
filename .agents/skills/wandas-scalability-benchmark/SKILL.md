@@ -70,3 +70,21 @@ Do not commit raw benchmark JSON, per-issue harness copies, or archived observat
 to the documentation tree. Commit benchmark data only when a test intentionally reads
 it as a fixture. User documentation should state stable behavior and limitations; use
 the PR as the durable review and evidence record.
+
+## Time everyday operations
+
+[`operation_benchmark.py`](../../../scripts/operation_benchmark.py) times commonly used
+operations (STFT, dB, Welch, FFT, octave bands, filters, sound level, RMS trend,
+resampling, WAV reading, cached slice reads) end to end. Use it when a change may slow
+one of them. Measure base and candidate on the same machine, alternating runs, then
+print the ratio table:
+
+```bash
+uv run python scripts/operation_benchmark.py --output /tmp/ops-base-1.json   # on base
+uv run python scripts/operation_benchmark.py --output /tmp/ops-cand-1.json   # on candidate
+uv run python scripts/operation_benchmark.py --compare \
+  /tmp/ops-base-1.json,/tmp/ops-base-2.json /tmp/ops-cand-1.json,/tmp/ops-cand-2.json
+```
+
+Repeated runs of one revision on a shared machine differ by about 20 %, so rerun a
+case before treating a ratio near that size as a slowdown. Record the table in the PR.
