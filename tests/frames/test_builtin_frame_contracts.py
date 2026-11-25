@@ -88,6 +88,7 @@ def test_public_frames_shared_cases_and_wdf_codecs_cover_identical_exact_types()
         + "\nRule: every concrete Frame type exported from wandas.frames has a shared "
         "Frame case and a WDF codec (see docs/src/contributing/frame-operation-extensions.md, "
         "'Add a new Frame family').\n"
-        "Fix: add or remove a BuiltinFrameCase in BUILTIN_FRAME_CASES in tests/builtin_frame_cases.py "
-        "and a FrameCodec in _codecs() in wandas/io/wdf_frames.py."
+        "Fix: for each boundary listed above, add or remove the entry (BuiltinFrameCase in BUILTIN_FRAME_CASES in "
+        "tests/builtin_frame_cases.py, FrameCodec in _codecs() in wandas/io/wdf_frames.py), "
+        "or export the type from wandas.frames."
     )
