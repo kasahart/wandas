@@ -1314,6 +1314,32 @@ def test_subclass_of_builtin_spectral_frame_saves_as_its_builtin_base(tmp_path: 
     np.testing.assert_array_equal(loaded.data, spectrum.data)
 
 
+def test_indirect_subclass_saves_as_nearest_builtin_base(tmp_path: Path) -> None:
+    class ProjectFrame(ChannelFrame):
+        pass
+
+    class SiteFrame(ProjectFrame):
+        pass
+
+    frame = SiteFrame.from_numpy(np.ones((1, 8)), 8.0)
+    frame.save(tmp_path / "site.wdf")
+
+    assert type(wd.load(tmp_path / "site.wdf")) is ChannelFrame
+
+
+def test_indirect_subclass_below_a_custom_init_is_rejected(tmp_path: Path) -> None:
+    class StatefulFrame(ChannelFrame):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+
+    class ChildFrame(StatefulFrame):
+        pass
+
+    frame = ChildFrame.from_numpy(np.ones((1, 4)), 8.0)
+    with pytest.raises(TypeError, match=r"Defines __init__: StatefulFrame"):
+        frame.save(tmp_path / "child.wdf")
+
+
 def test_type_without_builtin_base_is_rejected_with_supported_types() -> None:
     with pytest.raises(TypeError, match="and their subclasses without a custom __init__"):
         wdf_frames._codec_for_frame(cast(Any, object()))
