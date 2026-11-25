@@ -167,7 +167,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         The conversion is
         ``20 * log10(max(band_rms / channel_ref, 1e-12))`` for amplitude
         channels and ``10 * log10(...)`` for power channels; a channel with
-        level kind ``"none"`` raises ``ValueError``. The reference has
+        level kind ``"none"`` warns and uses the amplitude formula. The reference has
         the same physical unit as the band RMS value and is specified by each
         channel's calibration metadata.
 

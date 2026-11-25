@@ -139,7 +139,8 @@ class ChannelCalibration:
     describe that physical domain. A missing reference is inferred from the
     unit (for example, ``Pa`` uses ``2e-5``). ``level`` says how the values
     convert to dB: ``"amplitude"`` (the default) uses ``20 * log10(|x| / ref)``,
-    ``"power"`` uses ``10 * log10(|x| / ref)``, and ``"none"`` rejects dB.
+    ``"power"`` uses ``10 * log10(|x| / ref)``, and ``"none"`` warns and uses
+    the amplitude formula, whose result may be meaningless.
     """
 
     factor: float = 1.0
@@ -282,7 +283,8 @@ class LevelReference:
         reference_unit: Linear unit such as ``"Pa"``, ``"V"``, or explicit
             canonical full scale ``"FS"``.
         level_kind: ``"amplitude"`` (``20 * log10``, the default), ``"power"``
-            (``10 * log10``) or ``"none"``, for which :meth:`to_level` raises.
+            (``10 * log10``) or ``"none"``, for which :meth:`to_level` warns
+            and uses the amplitude formula.
     """
 
     reference_value: float
