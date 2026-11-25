@@ -17,13 +17,16 @@ DOCUMENTED_FILES = (
     ".agents/skills/wandas-learning-material-authoring/SKILL.md",
     ".github/PULL_REQUEST_TEMPLATE.md",
     ".github/workflows/copilot-setup-steps.yml",
+    ".github/workflows/claude.yml",
+    ".github/workflows/claude-code-review.yml",
     ".pre-commit-config.yaml",
     ".vscode/tasks.json",
     ".devcontainer/devcontainer.json",
 )
 
 _SYNC = re.compile(r"uv sync[^\n`\"]*")
-_GATE = re.compile(r"uv run (?:--no-sync )?(ruff format|ruff check|ty check)\b([^\n`\"]*)")
+_GATE = re.compile(r"(?:uv run (?:--\S+ )*|uvx )(ruff format|ruff check|ty check)\b([^\n`\"]*)")
+_VALUE_OPTIONS = {"--config"}
 
 
 def _ci_steps() -> list[str]:
@@ -43,7 +46,16 @@ def _ci_extras() -> set[str]:
 
 
 def _targets(arguments: str) -> list[str]:
-    return [token for token in arguments.split() if not token.startswith("-") and token != "&&"]
+    targets: list[str] = []
+    skip_value = False
+    for token in arguments.split():
+        if skip_value:
+            skip_value = False
+        elif token in _VALUE_OPTIONS:
+            skip_value = True
+        elif not token.startswith("-") and token != "&&":
+            targets.append(token)
+    return targets
 
 
 def _ci_lint_targets() -> list[str]:
@@ -63,6 +75,8 @@ def test_documented_setup_installs_the_ci_extras(relative_path: str) -> None:
     required = _ci_extras()
 
     for command in _SYNC.findall(text):
+        if "--all-extras" in command.split():
+            continue
         missing = sorted(required - set(re.findall(r"--extra (\S+)", command)))
         assert not missing, (
             f"{relative_path} documents `{command.strip()}`, which leaves out the CI extras {missing}.\n"

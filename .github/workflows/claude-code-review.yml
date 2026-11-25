@@ -50,7 +50,7 @@ jobs:
         if: steps.auth.outputs.ok == 'true'
         run: |
           uv python install 3.12
-          uv sync --no-dev --extra io --extra effects --extra psychoacoustic --group test
+          uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
 
       # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB isolates the reviewer's subprocesses
       # with bubblewrap, which needs the user namespaces Ubuntu 24.04 blocks.

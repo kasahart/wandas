@@ -17,6 +17,11 @@ This project uses `uv` for package management.
   uv sync --frozen --all-groups --extra io --extra effects --extra marimo --extra psychoacoustic
   ```
 
+   If your environment was synced without `--extra marimo`, run this command again:
+   the `ty` pre-commit hook and `uv run ty check` now also check `learning-path`, which imports `marimo`.
+   `--extra marimo` なしで作成した環境では、上のコマンドを再実行してください。
+   `ty` の pre-commit hook と `uv run ty check` は `marimo` を import する `learning-path` も検査します。
+
 ## Branch Naming Policy / ブランチ命名ポリシー
 
 The repository allows the following branch naming patterns. For normal contribution work, please create your branch with one of the prefixed patterns listed below.
