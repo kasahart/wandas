@@ -2669,8 +2669,8 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>P-03b</td>
 <td>Registered-operation coverage / 登録処理の網羅</td>
 <td>Operation registry / 処理 registry</td>
-<td>Every registered operation has a metadata case / 全登録処理に metadata ケースがある</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_operation_lazy_metadata_contract.py">test_operation_lazy_metadata_contract.py</a> <code>test_operation_lazy_metadata_contract_covers_every_registered_operation</code></td>
+<td>Every public registered operation (name not starting with <code>_</code>) has a metadata case / <code>_</code> で始まらない全登録処理に metadata ケースがある</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_operation_lazy_metadata_contract.py">test_operation_lazy_metadata_contract.py</a> <code>test_operation_lazy_metadata_contract_covers_every_public_registered_operation</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
@@ -2741,8 +2741,8 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>P-05d</td>
 <td>STFT inverse round trip / STFT 逆変換往復</td>
 <td>STFT followed by inverse STFT / STFT 後に逆変換</td>
-<td>Reconstructed samples match input / 復元 sample が入力と一致</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_spectral_operations.py">test_spectral_operations.py</a> <code>test_stft_istft_roundtrip_reconstruction</code></td>
+<td>Interior samples (16 trimmed at each end) match input / 両端16 sample を除き復元 sample が入力と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_spectral_operations.py">test_spectral_operations.py</a> <code>TestSTFTOperation.test_stft_istft_roundtrip_reconstructs_interior_samples</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
@@ -2853,7 +2853,7 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>Typed Recipe replay / 型付き Recipe 再実行</td>
 <td>Extract and replay a Frame transition / Frame 型遷移を抽出・再実行</td>
 <td>Result retains its Frame type / 結果の Frame 型を保持</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_execution.py">test_recipe_execution.py</a> <code>test_typed_frame_transition_replays_lazily</code></td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_execution.py">test_recipe_execution.py</a> <code>test_typed_frame_transition_replays_with_dask_backed_data</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
@@ -2861,7 +2861,7 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>External input laziness / 外部入力の遅延性</td>
 <td>Replay with external Dask input / 外部 Dask 入力で再実行</td>
 <td>Input is not computed before user materialization / 明示的な materialize まで計算しない</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_execution.py">test_recipe_execution.py</a> <code>test_external_numpy_and_dask_inputs_remain_lazy_until_user_compute</code></td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_execution.py">test_recipe_execution.py</a> <code>test_external_numpy_and_dask_inputs_replay_to_dask_arrays</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
@@ -2877,7 +2877,7 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>Recipe extraction error / Recipe 抽出エラー</td>
 <td>Extract from a non-Frame input / Frame 以外から抽出</td>
 <td>Raises <code>RecipeExtractionError</code> / <code>RecipeExtractionError</code> を返す</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_errors.py">test_recipe_errors.py</a> <code>test_extraction_error_is_distinct_from_validation_and_execution_errors</code></td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_errors.py">test_recipe_errors.py</a> <code>test_from_frame_raises_extraction_error_for_non_frame_input</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
@@ -2948,7 +2948,7 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>WDF calibration round trip / WDF 校正往復</td>
 <td>Calibrated raw data / 校正付き raw data</td>
 <td>Calibration is applied once after load / 読込後に校正を一度適用</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_preserves_raw_data_and_applies_calibration_once</code></td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_preserves_raw_data_and_loaded_calibrated_view_matches_original</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
@@ -2988,7 +2988,7 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>WDF label / WDF label</td>
 <td>Save an annotated Frame / 注釈付き Frame を保存</td>
 <td>Frame label survives / Frame label を保持</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_immutable_annotations_without_recipe_intent</code></td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_annotation_fields_and_display_history</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
@@ -2996,7 +2996,7 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>WDF recording metadata / WDF 記録 metadata</td>
 <td>Save an annotated Frame / 注釈付き Frame を保存</td>
 <td>Recording metadata survives / 記録 metadata を保持</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_immutable_annotations_without_recipe_intent</code></td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_annotation_fields_and_display_history</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
@@ -3004,7 +3004,7 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>WDF channel extra / WDF channel extra</td>
 <td>Save an annotated Frame / 注釈付き Frame を保存</td>
 <td>Channel extra survives / channel extra を保持</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_immutable_annotations_without_recipe_intent</code></td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_annotation_fields_and_display_history</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
@@ -3012,7 +3012,7 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>WDF source offset / WDF source offset</td>
 <td>Save an offset Frame / offset 付き Frame を保存</td>
 <td>Source time offset survives / 元時刻 offset を保持</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_immutable_annotations_without_recipe_intent</code></td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_annotation_fields_and_display_history</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
@@ -3092,8 +3092,8 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>CSV rate validation / CSV rate 検証</td>
 <td>Invalid sampling rate / 不正な sampling rate</td>
 <td>Read fails before indexing / indexing 前に失敗</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_csv_selection_and_rates.py">test_csv_selection_and_rates.py</a> <code>test_csv_invalid_sampling_rate_fails_before_indexing</code></td>
-<td>Confirmed / 確認済み</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_csv_selection_and_rates.py">test_csv_selection_and_rates.py</a> <code>test_csv_invalid_sampling_rate_raises_value_error</code></td>
+<td>Partial / 一部確認</td>
 </tr>
 <tr>
 <td>I-05a</td>
@@ -3241,6 +3241,10 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 </tr>
 </tbody>
 </table>
+<p>I-04c missing assertion: the test checks that an invalid sampling rate raises
+<code>ValueError</code>, but not that the read fails before samples are indexed.
+I-04c の不足 assertion: 不正な sampling rate で <code>ValueError</code> になることは確認しますが、
+sample の indexing 前に失敗することは確認していません。</p>
 <h2 id="visualization-wandasvisualization">Visualization / 可視化 (<code>wandas/visualization</code>)<a class="headerlink" href="#visualization-wandasvisualization" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3323,7 +3327,7 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>Script display with IPython installed / IPython ありのスクリプト表示</td>
 <td>Display with <code>describe</code> outside a notebook / ノートブック外で <code>describe</code> 表示</td>
 <td>Figures shown with <code>pyplot.show()</code>, not IPython display reprs / IPython display の文字列ではなく <code>pyplot.show()</code> で図を表示</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_describe.py">test_describe.py</a> <code>test_describe_outside_notebook_shows_figures_with_pyplot_even_with_ipython</code>, <a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_notebook_frontend.py">test_notebook_frontend.py</a></td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_describe.py">test_describe.py</a> <code>test_describe_outside_notebook_shows_figures_with_pyplot_even_with_ipython</code>, <a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_notebook_frontend.py">test_notebook_frontend.py</a> <code>test_ipython_installed_without_a_shell_is_not_a_notebook</code>, <code>test_terminal_ipython_is_not_a_notebook</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
@@ -3331,7 +3335,7 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>PyScript display / PyScript での表示</td>
 <td><code>describe</code> and <code>plot</code> with a PyScript output target / PyScript の出力先がある状態で <code>describe</code> と <code>plot</code></td>
 <td>Figures and audio players go to <code>pyscript.display()</code>; without a target, behaviour is unchanged / 図と音声プレーヤーを <code>pyscript.display()</code> に出し、出力先がなければ従来どおり</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_pyscript_display.py">test_pyscript_display.py</a></td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_pyscript_display.py">test_pyscript_display.py</a> <code>test_describe_displays_each_figure_then_its_audio_in_pyscript</code>, <code>test_plot_displays_and_closes_its_figure_in_pyscript</code>, <code>test_describe_without_a_pyscript_target_keeps_pyplot_display</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 </tbody>
@@ -3622,9 +3626,9 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <tr>
 <td>X-03c</td>
 <td>Learning-path examples / 教材の例</td>
-<td>Run checked-in lessons offline / 教材を offline 実行</td>
+<td>Run checked-in lessons with urllib downloads blocked / urllib の download を遮断して教材を実行</td>
 <td>Lessons complete with bundled fixtures / 同梱 fixture で完走</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/docs/test_learning_path_executable_contracts.py">test_learning_path_executable_contracts.py</a> <code>test_learning_apps_execute_offline_with_checked_in_fixtures</code></td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/docs/test_learning_path_executable_contracts.py">test_learning_path_executable_contracts.py</a> <code>test_learning_apps_run_when_urllib_downloads_are_blocked</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
@@ -3754,7 +3758,7 @@ runtime numerical or browser behavior.
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 19, 2026 23:43:53 UTC">November 19, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 25, 2026 09:30:56 UTC">November 25, 2026</span>
   </span>
 
     
