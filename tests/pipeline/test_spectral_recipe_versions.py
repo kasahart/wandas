@@ -465,8 +465,12 @@ def test_pair_selection_recipe_replays_opaque_source_selectors_after_reordering(
     assert replayed.operation_history[-1]["operation"] == "wandas.frame.select_pair"
 
 
-def test_default_registry_replays_the_versions_written_by_the_previous_release() -> None:
-    """Versions written by 0.9.0 replay; versions written only before 0.9.0 are gone."""
+def test_spectral_versions_removed_in_0_10_0_stay_removed() -> None:
+    """Spectral v2/v3 contracts stay registered; the versions dropped in 0.10.0 stay unregistered.
+
+    The previous-release replay rule for every operation is guarded in
+    ``tests/pipeline/test_recipe_previous_release_versions.py``.
+    """
     registry = default_recipe_registry()
     for operation_id in (
         "wandas.audio.fft",
