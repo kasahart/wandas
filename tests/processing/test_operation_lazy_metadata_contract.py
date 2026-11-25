@@ -372,4 +372,14 @@ def test_operation_lazy_metadata_contract_covers_every_public_registered_operati
     covered_names = {case.name for case in OPERATION_CASES}
     concrete_registered_names = {name for name in _OPERATION_PROVIDERS if not name.startswith("_")}
 
-    assert covered_names == concrete_registered_names
+    missing = sorted(concrete_registered_names - covered_names)
+    unexpected = sorted(covered_names - concrete_registered_names)
+
+    assert not missing and not unexpected, (
+        f"Lazy metadata cases out of sync with registered Operations: missing={missing}, unexpected={unexpected}\n"
+        "Rule: every public registered Operation name has an OperationCase that checks declared shape and dtype "
+        "against the computed result (see docs/src/contributing/frame-operation-extensions.md, "
+        "'Add an AudioOperation', step 7).\n"
+        "Fix: add or remove the OperationCase in _operation_cases() in "
+        "tests/processing/test_operation_lazy_metadata_contract.py."
+    )

@@ -4,31 +4,31 @@
         {
             "label": "Create Virtual Environment",
             "type": "shell",
-            "command": "uv venv --allow-existing .venv && uv sync --frozen --all-groups",
+            "command": "uv venv --allow-existing .venv && uv sync --frozen --all-groups --extra io --extra effects --extra marimo --extra psychoacoustic",
             "problemMatcher": []
         },
         {
             "label": "Run ruff format",
             "type": "shell",
-            "command": "uv run ruff format wandas tests",
+            "command": "uv run ruff format wandas tests scripts learning-path",
             "problemMatcher": []
         },
         {
             "label": "Run ruff check",
             "type": "shell",
-            "command": "uv run ruff check wandas tests --config=pyproject.toml -v",
+            "command": "uv run ruff check wandas tests scripts learning-path --config=pyproject.toml -v",
             "problemMatcher": []
         },
         {
             "label": "Run ruff check --fix",
             "type": "shell",
-            "command": "uv run ruff check --fix wandas tests --config=pyproject.toml -v",
+            "command": "uv run ruff check --fix wandas tests scripts learning-path --config=pyproject.toml -v",
             "problemMatcher": []
         },
         {
             "label": "Run ty (red-knot) check",
             "type": "shell",
-            "command": "uv run ty check wandas tests",
+            "command": "uv run ty check wandas tests scripts learning-path",
             "problemMatcher": []
         },
         {
@@ -40,7 +40,7 @@
         {
             "label": "Build MkDocs Documentation",
             "type": "shell",
-            "command": "cd /workspaces/wandas && uv run mkdocs build -f docs/mkdocs.yml",
+            "command": "cd /workspaces/wandas && uv run mkdocs build --strict -f docs/mkdocs.yml",
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
