@@ -1,0 +1,102 @@
+name: Operation Benchmark
+
+# Compares the time of commonly used operations between the latest release and
+# main on one runner. It only reports: the ratio table goes to the job summary
+# and the raw JSON is uploaded. Per-PR CI does not run it.
+
+on:
+  schedule:
+    - cron: "41 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Base tag, branch or SHA (default: the latest v* release tag)"
+        required: false
+        type: string
+      candidate:
+        description: "Candidate ref (default: the selected workflow ref)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    name: Compare operation times
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate || github.sha }}
+          fetch-depth: 0
+          path: candidate
+
+      - name: Check out the base next to it
+        shell: bash
+        env:
+          REQUESTED_BASE: ${{ inputs.base }}
+        run: |
+          set -euo pipefail
+          cd candidate
+          base="${REQUESTED_BASE:-$(git tag --list 'v*' --sort=-v:refname | head -n 1)}"
+          if [[ -z "$base" ]]; then
+            echo "No base ref was given and no v* tag exists." >&2
+            exit 1
+          fi
+          # Branches exist only as origin/<name> after checkout, so try that too.
+          commit="$(git rev-parse --verify --quiet "$base^{commit}" \
+            || git rev-parse --verify --quiet "origin/$base^{commit}")" \
+            || { echo "Cannot resolve base ref: $base" >&2; exit 1; }
+          git worktree add --detach ../base "$commit"
+          echo "Base: $base ($commit)"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Install both revisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv python install 3.12
+          for side in base candidate; do
+            uv sync --project "$side" --locked --no-dev --extra io --extra psychoacoustic --python 3.12
+          done
+
+      - name: Time both revisions, alternating
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/operation-benchmark"
+          mkdir -p "$out"
+          harness="$PWD/candidate/scripts/operation_benchmark.py"
+          # Alternate the revisions so slow phases of the shared runner hit both.
+          for round in 1 2 3; do
+            for side in base candidate; do
+              uv run --project "$side" --no-sync python "$harness" \
+                --repository-root "$side" --output "$out/$side-$round.json"
+            done
+          done
+
+      - name: Write the ratio table
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/operation-benchmark"
+          uv run --project candidate --no-sync python candidate/scripts/operation_benchmark.py --compare \
+            "$out/base-1.json,$out/base-2.json,$out/base-3.json" \
+            "$out/candidate-1.json,$out/candidate-2.json,$out/candidate-3.json" \
+            | tee "$out/comparison.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: operation-benchmark
+          path: ${{ runner.temp }}/operation-benchmark
+          retention-days: 90

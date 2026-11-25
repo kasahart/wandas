@@ -81,11 +81,17 @@ print the ratio table. Sync each checkout with `--extra io --extra psychoacousti
 (`noct_spectrum` needs it; without it that case is reported as `unavailable`):
 
 ```bash
-uv run --extra psychoacoustic python scripts/operation_benchmark.py --output /tmp/ops-base-1.json   # on base
-uv run --extra psychoacoustic python scripts/operation_benchmark.py --output /tmp/ops-cand-1.json   # on candidate
+# The base may predate the harness, so run the candidate's copy from the base checkout.
+(cd /path/to/base && uv run --extra psychoacoustic python /path/to/candidate/scripts/operation_benchmark.py \
+  --output /tmp/ops-base-1.json)
+(cd /path/to/candidate && uv run --extra psychoacoustic python scripts/operation_benchmark.py \
+  --output /tmp/ops-cand-1.json)
+# Repeat both once more (-2.json), then:
 uv run python scripts/operation_benchmark.py --compare \
   /tmp/ops-base-1.json,/tmp/ops-base-2.json /tmp/ops-cand-1.json,/tmp/ops-cand-2.json
 ```
 
 Repeated runs of one revision on a shared machine differ by about 20 %, so rerun a
 case before treating a ratio near that size as a slowdown. Record the table in the PR.
+The weekly `Operation Benchmark` workflow runs the same comparison between the latest
+release tag and `main`; it reports only and never fails.

@@ -107,10 +107,25 @@ gh workflow run full-compatibility.yml \
 to require it instead of a matrix job. `CI Gate`を`main`のstable required checkとし、
 branch protectionではmatrix job名ではなくこれを必須に設定します。
 
-Every step that syncs dependencies with uv in the CI, Full Compatibility, and docs deployment workflows uses
+Every step that syncs dependencies with uv in the CI, Full Compatibility, Operation Benchmark, and docs deployment workflows uses
 `--locked`, so a stale `uv.lock` fails CI instead of being re-resolved.
-CI、Full Compatibility、docs deployのworkflowで uv により依存関係を同期する step はすべて`--locked`を付け、
+CI、Full Compatibility、Operation Benchmark、docs deployのworkflowで uv により依存関係を同期する step はすべて`--locked`を付け、
 古い`uv.lock`は再解決せずCIを失敗させます。
+
+`Operation Benchmark` runs every Monday (and on demand) outside the PR lane. It
+times commonly used operations with `scripts/operation_benchmark.py` on the
+latest `v*` release tag and on `main`, alternating three rounds on one runner,
+and writes the time ratio per operation to the job summary. It only reports and
+never fails on a slowdown, because repeated runs of one revision on a shared
+runner differ by up to about 20 %. `Operation Benchmark`はPR laneの外で毎週月曜
+(と手動) に実行します。最新の`v*` release tagと`main`でよく使う処理の時間を
+同じrunnerで交互に3回ずつ測り、処理ごとの時間の比をjob summaryに書きます。
+遅くなっても失敗にはせず、表を出すだけです。
+
+```bash
+gh workflow run operation-benchmark.yml --repo kasahart/wandas --ref main \
+  -f base=v0.14.0 -f candidate=main
+```
 
 ### Pyodide checks / Pyodideの検証
 
