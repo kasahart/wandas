@@ -17698,8 +17698,9 @@ physical power or power spectral density.</p>
             <td>
               <div class="doc-md-description">
                 <p>NDArrayReal. Magnitude level, <code>20 * log10(magnitude / channel_ref)</code> for amplitude
-channels and <code>10 * log10(...)</code> for power channels; it raises for channels without a
-level. For FFT and Welch results of an amplitude signal this is an amplitude level.</p>
+channels and <code>10 * log10(...)</code> for power channels; a channel with level kind <code>"none"</code>
+warns and uses the amplitude formula. For FFT and Welch results of an amplitude signal
+this is an amplitude level.</p>
               </div>
             </td>
           </tr>
@@ -18444,7 +18445,8 @@ A-weighted amplitude level.</p>
 <span class="normal">694</span>
 <span class="normal">695</span>
 <span class="normal">696</span>
-<span class="normal">697</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectralFrame</span><span class="p">(</span><span class="n">SpectralPropertiesMixin</span><span class="p">,</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayComplex</span><span class="p">]):</span>
+<span class="normal">697</span>
+<span class="normal">698</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectralFrame</span><span class="p">(</span><span class="n">SpectralPropertiesMixin</span><span class="p">,</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayComplex</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class for handling frequency-domain signal data.</span>
 
@@ -18484,8 +18486,9 @@ A-weighted amplitude level.</p>
 <span class="sd">        power: NDArrayReal. Squared magnitude. This compatibility property is not necessarily</span>
 <span class="sd">            physical power or power spectral density.</span>
 <span class="sd">        dB: NDArrayReal. Magnitude level, ``20 * log10(magnitude / channel_ref)`` for amplitude</span>
-<span class="sd">            channels and ``10 * log10(...)`` for power channels; it raises for channels without a</span>
-<span class="sd">            level. For FFT and Welch results of an amplitude signal this is an amplitude level.</span>
+<span class="sd">            channels and ``10 * log10(...)`` for power channels; a channel with level kind ``&quot;none&quot;``</span>
+<span class="sd">            warns and uses the amplitude formula. For FFT and Welch results of an amplitude signal</span>
+<span class="sd">            this is an amplitude level.</span>
 <span class="sd">        dBA: NDArrayReal. A-weighted magnitude level. For FFT and Welch results this is an</span>
 <span class="sd">            A-weighted amplitude level.</span>
 <span class="sd">        freqs: NDArrayReal. The frequency axis values in Hz.</span>
@@ -19311,8 +19314,7 @@ coordinate state.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">104</span>
-<span class="normal">105</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">105</span>
 <span class="normal">106</span>
 <span class="normal">107</span>
 <span class="normal">108</span>
@@ -19377,7 +19379,8 @@ coordinate state.</p>
 <span class="normal">167</span>
 <span class="normal">168</span>
 <span class="normal">169</span>
-<span class="normal">170</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">170</span>
+<span class="normal">171</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DaArray</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -19670,8 +19673,7 @@ below 1.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">240</span>
-<span class="normal">241</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">241</span>
 <span class="normal">242</span>
 <span class="normal">243</span>
 <span class="normal">244</span>
@@ -19751,7 +19753,8 @@ below 1.</p>
 <span class="normal">318</span>
 <span class="normal">319</span>
 <span class="normal">320</span>
-<span class="normal">321</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">find_peaks</span><span class="p">(</span>
+<span class="normal">321</span>
+<span class="normal">322</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">find_peaks</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">min_prominence_db</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -20086,8 +20089,7 @@ for multi-plot outputs.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">323</span>
-<span class="normal">324</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">324</span>
 <span class="normal">325</span>
 <span class="normal">326</span>
 <span class="normal">327</span>
@@ -20164,7 +20166,8 @@ for multi-plot outputs.</p>
 <span class="normal">398</span>
 <span class="normal">399</span>
 <span class="normal">400</span>
-<span class="normal">401</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
+<span class="normal">401</span>
+<span class="normal">402</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">plot_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;frequency&quot;</span><span class="p">,</span>
     <span class="n">ax</span><span class="p">:</span> <span class="n">Axes</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -20296,8 +20299,7 @@ the original channel unit.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">403</span>
-<span class="normal">404</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">404</span>
 <span class="normal">405</span>
 <span class="normal">406</span>
 <span class="normal">407</span>
@@ -20323,7 +20325,8 @@ the original channel unit.</p>
 <span class="normal">427</span>
 <span class="normal">428</span>
 <span class="normal">429</span>
-<span class="normal">430</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.spectral.ifft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="normal">430</span>
+<span class="normal">431</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.spectral.ifft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">ifft</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelFrame</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Invert Wandas FFT normalization to a windowed time-domain signal.</span>
@@ -20532,8 +20535,7 @@ bandwidth, so band levels match :meth:<code>ChannelFrame.noct_spectrum</code>.</
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">485</span>
-<span class="normal">486</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">486</span>
 <span class="normal">487</span>
 <span class="normal">488</span>
 <span class="normal">489</span>
@@ -20598,7 +20600,8 @@ bandwidth, so band levels match :meth:<code>ChannelFrame.noct_spectrum</code>.</
 <span class="normal">548</span>
 <span class="normal">549</span>
 <span class="normal">550</span>
-<span class="normal">551</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">551</span>
+<span class="normal">552</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.spectral.noct_synthesis&quot;</span><span class="p">,</span>
     <span class="n">version</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
     <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_noct_recipe_params</span><span class="p">,</span>
@@ -20762,8 +20765,7 @@ such as coherence, transfer functions, or cross-spectral density.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">623</span>
-<span class="normal">624</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">624</span>
 <span class="normal">625</span>
 <span class="normal">626</span>
 <span class="normal">627</span>
@@ -20795,7 +20797,8 @@ such as coherence, transfer functions, or cross-spectral density.</p>
 <span class="normal">653</span>
 <span class="normal">654</span>
 <span class="normal">655</span>
-<span class="normal">656</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot_matrix</span><span class="p">(</span>
+<span class="normal">656</span>
+<span class="normal">657</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot_matrix</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">plot_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;matrix&quot;</span><span class="p">,</span>
     <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
@@ -20876,8 +20879,7 @@ similar to pandas DataFrame.info().</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">658</span>
-<span class="normal">659</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">659</span>
 <span class="normal">660</span>
 <span class="normal">661</span>
 <span class="normal">662</span>
@@ -20915,7 +20917,8 @@ similar to pandas DataFrame.info().</p>
 <span class="normal">694</span>
 <span class="normal">695</span>
 <span class="normal">696</span>
-<span class="normal">697</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">697</span>
+<span class="normal">698</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Display comprehensive information about the SpectralFrame.</span>
 
 <span class="sd">    This method prints a summary of the frame&#39;s properties including:</span>
@@ -35952,7 +35955,7 @@ for better correlation with perceived loudness.</p>
 <span class="sd">        The conversion is</span>
 <span class="sd">        ``20 * log10(max(band_rms / channel_ref, 1e-12))`` for amplitude</span>
 <span class="sd">        channels and ``10 * log10(...)`` for power channels; a channel with</span>
-<span class="sd">        level kind ``&quot;none&quot;`` raises ``ValueError``. The reference has</span>
+<span class="sd">        level kind ``&quot;none&quot;`` warns and uses the amplitude formula. The reference has</span>
 <span class="sd">        the same physical unit as the band RMS value and is specified by each</span>
 <span class="sd">        channel&#39;s calibration metadata.</span>
 
@@ -36305,7 +36308,7 @@ for better correlation with perceived loudness.</p>
 <p>The conversion is
 <code>20 * log10(max(band_rms / channel_ref, 1e-12))</code> for amplitude
 channels and <code>10 * log10(...)</code> for power channels; a channel with
-level kind <code>"none"</code> raises <code>ValueError</code>. The reference has
+level kind <code>"none"</code> warns and uses the amplitude formula. The reference has
 the same physical unit as the band RMS value and is specified by each
 channel's calibration metadata.</p>
 
