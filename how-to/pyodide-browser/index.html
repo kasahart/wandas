@@ -775,6 +775,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#what-works-in-pyodide-pyodide" class="md-nav__link">
+    <span class="md-ellipsis">
+      What works in Pyodide / Pyodideで使える機能
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#install-and-process-install" class="md-nav__link">
     <span class="md-ellipsis">
       Install and process / installして処理する
@@ -1848,6 +1857,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#what-works-in-pyodide-pyodide" class="md-nav__link">
+    <span class="md-ellipsis">
+      What works in Pyodide / Pyodideで使える機能
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#install-and-process-install" class="md-nav__link">
     <span class="md-ellipsis">
       Install and process / installして処理する
@@ -1900,6 +1918,77 @@ one you choose, all inside the page.</p>
 このガイドでは、Pyodide環境へのインストールとWAVデータの読み込み方法を説明します。
 まず動くところを見る場合は、<a href="https://kasahart.github.io/wandas/demo/">ライブデモ</a>を開いてください。
 WAVの読み込み、描画、フィルタ処理をするPythonのセルを書き換えて実行できます。選んだWAVファイルもページ内だけで処理します。</p>
+<h2 id="what-works-in-pyodide-pyodide">What works in Pyodide / Pyodideで使える機能<a class="headerlink" href="#what-works-in-pyodide-pyodide" title="Permanent link">&para;</a></h2>
+<p>Checked with Pyodide 314.0.3, the version the
+<a href="https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html">browser example</a>
+loads. The release workflow checks each published Wandas version in it.</p>
+<p><a href="https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html">ブラウザ例</a>が読み込むPyodide 314.0.3で確認しています。
+リリースのたびに、公開したWandasをこの版で確認します。</p>
+<table>
+<thead>
+<tr>
+<th>Feature / 機能</th>
+<th>Install / インストール</th>
+<th>In Pyodide / Pyodideでは</th>
+<th>Checked by / 確認方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Core: Frames, filters, FFT, STFT, Welch, weighting, levels, Recipes / 基本機能</td>
+<td><code>wandas</code></td>
+<td>Works / 使える</td>
+<td>Core tests on each pull request that changes <code>wandas/</code> or the build / <code>wandas/</code>やビルド設定を変えるpull requestごとにcore tests</td>
+</tr>
+<tr>
+<td>WAV read and write / WAVの読み書き</td>
+<td><code>wandas</code></td>
+<td>Works, from bytes or the virtual file system / bytesか仮想ファイルから使える</td>
+<td>WAV smoke tests on the same pull requests / 同じpull requestでWAV smoke</td>
+</tr>
+<tr>
+<td>Matplotlib plots, <code>describe()</code> / 図</td>
+<td><code>wandas</code></td>
+<td>Works / 使える</td>
+<td>Browser-guide check / ブラウザガイドの検証</td>
+</tr>
+<tr>
+<td><code>loudness_zwst()</code>, <code>sharpness_din_st()</code>, <code>roughness_dw()</code>, <code>noct_spectrum()</code> / 心理音響指標の一部と<code>noct_spectrum()</code></td>
+<td><code>wandas[psychoacoustic]</code> (MoSQITo)</td>
+<td>Works / 使える</td>
+<td>Nightly extras check / 毎晩の追加機能の検証</td>
+</tr>
+<tr>
+<td>WDF save and load / WDFの保存と読込</td>
+<td><code>wandas[io]</code> (h5netcdf, h5py)</td>
+<td>Works / 使える</td>
+<td>Nightly extras check / 毎晩の追加機能の検証</td>
+</tr>
+<tr>
+<td>HPSS (<code>hpss_harmonic()</code>, <code>hpss_percussive()</code>)</td>
+<td><code>wandas[effects]</code> (librosa)</td>
+<td>Not available: librosa needs numba, which has no Pyodide build. The call raises <code>ImportError</code> naming the extra / 使えない。librosaが必要とするnumbaにPyodide版がない。呼ぶと追加機能名を示す<code>ImportError</code>になる</td>
+<td>Nightly extras check / 毎晩の追加機能の検証</td>
+</tr>
+<tr>
+<td><code>to_tensor()</code> for PyTorch / TensorFlow / テンソル変換</td>
+<td><code>wandas[ml]</code></td>
+<td>Not available: no Pyodide builds / 使えない。Pyodide版がない</td>
+<td>Skipped in Pyodide core tests / core testsで除外</td>
+</tr>
+<tr>
+<td>Learning path lessons / 学習パス</td>
+<td>—</td>
+<td>Published as pre-run pages, not as in-browser notebooks. To run code in the browser, use the <a href="https://kasahart.github.io/wandas/demo/">live demo</a> / 実行済みのページとして公開し、ブラウザ内ノートブックにはしない。ブラウザで実行するには<a href="https://kasahart.github.io/wandas/demo/">ライブデモ</a>を使う</td>
+<td>Not applicable / 対象外</td>
+</tr>
+</tbody>
+</table>
+<p>An optional feature whose dependency is missing raises <code>ImportError</code> with the
+<code>pip install "wandas[...]"</code> line to use. In Pyodide, install the same extra
+with <code>await micropip.install("wandas[psychoacoustic]")</code>.</p>
+<p>依存パッケージがない追加機能は、使うべき<code>pip install "wandas[...]"</code>を示す<code>ImportError</code>になります。
+Pyodideでは<code>await micropip.install("wandas[psychoacoustic]")</code>のように同じ追加機能をインストールします。</p>
 <h2 id="install-and-process-install">Install and process / installして処理する<a class="headerlink" href="#install-and-process-install" title="Permanent link">&para;</a></h2>
 <p>Install Wandas in the current Pyodide runtime, generate a signal, and
 process it. For a complete HTML page with compatible Pyodide and Wandas
@@ -1964,7 +2053,7 @@ origin. Check these in a real browser when deploying your application.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 25, 2026 06:47:32 UTC">October 25, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 25, 2026 08:29:57 UTC">November 25, 2026</span>
   </span>
 
     
