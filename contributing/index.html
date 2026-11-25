@@ -2141,8 +2141,12 @@ Wandasプロジェクトへの貢献に興味を持っていただきありが�
 <li>Install dependencies:
    依存関係をインストールします:</li>
 </ol>
-<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>sync<span class="w"> </span>--frozen<span class="w"> </span>--all-groups
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>sync<span class="w"> </span>--frozen<span class="w"> </span>--all-groups<span class="w"> </span>--extra<span class="w"> </span>io<span class="w"> </span>--extra<span class="w"> </span>effects<span class="w"> </span>--extra<span class="w"> </span>marimo<span class="w"> </span>--extra<span class="w"> </span>psychoacoustic
 </code></pre></div>
+<p>If your environment was synced without <code>--extra marimo</code>, run this command again:
+   the <code>ty</code> pre-commit hook and <code>uv run ty check</code> now also check <code>learning-path</code>, which imports <code>marimo</code>.
+   <code>--extra marimo</code> なしで作成した環境では、上のコマンドを再実行してください。
+   <code>ty</code> の pre-commit hook と <code>uv run ty check</code> は <code>marimo</code> を import する <code>learning-path</code> も検査します。</p>
 <h2 id="branch-naming-policy">Branch Naming Policy / ブランチ命名ポリシー<a class="headerlink" href="#branch-naming-policy" title="Permanent link">&para;</a></h2>
 <p>The repository allows the following branch naming patterns. For normal contribution work, please create your branch with one of the prefixed patterns listed below.
 このリポジトリでは以下のブランチ命名パターンを許可します。通常のコントリビューション作業では、以下のプレフィックス付きパターンのいずれかでブランチを作成してください。</p>
@@ -2259,7 +2263,7 @@ DOM、CORSヘッダー、音声の自動再生は対象の配信元で実ブラ�
 <ul>
 <li><code>Run ty (red-knot) check</code></li>
 </ul>
-<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>ty<span class="w"> </span>check<span class="w"> </span>wandas<span class="w"> </span>tests
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>ty<span class="w"> </span>check<span class="w"> </span>wandas<span class="w"> </span>tests<span class="w"> </span>scripts<span class="w"> </span>learning-path
 </code></pre></div>
 <ul>
 <li>Format (ruff):
@@ -2270,7 +2274,7 @@ DOM、CORSヘッダー、音声の自動再生は対象の配信元で実ブラ�
 <ul>
 <li><code>Run ruff format</code></li>
 </ul>
-<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>format<span class="w"> </span>wandas<span class="w"> </span>tests
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>format<span class="w"> </span>wandas<span class="w"> </span>tests<span class="w"> </span>scripts<span class="w"> </span>learning-path
 </code></pre></div>
 <ul>
 <li>Lint (ruff):
@@ -2281,7 +2285,7 @@ DOM、CORSヘッダー、音声の自動再生は対象の配信元で実ブラ�
 <ul>
 <li><code>Run ruff check</code></li>
 </ul>
-<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>wandas<span class="w"> </span>tests<span class="w"> </span>--config<span class="o">=</span>pyproject.toml<span class="w"> </span>-v
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>wandas<span class="w"> </span>tests<span class="w"> </span>scripts<span class="w"> </span>learning-path<span class="w"> </span>--config<span class="o">=</span>pyproject.toml<span class="w"> </span>-v
 </code></pre></div>
 <ul>
 <li>Lint with auto-fix (ruff, only when modifying the affected files):
@@ -2292,7 +2296,7 @@ DOM、CORSヘッダー、音声の自動再生は対象の配信元で実ブラ�
 <ul>
 <li><code>Run ruff check --fix</code></li>
 </ul>
-<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>--fix<span class="w"> </span>wandas<span class="w"> </span>tests<span class="w"> </span>--config<span class="o">=</span>pyproject.toml<span class="w"> </span>-v
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>--fix<span class="w"> </span>wandas<span class="w"> </span>tests<span class="w"> </span>scripts<span class="w"> </span>learning-path<span class="w"> </span>--config<span class="o">=</span>pyproject.toml<span class="w"> </span>-v
 </code></pre></div>
 <h2 id="building-documentation">Building Documentation / ドキュメントのビルド<a class="headerlink" href="#building-documentation" title="Permanent link">&para;</a></h2>
 <p>Documentation is built with MkDocs.
@@ -2301,7 +2305,7 @@ DOM、CORSヘッダー、音声の自動再生は対象の配信元で実ブラ�
 <li>Build:
   ビルド:</li>
 </ul>
-<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>mkdocs<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docs/mkdocs.yml
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>mkdocs<span class="w"> </span>build<span class="w"> </span>--strict<span class="w"> </span>-f<span class="w"> </span>docs/mkdocs.yml
 </code></pre></div>
 <ul>
 <li>Serve locally:
@@ -2448,7 +2452,7 @@ README 日英版、Home、main Tutorial の共通内容は同期します。</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 25, 2026 08:29:57 UTC">November 25, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="November 25, 2026 09:34:51 UTC">November 25, 2026</span>
   </span>
 
     
