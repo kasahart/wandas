@@ -19,6 +19,21 @@ planning／review pipeline で規定せず、最新の coding model が task と
   `.agents/skills`は、正確なcommandやdomain固有checkが有効な専門的・反復的作業に限定します。
 - `CLAUDE.md` and `.github/copilot-instructions.md` only point to `AGENTS.md`.
   `CLAUDE.md`と`.github/copilot-instructions.md`は`AGENTS.md`だけを参照します。
+- [`.claude/review.md`](https://github.com/kasahart/wandas/blob/main/.claude/review.md)
+  owns only the pull request review prompt used by
+  `.github/workflows/claude-code-review.yml` and "@claude review"
+  (`.github/workflows/claude.yml`): how to review, the checklist, severity and
+  output. Its Recipe operation-version and release-note rules restate
+  [Public API and Compatibility Policy](../explanation/public-api-stability.md)
+  and the [release-note template](../release-notes/template.md); those
+  documents win, so update `.claude/review.md` when they change.
+  [`.claude/review.md`](https://github.com/kasahart/wandas/blob/main/.claude/review.md)は、
+  `.github/workflows/claude-code-review.yml`と"@claude review"
+  （`.github/workflows/claude.yml`）が使うpull request review promptだけを所有します
+  （review手順、checklist、severity、出力）。Recipe操作versionとrelease noteの規則は
+  [公開API・互換性方針](../explanation/public-api-stability.md)と
+  [release-note template](../release-notes/template.md)の再掲です。それらが正本なので、
+  変更したときは`.claude/review.md`も更新します。
 
 Do not add generic planner, implementer, reviewer, publisher, workspace-hygiene,
 or test-authoring agents. Do not add path-specific adapters when `AGENTS.md`, a
