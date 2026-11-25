@@ -59,10 +59,11 @@ y.operation_history  # [{'operation': 'wandas.audio.remove_dc', ...}, ...]
 ```bash
 pip install wandas
 pip install "wandas[marimo]"          # audio playback in describe() on Jupyter / marimo
-pip install "wandas[psychoacoustic]"  # psychoacoustic metrics
+pip install "wandas[psychoacoustic]"  # psychoacoustic metrics and 1/N-octave bands (MoSQITo)
 pip install "wandas[io]"              # WDF save and load
 pip install "wandas[effects]"         # librosa-backed audio effects
 pip install "wandas[ml]"              # PyTorch / TensorFlow tensor conversion
+pip install "wandas[sklearn]"         # scikit-learn pipeline adapters
 ```
 
 ## Check with a known signal

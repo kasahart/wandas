@@ -331,6 +331,9 @@ Other technical pages may be English-only; do not duplicate API contracts there.
   installation, optional-extra summary, one Quick Start, and primary links.
   `README.md` と `README.ja.md` は、製品概要、最小インストール、optional
   extra の概要、1つの Quick Start、主要リンクを正本として持ちます。
+  The README extras list must name every `[project.optional-dependencies]`
+  extra. README の extra 一覧には `[project.optional-dependencies]` の
+  すべての extra を載せます。
   README images point at checked-in, valid image files in this repository.
   README の画像は、このリポジトリにコミットされた有効な画像ファイルを指します。
 - `docs/src/index.md` is the documentation home and routes readers by goal;
@@ -341,6 +344,11 @@ Other technical pages may be English-only; do not duplicate API contracts there.
   `docs/src/tutorial/` は最初の成功までの順序立った学習を扱います。
 - `docs/src/how-to/` owns procedures for completing a specific task.
   `docs/src/how-to/` は特定のタスクを完了する手順を扱います。
+  Their Python blocks run in `tests/docs/test_how_to_examples.py` on
+  synthetic recordings; a block that cannot run there is listed in that test
+  with a reason.
+  how-to の Python ブロックは合成した録音で `tests/docs/test_how_to_examples.py`
+  が実行します。実行できないブロックは理由とともにそのテストに列挙します。
 - `docs/src/explanation/` owns cross-API concepts, reasons, guarantees, and
   constraints. `docs/src/explanation/` は API 横断の概念、理由、保証、制約を扱います。
 - `docs/src/api/` contains only a short module overview and a mkdocstrings

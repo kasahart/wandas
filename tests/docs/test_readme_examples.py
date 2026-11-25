@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 import pytest
 import soundfile as sf
+import tomli
 from matplotlib import pyplot as plt
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -196,3 +197,19 @@ def test_readme_python_examples_avoid_known_optional_api_patterns() -> None:
         "(see docs/src/contributing.md, Documentation Structure).\n"
         "Fix: move the example to the docs page for that extra, or rewrite it with core APIs."
     )
+
+
+def test_readme_lists_every_optional_extra() -> None:
+    """Each README owns the optional-extra summary, so the whole file must name every extra in pyproject."""
+    with (REPO_ROOT / "pyproject.toml").open("rb") as stream:
+        extras = set(tomli.load(stream)["project"]["optional-dependencies"])
+    for path in README_PATHS:
+        listed = set(re.findall(r'pip install "wandas\[([a-z0-9_-]+)\]"', path.read_text(encoding="utf-8")))
+        assert listed == extras, (
+            f"{path.name} lists extras {sorted(listed)}, "
+            f"but pyproject.toml defines {sorted(extras)}.\n"
+            "Rule: README.md and README.ja.md own the optional-extra summary and name every "
+            "[project.optional-dependencies] extra (see docs/src/contributing.md, Documentation Structure).\n"
+            f'Fix: add or remove pip install "wandas[<extra>]" lines in README.md and README.ja.md '
+            f"(missing: {sorted(extras - listed)}, unknown: {sorted(listed - extras)})."
+        )
