@@ -40,6 +40,14 @@ jobs:
         with:
           fetch-depth: 1
 
+      # .claude/review.md compares with released files through
+      # `git show origin/<base>:<path>`; the shallow checkout has no base ref.
+      - name: Fetch the base branch
+        if: steps.auth.outputs.ok == 'true'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: git fetch --no-tags --depth=1 origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+
       # Lets the reviewer run scripts and tests to confirm what it reports.
       - uses: astral-sh/setup-uv@v5
         if: steps.auth.outputs.ok == 'true'
