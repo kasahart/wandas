@@ -142,7 +142,13 @@ def test_top_level_all_is_curated_primary_api() -> None:
         "get_default_dtype",
         "set_default_dtype",
         "default_dtype",
-    ]
+    ], (
+        "wandas.__all__ differs from the curated stable API list (exact names and order).\n"
+        "Rule: wandas.__all__ is the stable primary API, so any change to it is a public API change "
+        "(see docs/src/explanation/public-api-stability.md).\n"
+        "Fix: if the change is intended, update this list and the API docs in the same PR; "
+        "otherwise restore __all__ in wandas/__init__.py."
+    )
 
 
 def test_top_level_read_is_io_read() -> None:
@@ -174,9 +180,25 @@ def test_frames_module_all_exports_every_defined_public_frame_once() -> None:
 
     defined = _defined_public_frame_types()
 
-    assert len(frames.__all__) == len(set(frames.__all__))
-    assert sorted(frames.__all__) == sorted(defined)
-    assert all(getattr(frames, name) is frame_type for name, frame_type in defined.items())
+    duplicates = sorted({name for name in frames.__all__ if frames.__all__.count(name) > 1})
+    assert not duplicates, (
+        f"wandas.frames.__all__ lists these names more than once: {duplicates}.\n"
+        "Rule: wandas.frames.__all__ exports every public frame class exactly once "
+        "(see docs/src/explanation/public-api-stability.md).\n"
+        "Fix: remove the duplicate entries from __all__ in wandas/frames/__init__.py."
+    )
+    assert sorted(frames.__all__) == sorted(defined), (
+        "wandas.frames.__all__ does not match the concrete public frame classes defined under wandas/frames/.\n"
+        "Rule: wandas.frames.__all__ exports every public frame class exactly once "
+        "(see docs/src/explanation/public-api-stability.md).\n"
+        "Fix: add or remove the names in __all__ in wandas/frames/__init__.py."
+    )
+    mismatched = sorted(name for name, frame_type in defined.items() if getattr(frames, name, None) is not frame_type)
+    assert not mismatched, (
+        f"wandas.frames exposes a different object for these frame classes: {mismatched}.\n"
+        "Rule: wandas.frames re-exports the class defined in its module, not a copy or alias.\n"
+        "Fix: import these classes from their defining modules in wandas/frames/__init__.py."
+    )
 
 
 def test_top_level_frame_classes_are_the_frames_module_classes() -> None:

@@ -11,7 +11,8 @@
   `operation_history` is a derived compatibility view of lineage.
 - Keep orchestration and metadata in `wandas/frames`; keep numerical algorithms
   in `wandas/processing`.
-- Update tests when behavior changes.
+- Update tests when behavior changes. Guard tests that enforce a repository
+  rule fail with what broke, `Rule: <rule> (see <doc path>)`, and `Fix: <what to edit>`.
 - Run relevant `uv run pytest`, `uv run ruff check`, and `uv run ty check`
   commands before finishing. Run documentation or notebook checks when those
   artifacts change, and report justified skips.

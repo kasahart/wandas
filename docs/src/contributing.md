@@ -86,6 +86,11 @@ gh workflow run full-compatibility.yml \
 to require it instead of a matrix job. `CI Gate`を`main`のstable required checkとし、
 branch protectionではmatrix job名ではなくこれを必須に設定します。
 
+Every `uv sync` in the CI, Full Compatibility, and docs deployment workflows uses
+`--locked`, so a stale `uv.lock` fails CI instead of being re-resolved.
+CI、Full Compatibility、docs deployのworkflowにある`uv sync`はすべて`--locked`を付け、
+古い`uv.lock`は再解決せずCIを失敗させます。
+
 ### Pyodide checks / Pyodideの検証
 
 Run the repository's Pyodide checks from its root:
