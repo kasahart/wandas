@@ -35,6 +35,7 @@ from scripts.validate_learning_path_i18n import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+SKILL_PATH = ".agents/skills/wandas-learning-material-authoring/SKILL.md"
 
 
 def _app_cell_decorator(decorator: ast.expr) -> ast.Attribute | None:
@@ -84,7 +85,14 @@ def test_learning_path_manifest_matches_tracked_sources(tmp_path: Path) -> None:
     manifest_sources = {lesson.source for lesson in lessons}
     tracked_sources = set(tracked_numbered_lesson_sources())
 
-    assert manifest_sources == tracked_sources
+    assert manifest_sources == tracked_sources, (
+        "learning-path/manifest.json lessons differ from the git-tracked learning-path/NN_*.py files.\n"
+        f"  Only in manifest: {sorted(manifest_sources - tracked_sources)}\n"
+        f"  Only tracked by git: {sorted(tracked_sources - manifest_sources)}\n"
+        "Rule: the manifest declares every tracked numbered lesson, and only those "
+        f"(see {SKILL_PATH} step 7).\n"
+        "Fix: add or remove the manifest entry, and `git add` a new lesson (untracked files are not counted)."
+    )
     assert len({lesson.lesson_id for lesson in lessons}) == len(lessons)
     assert len(manifest_sources) == len(lessons)
     assert all(lesson.lesson_id == Path(lesson.source).stem for lesson in lessons)

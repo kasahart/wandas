@@ -138,7 +138,12 @@ def test_readme_english_and_japanese_python_examples_stay_aligned() -> None:
         [_block.strip() for _block in _python_blocks(path.read_text(encoding="utf-8"))] for path in README_PATHS
     ]
     english, japanese = examples
-    assert english == japanese
+    assert english == japanese, (
+        "README.md and README.ja.md Python code blocks differ.\n"
+        "Rule: both READMEs teach the same code; only the prose is translated (see docs/src/contributing.md, "
+        "Bilingual Content).\n"
+        "Fix: make the ```python blocks identical in README.md and README.ja.md."
+    )
 
 
 def test_readme_repository_links_target_existing_paths() -> None:
@@ -163,7 +168,17 @@ def test_readme_referenced_images_exist_and_have_valid_headers() -> None:
     references = {path for readme in README_PATHS for path in _readme_image_paths(readme.read_text(encoding="utf-8"))}
 
     assert references
-    assert all(path.is_file() and _is_minimally_valid_image(path) for path in references)
+    bad = sorted(
+        str(path.relative_to(REPO_ROOT.resolve()))
+        for path in references
+        if not (path.is_file() and _is_minimally_valid_image(path))
+    )
+    assert not bad, (
+        f"README images are missing, empty, or have an invalid PNG/JPEG/GIF/WEBP header: {bad}.\n"
+        "Rule: README images point at checked-in, valid image assets in this repository "
+        "(see docs/src/contributing.md).\n"
+        "Fix: commit the image at that path, or correct the image link in README.md / README.ja.md."
+    )
 
 
 def test_readme_python_examples_avoid_known_optional_api_patterns() -> None:
@@ -176,7 +191,12 @@ def test_readme_python_examples_avoid_known_optional_api_patterns() -> None:
         if pattern.search(block)
     ]
 
-    assert offenders == []
+    assert offenders == [], (
+        f"README Python examples use optional-extra APIs: {offenders}.\n"
+        "Rule: README Quick Start code runs on a base install; optional extras are only summarized "
+        "(see docs/src/contributing.md, Documentation Structure).\n"
+        "Fix: move the example to the docs page for that extra, or rewrite it with core APIs."
+    )
 
 
 def test_readme_lists_every_optional_extra() -> None:

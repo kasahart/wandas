@@ -5,6 +5,7 @@ import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+LEARNING_SKILL = ".agents/skills/wandas-learning-material-authoring/SKILL.md"
 
 
 def _collect_nav_paths(nav):
@@ -74,7 +75,13 @@ def test_learning_path_source_navigation_targets_exported_apps() -> None:
     for lesson in lessons:
         text = lesson.read_text(encoding="utf-8")
         targets = re.findall(r"\]\(([0-9][0-9]_[^)/]+\.html)\)", text)
-        assert set(targets) <= names
+        dangling = sorted(set(targets) - names)
+        assert not dangling, (
+            f"{lesson.relative_to(REPO_ROOT)} links to lessons that do not exist: {dangling}.\n"
+            "Rule: learning-path lessons link only to exported NN_*.html pages of existing numbered lessons "
+            f"(see {LEARNING_SKILL}).\n"
+            "Fix: correct the link target or add the missing lesson."
+        )
 
 
 def test_mkdocs_project_site_metadata_is_explicit() -> None:
