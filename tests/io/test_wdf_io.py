@@ -1314,6 +1314,11 @@ def test_subclass_of_builtin_spectral_frame_saves_as_its_builtin_base(tmp_path: 
     np.testing.assert_array_equal(loaded.data, spectrum.data)
 
 
+def test_type_without_builtin_base_is_rejected_with_supported_types() -> None:
+    with pytest.raises(TypeError, match="and their subclasses without a custom __init__"):
+        wdf_frames._codec_for_frame(cast(Any, object()))
+
+
 def test_subclass_with_own_init_is_rejected_with_reason(tmp_path: Path) -> None:
     class StatefulFrame(ChannelFrame):
         def __init__(self, *args: Any, gain: float = 1.0, **kwargs: Any) -> None:
