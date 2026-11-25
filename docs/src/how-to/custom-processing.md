@@ -250,7 +250,10 @@ This does not add `.gain()` to ordinary `ChannelFrame` objects: create your inpu
 with `ProjectFrame.from_numpy()`, `ProjectFrame.read_wav()`, `ProjectFrame.read_csv()`
 or `ProjectFrame.from_file()` to call your new method. Processing methods and
 channel changes such as `add_channel()` keep returning `ProjectFrame`. `save()` to WDF
-supports only the built-in Frame classes, so it rejects a `ProjectFrame`.
+stores a `ProjectFrame` as its built-in base class, so loading the file returns a
+`ChannelFrame`. `ProjectFrame.load()` also returns a `ChannelFrame`; to call `.gain()` again,
+rebuild the input with `ProjectFrame.from_numpy(loaded.data, loaded.sampling_rate)`. A subclass that defines its own `__init__` cannot be saved, because
+WDF does not store the constructor state it adds.
 
 この例は`Gain(...)`で処理を直接作るため、数値処理を名前から探すための別の登録関数
 `register_operation()`は不要です。ここで作るRecipe registryは、**Recipeに保存した処理名**を
@@ -259,7 +262,10 @@ supports only the built-in Frame classes, so it rejects a `ProjectFrame`.
 通常の`ChannelFrame`に`.gain()`が追加されるわけではないので、自分のメソッドを使う入力は
 `ProjectFrame.from_numpy()`・`ProjectFrame.read_wav()`・`ProjectFrame.read_csv()`・
 `ProjectFrame.from_file()`で作ります。処理メソッドや`add_channel()`などのチャンネル操作の結果も
-`ProjectFrame`のままです。WDFへの`save()`は組み込みのFrameクラスだけに対応しているため、`ProjectFrame`は保存できません。
+`ProjectFrame`のままです。WDFへの`save()`は`ProjectFrame`を組み込みの親クラスとして保存するため、
+読み込むと`ChannelFrame`が返ります。`ProjectFrame.load()`も`ChannelFrame`を返すため、`.gain()`を続けて使うには
+`ProjectFrame.from_numpy(loaded.data, loaded.sampling_rate)`などで作り直します。独自の`__init__`を定義したsubclassは、追加したconstructorの状態を
+WDFに保存できないため保存できません。
 
 ## Extract, save, and replay / 処理手順を取り出して保存・再実行する
 

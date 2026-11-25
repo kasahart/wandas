@@ -20,11 +20,11 @@ DataDomain = Literal["real", "complex", "numeric"]
 
 @dataclass(frozen=True)
 class FrameCodec:
-    """Persistence contract for one exact built-in Frame type.
+    """Persistence contract for one built-in Frame type.
 
     Attributes:
-        frame_type: Concrete Frame class accepted by the codec. Subclasses do not
-            match implicitly.
+        frame_type: Concrete Frame class written to and read from WDF. A subclass
+            without its own ``__init__`` is saved as this type (see ``_codec_for_frame``).
         encode: Extracts only the constructor state not shared by every Frame.
         validate_constructor: Validates that state identically at save and load.
         decode: Reconstructs the concrete Frame from common and type-specific state.
@@ -1247,21 +1247,45 @@ def _codecs_by_name() -> dict[str, FrameCodec]:
 
 
 def _codec_for_frame(frame: BaseFrame[Any]) -> FrameCodec:
-    """Return the exact built-in codec or reject extension subclasses."""
-    codec = _codecs_by_type().get(type(frame))
-    if codec is None:
-        codecs_by_name = _codecs_by_name()
-        raise TypeError(
-            "Unsupported Frame type for WDF save\n"
-            f"  Got: {type(frame).__name__}\n"
-            f"  Supported: {', '.join(codecs_by_name)}\n"
-            "Convert the result to a supported built-in Frame before saving."
-        )
-    return codec
+    """Return the codec of the frame's type or of its nearest built-in base class.
+
+    A subclass of a built-in Frame (for example ``class ProjectFrame(ChannelFrame)``)
+    is saved with its base class's codec and loads back as that built-in class. A
+    subclass that defines its own ``__init__`` may hold constructor state the codec
+    does not know, so it is rejected instead of silently dropping that state.
+    """
+    codecs_by_type = _codecs_by_type()
+    frame_class = type(frame)
+    codec = codecs_by_type.get(frame_class)
+    if codec is not None:
+        return codec
+    supported = ", ".join(_codecs_by_name())
+    for base in frame_class.__mro__[1:]:
+        base_codec = codecs_by_type.get(base)
+        if base_codec is None:
+            continue
+        own_init = [
+            cls.__name__ for cls in frame_class.__mro__[: frame_class.__mro__.index(base)] if "__init__" in vars(cls)
+        ]
+        if own_init:
+            raise TypeError(
+                "Unsupported Frame type for WDF save\n"
+                f"  Got: {frame_class.__name__} (subclass of {base.__name__})\n"
+                f"  Defines __init__: {', '.join(own_init)}\n"
+                f"WDF saves a subclass as {base.__name__} and cannot store constructor state "
+                "that the subclass adds. Remove the custom __init__ or save a frame of a "
+                f"supported type ({supported})."
+            )
+        return base_codec
+    raise TypeError(
+        "Unsupported Frame type for WDF save\n"
+        f"  Got: {frame_class.__name__}\n"
+        f"  Supported: {supported} and their subclasses without a custom __init__"
+    )
 
 
 def encode_frame(frame: BaseFrame[Any]) -> tuple[str, dict[str, Any]]:
-    """Return the exact built-in type name and validated constructor state."""
+    """Return the built-in type name and validated constructor state."""
     codec = _codec_for_frame(frame)
     _validate_codec_tensor(codec, frame._data)
     constructor = codec.encode(frame)

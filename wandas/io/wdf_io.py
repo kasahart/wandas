@@ -167,7 +167,10 @@ def save(
     compress: str | None = "gzip",
     overwrite: bool = False,
 ) -> None:
-    """Save an exact built-in Frame as WDF 0.4, 0.5 or sparse 0.6.
+    """Save a built-in Frame as WDF 0.4, 0.5 or sparse 0.6.
+
+    A subclass of a built-in Frame without its own ``__init__`` is saved as its
+    nearest built-in base class, and loading returns that built-in class.
 
     A time-frequency Frame with a known physical frame origin uses WDF 0.5.
     Sparse time-frequency results use WDF 0.6 with explicit sparse state.

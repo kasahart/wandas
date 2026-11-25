@@ -36,6 +36,15 @@ signal processing は `wandas/processing`、axis、metadata、domain state は F
   これを追加する format contract は WDF です。派生表示である `operation_history` を root
   attribute `operation_history_json` として保存しますが、lineage、`previous`、Recipe の intent は
   保存しません。読み込んだ history は表示専用です。
+- WDF stores one built-in Frame type per file. A subclass of a built-in Frame
+  without its own `__init__` is saved as its nearest built-in base class and
+  loads back as that class; a subclass that defines `__init__` is rejected,
+  because WDF cannot store the constructor state it adds
+  (`test_subclass_of_builtin_frame_saves_as_its_builtin_base` and
+  `test_subclass_with_own_init_is_rejected_with_reason` in `tests/io/test_wdf_io.py`).
+  WDF は 1 file に 1 つの built-in Frame 型を保存します。独自の `__init__` を持たない built-in
+  Frame の subclass は最も近い built-in の親クラスとして保存し、読み込むとその型になります。
+  `__init__` を定義した subclass は、追加した constructor の状態を保存できないため拒否します。
 - For lossy or metadata-limited formats such as WAV and CSV, define and test what
   is retained, reconstructed, normalized, or rejected.
   WAV や CSV のような lossy／metadata 制限 format では、保持、再構築、normalize、reject の契約を
