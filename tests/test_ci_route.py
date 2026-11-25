@@ -635,7 +635,9 @@ def test_ci_gate_accepts_intentionally_skipped_non_required_jobs() -> None:
     assert "intentionally skipped checks are accepted" in result.stdout
 
 
-@pytest.mark.parametrize("workflow_name", ["ci.yml", "full-compatibility.yml", "deploy-docs.yml"])
+@pytest.mark.parametrize(
+    "workflow_name", ["ci.yml", "full-compatibility.yml", "deploy-docs.yml", "operation-benchmark.yml"]
+)
 def test_dependency_syncs_fail_on_lockfile_drift(workflow_name: str) -> None:
     workflow = _workflow(workflow_name)
     sync_commands = [
