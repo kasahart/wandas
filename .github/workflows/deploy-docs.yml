@@ -19,8 +19,8 @@ jobs:
       - name: Set up uv and Python
         uses: astral-sh/setup-uv@v5
         with:
-          # pyproject.toml に基づくバージョン、または特定のバージョンを指定
-          python-version: '3.10'
+          # Keep this equal to the Python of the docs jobs in ci.yml and full-compatibility.yml.
+          python-version: '3.12'
           enable-cache: true # 依存関係のキャッシュを有効化
 
       - name: Install dependencies including MkDocs

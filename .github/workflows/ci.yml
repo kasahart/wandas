@@ -177,49 +177,9 @@ jobs:
         run: |
           uv venv --python 3.12 "$RUNNER_TEMP/wandas-core-smoke"
           uv pip install --python "$RUNNER_TEMP/wandas-core-smoke/bin/python" dist/*.whl
+          cp scripts/test_installation.py "$RUNNER_TEMP/"
           cd "$RUNNER_TEMP"
-          "$RUNNER_TEMP/wandas-core-smoke/bin/python" - <<'PY'
-          import importlib
-          import importlib.util
-          import pkgutil
-          import tempfile
-          from pathlib import Path
-
-          import numpy as np
-          import wandas as wd
-
-          optional_modules = [
-              "h5py",
-              "h5netcdf",
-              "IPython",
-              "librosa",
-              "mosqito",
-              "tensorflow",
-              "torch",
-          ]
-          installed_optional = [name for name in optional_modules if importlib.util.find_spec(name) is not None]
-          assert installed_optional == [], f"Unexpected optional packages installed: {installed_optional}"
-          assert (Path(wd.__file__).parent / "py.typed").is_file(), "The wheel must ship the py.typed marker"
-
-          import_errors = []
-          for module_info in pkgutil.walk_packages(wd.__path__, prefix=f"{wd.__name__}."):
-              try:
-                  importlib.import_module(module_info.name)
-              except Exception as exc:  # noqa: BLE001 - CI smoke should report every import failure.
-                  import_errors.append(f"{module_info.name}: {type(exc).__name__}: {exc}")
-          assert import_errors == [], "Submodule imports failed:\n" + "\n".join(import_errors)
-
-          data = np.sin(np.linspace(0, 16, 4096, dtype=float))[None, :]
-          frame = wd.ChannelFrame.from_numpy(data, sampling_rate=48000)
-          assert np.allclose((frame + 1).to_numpy(), data + 1)
-          assert frame.to_dataframe().shape == (4096, 1)
-          assert frame.fft().n_channels == 1
-
-          with tempfile.TemporaryDirectory() as tmpdir:
-              output = Path(tmpdir) / "describe.png"
-              frame.describe(image_save=output)
-              assert output.exists(), "describe(image_save=...) should work in a core-only install"
-          PY
+          "$RUNNER_TEMP/wandas-core-smoke/bin/python" test_installation.py
 
   pyodide-install:
     name: Pyodide candidate install

@@ -192,7 +192,7 @@ jobs:
     name: Build Documentation
     needs: resolve-ref
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - name: チェックアウト
         uses: actions/checkout@v4
@@ -209,13 +209,34 @@ jobs:
         run: uv python install 3.12
 
       - name: 依存関係をインストール (docsグループ + 非ML extras)
-        run: uv sync --locked --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs
+        run: uv sync --locked --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs --group test
 
       - name: 公開exportとdocstringの軽量チェック
         run: uv run --no-sync python scripts/check_public_docstrings.py
 
       - name: Learning applicationsのsource check
         run: uv run --no-sync marimo check --strict learning-path/*.py
+
+      - name: Learning Path翻訳カタログの検証
+        run: uv run --no-sync python scripts/validate_learning_path_i18n.py
+
+      - name: Learning Path全体のexport planを検証
+        run: uv run --no-sync python scripts/export_learning_path.py --all --dry-run
+
+      - name: Learning Path翻訳済み教材を日英export
+        env:
+          MPLBACKEND: Agg
+        run: >-
+          uv run --no-sync python scripts/export_learning_path.py
+          --translated --output "$RUNNER_TEMP/wandas-learning-path-translated" --jobs 2
+
+      - name: Learning Path翻訳済み教材の生成HTMLを検証
+        run: >-
+          uv run --no-sync python scripts/validate_learning_path_i18n.py
+          --site "$RUNNER_TEMP/wandas-learning-path-translated" --translated
+
+      - name: Documentation contract tests
+        run: uv run --no-sync pytest tests/docs -q --no-cov
 
       - name: ドキュメントのビルドテスト (MkDocs)
         run: uv run --no-sync mkdocs build --strict -f docs/mkdocs.yml
@@ -250,48 +271,9 @@ jobs:
         run: |
           uv venv --python 3.12 "$RUNNER_TEMP/wandas-core-smoke"
           uv pip install --python "$RUNNER_TEMP/wandas-core-smoke/bin/python" dist/*.whl
+          cp scripts/test_installation.py "$RUNNER_TEMP/"
           cd "$RUNNER_TEMP"
-          "$RUNNER_TEMP/wandas-core-smoke/bin/python" - <<'PY'
-          import importlib
-          import importlib.util
-          import pkgutil
-          import tempfile
-          from pathlib import Path
-
-          import numpy as np
-          import wandas as wd
-
-          optional_modules = [
-              "h5py",
-              "h5netcdf",
-              "IPython",
-              "librosa",
-              "mosqito",
-              "tensorflow",
-              "torch",
-          ]
-          installed_optional = [name for name in optional_modules if importlib.util.find_spec(name) is not None]
-          assert installed_optional == [], f"Unexpected optional packages installed: {installed_optional}"
-
-          import_errors = []
-          for module_info in pkgutil.walk_packages(wd.__path__, prefix=f"{wd.__name__}."):
-              try:
-                  importlib.import_module(module_info.name)
-              except Exception as exc:  # noqa: BLE001 - CI smoke should report every import failure.
-                  import_errors.append(f"{module_info.name}: {type(exc).__name__}: {exc}")
-          assert import_errors == [], "Submodule imports failed:\n" + "\n".join(import_errors)
-
-          data = np.sin(np.linspace(0, 16, 4096, dtype=float))[None, :]
-          frame = wd.ChannelFrame.from_numpy(data, sampling_rate=48000)
-          assert np.allclose((frame + 1).to_numpy(), data + 1)
-          assert frame.to_dataframe().shape == (4096, 1)
-          assert frame.fft().n_channels == 1
-
-          with tempfile.TemporaryDirectory() as tmpdir:
-              output = Path(tmpdir) / "describe.png"
-              frame.describe(image_save=output)
-              assert output.exists(), "describe(image_save=...) should work in a core-only install"
-          PY
+          "$RUNNER_TEMP/wandas-core-smoke/bin/python" test_installation.py
 
   pyodide:
     name: Pyodide 314.0.3

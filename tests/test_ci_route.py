@@ -153,7 +153,7 @@ def test_product_and_configuration_paths_select_required_checks() -> None:
         lint=True,
         pyodide=True,
     )
-    assert classify_paths(["tests/docs/test_readme_examples.py"]) == _decision(native=True, lint=True)
+    assert classify_paths(["tests/docs/test_readme_examples.py"]) == _decision(native=True, lint=True, docs=True)
 
 
 @pytest.mark.parametrize(
@@ -308,6 +308,55 @@ def test_documentation_job_runs_contract_tests_without_coverage() -> None:
     assert len(sync_commands) == 1
     assert "--group docs --group test" in sync_commands[0]
     assert contract_commands == ["uv run --no-sync pytest tests/docs -q --no-cov"]
+
+
+LANES_DOC = "docs/src/contributing.md (CI Validation Lanes)"
+
+
+def _step_commands(workflow_name: str, job_name: str) -> list[str]:
+    steps = _workflow(workflow_name)["jobs"][job_name]["steps"]
+    return [step["run"] for step in steps if isinstance(step, dict) and "run" in step]
+
+
+def test_full_lane_docs_job_runs_every_pr_lane_docs_step() -> None:
+    pr_commands = _step_commands("ci.yml", "docs")
+    full_commands = _step_commands("full-compatibility.yml", "docs")
+    missing = [command for command in pr_commands if command not in full_commands]
+
+    assert missing == [], (
+        f"full-compatibility.yml docs job lacks steps that ci.yml docs runs: {missing}\n"
+        f"Rule: the release (Full) lane checks at least what the PR lane checks (see {LANES_DOC}).\n"
+        "Fix: copy the missing step from the ci.yml docs job into the full-compatibility.yml docs job."
+    )
+
+
+def test_both_lanes_run_the_shared_wheel_smoke_script() -> None:
+    expected = '"$RUNNER_TEMP/wandas-core-smoke/bin/python" test_installation.py'
+    for workflow_name in ("ci.yml", "full-compatibility.yml"):
+        commands = "\n".join(_step_commands(workflow_name, "core-install-smoke"))
+        assert expected in commands and "<<" not in commands, (
+            f"{workflow_name} core-install-smoke does not run scripts/test_installation.py as its only smoke.\n"
+            f"Rule: the PR and Full lanes run one shared wheel smoke script, the one cd.yml runs (see {LANES_DOC}).\n"
+            "Fix: put new smoke checks in scripts/test_installation.py and call it from the job; "
+            "do not add an inline heredoc."
+        )
+
+
+def test_docs_deploy_uses_the_docs_job_python() -> None:
+    pr_python = next(command for command in _step_commands("ci.yml", "docs") if "uv python install" in command)
+    deploy_setup = next(
+        step
+        for step in _workflow("deploy-docs.yml")["jobs"]["deploy"]["steps"]
+        if "python-version" in step.get("with", {})
+    )
+    deploy_version = deploy_setup["with"]["python-version"]
+
+    assert pr_python == f"uv python install {deploy_version}", (
+        f"deploy-docs.yml builds docs on Python {deploy_version}, but the ci.yml docs job runs {pr_python!r}.\n"
+        f"Rule: the Pages deploy uses the Python the docs jobs validated before merge (see {LANES_DOC}).\n"
+        "Fix: set the same version in deploy-docs.yml python-version and in the docs jobs of "
+        "ci.yml and full-compatibility.yml."
+    )
 
 
 def test_full_lane_preserves_the_ten_environment_compatibility_matrix() -> None:

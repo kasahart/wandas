@@ -137,6 +137,8 @@ def classify_paths(paths: Iterable[str]) -> dict[str, bool]:
         selected["lint"] |= is_source or is_build_config or is_workflow or is_routing_script
         selected["docs"] |= (
             _under(path, "docs/")
+            # The MkDocs-backed contract tests skip in native, so only the docs job runs them.
+            or _under(path, "tests/docs/")
             or _under(path, "learning-path/")
             or _under(path, "wandas/")
             or path in {"README.md", "README.ja.md"}
