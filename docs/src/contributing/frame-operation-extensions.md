@@ -113,15 +113,18 @@ Frame metadataを変更してはいけません。
    (`spectral`, `cepstral`, `psychoacoustic`) needs an entry in the lazy-operation
    mapping of `wandas.processing`. If the public class should be importable from
    `wandas.processing`, update its eager import or lazy-operation mapping and
-   `__all__`. `tests/processing/test_operation_registration_completeness.py`
-   fails when a built-in class with a `name` cannot be resolved.
+   `__all__`. An eager module must itself be imported by
+   `wandas/processing/__init__.py`. `tests/processing/test_operation_registration_completeness.py`
+   fails when a built-in class with a `name` cannot be resolved after a fresh
+   `import wandas`.
    classを`register_operation()`へ登録します。組み込みのeager importモジュールは末尾で
    `_register_module_operations(__name__)`を呼び、自分の`name`を持つOperation classを
    すべて登録するため、一覧への追記は不要です。遅延importモジュール（`spectral`、`cepstral`、
    `psychoacoustic`）のclassは`wandas.processing`のlazy-operation mappingへ追加します。
    `wandas.processing`から公開importする場合は、eager importまたはlazy-operation mappingと
-   `__all__`も更新します。`name`を持つ組み込みclassが解決できないと
-   `tests/processing/test_operation_registration_completeness.py`が失敗します。
+   `__all__`も更新します。eager importモジュール自体は`wandas/processing/__init__.py`から
+   importされている必要があります。新しいプロセスで`import wandas`した直後に`name`を持つ組み込み
+   classが解決できないと`tests/processing/test_operation_registration_completeness.py`が失敗します。
 
 The following sketch shows the required boundaries. Use the exact validation and
 dtype appropriate for the real operation.
