@@ -16,6 +16,7 @@ from wandas.processing.base import (
 )
 from wandas.processing.calibration import apply_channel_factors
 from wandas.processing.conversion import Astype
+from wandas.processing.custom import CustomOperation as _CustomOperation  # noqa: F401  # registers "custom"
 from wandas.processing.effects import (
     AddWithSNR,
     HpssHarmonic,
