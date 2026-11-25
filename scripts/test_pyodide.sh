@@ -6,15 +6,15 @@ PYODIDE_VERSION="314.0.3"
 test_target="${1:-candidate}"
 published_version=""
 case "${test_target}" in
-    candidate|candidate-install|candidate-system)
+    candidate|candidate-install|candidate-system|candidate-extras)
         if (($# != 0 && $# != 1)); then
-            echo "usage: $0 [candidate | candidate-install | candidate-system | browser-install | published VERSION]" >&2
+            echo "usage: $0 [candidate | candidate-install | candidate-system | candidate-extras | browser-install | published VERSION]" >&2
             exit 2
         fi
         ;;
     browser-install)
         if (($# != 1)); then
-            echo "usage: $0 [candidate | candidate-install | candidate-system | browser-install | published VERSION]" >&2
+            echo "usage: $0 [candidate | candidate-install | candidate-system | candidate-extras | browser-install | published VERSION]" >&2
             exit 2
         fi
         ;;
@@ -26,7 +26,7 @@ case "${test_target}" in
         published_version="$2"
         ;;
     *)
-        echo "usage: $0 [candidate | candidate-install | candidate-system | browser-install | published VERSION]" >&2
+        echo "usage: $0 [candidate | candidate-install | candidate-system | candidate-extras | browser-install | published VERSION]" >&2
         exit 2
         ;;
 esac
@@ -163,7 +163,7 @@ echo "Node.js: $(node --version)"
 echo "Pyodide: ${PYODIDE_VERSION}"
 echo "Wandas candidate: ${wandas_candidate_version}"
 
-if [[ "${test_target}" != "candidate-system" ]]; then
+if [[ "${test_target}" == "candidate" || "${test_target}" == "candidate-install" ]]; then
     echo "Validating candidate wheel installation in Pyodide"
     node \
         "${repository_root}/scripts/run_pyodide_tests.mjs" \
@@ -175,11 +175,23 @@ if [[ "${test_target}" != "candidate-system" ]]; then
         --expected-wandas-version "${wandas_candidate_version}"
 fi
 
-if [[ "${test_target}" != "candidate-install" ]]; then
+if [[ "${test_target}" == "candidate" || "${test_target}" == "candidate-system" ]]; then
     echo "Running Pyodide system tests against the candidate wheel"
     node \
         "${repository_root}/scripts/run_pyodide_tests.mjs" \
         --mode "source-tests" \
+        --repository-root "${repository_root}" \
+        --runtime-dir "${runtime_dir}" \
+        --wheel "${wheel_path}" \
+        --expected-pyodide-version "${PYODIDE_VERSION}" \
+        --expected-wandas-version "${wandas_candidate_version}"
+fi
+
+if [[ "${test_target}" == "candidate" || "${test_target}" == "candidate-extras" ]]; then
+    echo "Checking optional features against the Pyodide support matrix"
+    node \
+        "${repository_root}/scripts/run_pyodide_tests.mjs" \
+        --mode "extras-smoke" \
         --repository-root "${repository_root}" \
         --runtime-dir "${runtime_dir}" \
         --wheel "${wheel_path}" \

@@ -102,6 +102,20 @@ bash scripts/test_pyodide.sh candidate-install  # Install the candidate wheel an
 bash scripts/test_pyodide.sh candidate-system   # Run core and WAV tests against the candidate wheel.
 ```
 
+The default command also runs a third check, which the nightly
+`Full Compatibility` workflow runs too. It installs the optional extras that
+work in Pyodide and checks the optional-feature rows of the
+[support table](how-to/pyodide-browser.md#what-works-in-pyodide-pyodide).
+Update that table in the same pull request when this check changes.
+
+既定のコマンドは3つ目の検証も実行し、毎晩の`Full Compatibility`でも実行されます。
+Pyodideで動く追加機能をインストールし、[対応表](how-to/pyodide-browser.md#what-works-in-pyodide-pyodide)の
+追加機能の行を確認します。この検証を変えるときは、同じpull requestで表も更新してください。
+
+```bash
+bash scripts/test_pyodide.sh candidate-extras   # Check the optional-feature rows of the support table.
+```
+
 The [browser example](https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html)
 pins a version already published to PyPI. The editor page next to it
 (`examples/pyodide/editor.html`) pins the same version and is deployed with the
