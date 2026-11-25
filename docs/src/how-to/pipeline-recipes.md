@@ -135,7 +135,8 @@ may already be saved), and `overwrite=True` to replace earlier outputs.
 
 A plan returns one Frame per `apply`. To keep shared preprocessing and several
 analyses of it in one Recipe, name the other Frames as `steps` when you extract
-the plan, then choose one by name:
+the plan, then choose one by name. The `noct` step needs the `psychoacoustic`
+extra (`pip install "wandas[psychoacoustic]"`):
 
 ```python
 signal = wd.generate_sin(freqs=[1000.0], duration=0.5)
@@ -168,6 +169,7 @@ Planが`apply`ごとに返すFrameは1つです。共通の前処理とそれを
 返す段を選びます。共通の前処理は1回だけ記録されます。選んだ段に必要な処理だけを組み立てるので、
 選ばない段は計算もメモリへの保持もされません。ただし呼び出しごとに前処理を計算するので、
 `welch`と`noct`を続けて求めると前処理は2回計算されます。段は出力と同じ元のFrameから作ってください。
+例の`noct`段には`psychoacoustic` extraが必要です（`pip install "wandas[psychoacoustic]"`）。
 `apply_files(..., step="noct")`は録音ごとにその段を保存し、`plan.for_step("noct")`はその段の処理と入力だけを
 持つPlanを返します（`apply(..., step=...)`にはPlanのすべての入力を渡します）。段を持つPlanはRecipe schema 4で保存され、段のないPlanはこれまでどおりschema 3です。
 

@@ -322,6 +322,13 @@ Other technical pages may be English-only; do not duplicate API contracts there.
   `docs/src/tutorial/` は最初の成功までの順序立った学習を扱います。
 - `docs/src/how-to/` owns procedures for completing a specific task.
   `docs/src/how-to/` は特定のタスクを完了する手順を扱います。
+  Their Python blocks run in `tests/docs/test_how_to_examples.py` on
+  synthetic recordings; a block that cannot run there is listed in that test
+  with a reason. The README extras list must name every
+  `[project.optional-dependencies]` extra.
+  how-to の Python ブロックは合成した録音で `tests/docs/test_how_to_examples.py`
+  が実行します。実行できないブロックは理由とともにそのテストに列挙します。
+  README の extra 一覧には `[project.optional-dependencies]` のすべての extra を載せます。
 - `docs/src/explanation/` owns cross-API concepts, reasons, guarantees, and
   constraints. `docs/src/explanation/` は API 横断の概念、理由、保証、制約を扱います。
 - `docs/src/api/` contains only a short module overview and a mkdocstrings

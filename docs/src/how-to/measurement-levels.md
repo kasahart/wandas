@@ -68,7 +68,7 @@ The same API applies after calibration:
 ```python
 calibrated = frame.with_calibration(
     {
-        "mic": wd.ChannelCalibration(
+        "ch0": wd.ChannelCalibration(  # wd.read labels WAV channels ch0, ch1, ...
             factor=0.42,
             unit="Pa",
         )
