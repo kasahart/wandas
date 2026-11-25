@@ -22,6 +22,13 @@ This project uses `uv` for package management.
    `--extra marimo` なしで作成した環境では、上のコマンドを再実行してください。
    `ty` の pre-commit hook と `uv run ty check` は `marimo` を import する `learning-path` も検査します。
 
+`[project.dependencies]` in `pyproject.toml` lists only packages that the core
+library under `wandas/` imports; anything else belongs in an optional extra or a
+dependency group.
+`pyproject.toml` の `[project.dependencies]` には、`wandas/` 以下の core library が
+import する package だけを載せます。それ以外は optional extra か dependency group に
+入れます。
+
 ## Branch Naming Policy / ブランチ命名ポリシー
 
 The repository allows the following branch naming patterns. For normal contribution work, please create your branch with one of the prefixed patterns listed below.
@@ -99,6 +106,11 @@ gh workflow run full-compatibility.yml \
 `CI Gate` is the stable required check for `main`; configure branch protection
 to require it instead of a matrix job. `CI Gate`を`main`のstable required checkとし、
 branch protectionではmatrix job名ではなくこれを必須に設定します。
+
+Every step that syncs dependencies with uv in the CI, Full Compatibility, and docs deployment workflows uses
+`--locked`, so a stale `uv.lock` fails CI instead of being re-resolved.
+CI、Full Compatibility、docs deployのworkflowで uv により依存関係を同期する step はすべて`--locked`を付け、
+古い`uv.lock`は再解決せずCIを失敗させます。
 
 ### Pyodide checks / Pyodideの検証
 
@@ -328,6 +340,8 @@ Other technical pages may be English-only; do not duplicate API contracts there.
   installation, optional-extra summary, one Quick Start, and primary links.
   `README.md` と `README.ja.md` は、製品概要、最小インストール、optional
   extra の概要、1つの Quick Start、主要リンクを正本として持ちます。
+  README images point at checked-in, valid image files in this repository.
+  README の画像は、このリポジトリにコミットされた有効な画像ファイルを指します。
 - `docs/src/index.md` is the documentation home and routes readers by goal;
   it is not another product overview or tutorial.
   `docs/src/index.md` は目的別に読者を案内する入口であり、製品概要や

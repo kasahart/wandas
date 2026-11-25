@@ -12,6 +12,7 @@ from packaging.requirements import Requirement
 from scripts.ci_route import CHECKS, classify_paths
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+CI_LANES_DOC = "docs/src/contributing.md (CI Validation Lanes)"
 BASH_GATE_ONLY = pytest.mark.skipif(os.name == "nt", reason="CI Gate runs Bash on ubuntu-latest")
 REQUIRED_OUTPUT_NAMES = (
     "NATIVE_REQUIRED",
@@ -276,8 +277,18 @@ def test_fast_lane_has_three_representative_native_environments() -> None:
     assert numpy_step["if"] == "matrix.numpy-version != ''"
     assert 'uv pip install "numpy==${{ matrix.numpy-version }}"' in numpy_step["run"]
     assert "uv pip check" in numpy_step["run"]
-    assert workflow["jobs"]["ci-gate"]["if"] == "always()"
-    assert workflow["jobs"]["ci-gate"]["name"] == "CI Gate"
+    gate_rule = (
+        "Rule: the 'CI Gate' job is the stable required check for main, so it keeps its name and always runs "
+        f"(see {CI_LANES_DOC})."
+    )
+    assert workflow["jobs"]["ci-gate"]["if"] == "always()", (
+        "ci.yml job ci-gate no longer has 'if: always()', so skipped or failed lanes could leave it unreported.\n"
+        f"{gate_rule}\nFix: restore 'if: always()' on the ci-gate job in .github/workflows/ci.yml."
+    )
+    assert workflow["jobs"]["ci-gate"]["name"] == "CI Gate", (
+        "ci.yml job ci-gate is no longer named 'CI Gate'; branch protection requires that exact name.\n"
+        f"{gate_rule}\nFix: restore 'name: CI Gate' on the ci-gate job in .github/workflows/ci.yml."
+    )
 
 
 def test_prepublication_pyodide_jobs_are_independent_and_required() -> None:
@@ -373,12 +384,19 @@ def test_full_lane_preserves_the_ten_environment_compatibility_matrix() -> None:
     resolver_step = next(step for step in resolver["steps"] if step.get("id") == "resolve")
     resolver_checkout = next(step for step in resolver["steps"] if step.get("uses") == "actions/checkout@v4")
 
-    assert len(matrix) == 10
+    full_matrix_message = (
+        "full-compatibility.yml native-test matrix is not Ubuntu and Windows on Python 3.10-3.14 "
+        "(10 entries, one per pair).\n"
+        f"Rule: Full Compatibility runs Ubuntu and Windows on Python 3.10-3.14 (see {CI_LANES_DOC}).\n"
+        "Fix: restore the matrix include list in .github/workflows/full-compatibility.yml, or change the "
+        "documented policy and this test together."
+    )
+    assert len(matrix) == 10, full_matrix_message
     assert {(item["os"], item["python-version"]) for item in matrix} == {
         (os_name, python_version)
         for os_name in ("ubuntu-latest", "windows-latest")
         for python_version in ("3.10", "3.11", "3.12", "3.13", "3.14")
-    }
+    }, full_matrix_message
     assert sum(item["coverage"] == "true" for item in matrix) == 1
     assert {(item["os"], item["python-version"], item.get("numpy-version")) for item in matrix} >= {
         ("ubuntu-latest", "3.10", "1.26.4"),
@@ -402,7 +420,13 @@ def test_full_lane_preserves_the_ten_environment_compatibility_matrix() -> None:
     assert "git fetch --no-tags --depth=1 origin" in resolver_step["run"]
     assert "git check-ref-format --allow-onelevel" in resolver_step["run"]
     assert "Resolved SHA:" in resolver_step["run"]
-    assert workflow["jobs"]["full-gate"]["needs"] == ["resolve-ref", *FULL_VALIDATION_JOBS]
+    assert workflow["jobs"]["full-gate"]["needs"] == ["resolve-ref", *FULL_VALIDATION_JOBS], (
+        "full-compatibility.yml job full-gate does not wait for exactly resolve-ref and every full validation job.\n"
+        "Rule: Full Compatibility covers lint, type checking, docs, core-only wheel smoke, Pyodide, and the native "
+        f"matrix, and full-gate reports them as one result (see {CI_LANES_DOC}).\n"
+        "Fix: list resolve-ref and FULL_VALIDATION_JOBS (in that order) under full-gate needs, and keep "
+        "FULL_VALIDATION_JOBS in this test in step with the workflow."
+    )
     for job_name in FULL_VALIDATION_JOBS:
         assert workflow["jobs"][job_name]["needs"] == "resolve-ref"
         checkout_steps = [
@@ -622,7 +646,13 @@ def test_dependency_syncs_fail_on_lockfile_drift(workflow_name: str) -> None:
     ]
 
     assert sync_commands
-    assert all("--locked" in command for command in sync_commands)
+    unlocked = [command for command in sync_commands if "--locked" not in command]
+    assert not unlocked, (
+        f"{workflow_name} runs 'uv sync' without --locked: {unlocked}.\n"
+        "Rule: CI installs exactly what uv.lock records, so lockfile drift fails CI instead of being re-resolved "
+        f"(see {CI_LANES_DOC}).\n"
+        f"Fix: add --locked to these uv sync commands in .github/workflows/{workflow_name}."
+    )
 
 
 def test_release_installation_test_imports_the_wheel_outside_the_checkout() -> None:
