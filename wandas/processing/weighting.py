@@ -97,6 +97,9 @@ def _reference_level_db(data: ArrayLike, reference: ArrayLike, factor: ArrayLike
 def _kind_level_db(data: ArrayLike, reference: ArrayLike, level_kind: str, unit: str = "") -> NDArrayReal:
     """Compute the level of one channel domain from its level kind.
 
+    Raises:
+        ValueError: If ``level_kind`` is not ``"amplitude"``, ``"power"`` or ``"none"``.
+
     Warns:
         UserWarning: If the level kind is ``"none"`` (amplitude factor is used).
     """
