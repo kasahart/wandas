@@ -6,6 +6,12 @@ frequency-domain, time-frequency, cepstral, octave-band, and roughness results.
 `wandas.frames`は時間領域、周波数領域、時間周波数、ケプストラム、オクターブ帯域、
 ラフネス結果を表すimmutableなFrameファミリーを提供します。
 
+`wandas.frames.__all__` exports every concrete public frame class defined under
+`wandas/frames/` exactly once, and each name is the class object from its
+defining module, not a copy or alias.
+`wandas.frames.__all__`は、`wandas/frames/`以下で定義された具象の公開Frameクラスを
+それぞれ1回ずつexportし、各名前は定義モジュールのクラスそのもの(コピーや別名ではない)です。
+
 For callable input/output contracts and a complete extension example, see
 [Add your own processing](../how-to/custom-processing.md).
 独自関数の入出力契約と拡張の完全な例は、[独自処理のHow-to](../how-to/custom-processing.md)を参照してください。
