@@ -11,14 +11,17 @@ RULE = f"Rule: each 'Existing assertion' cell names a test that exists in the li
 
 
 def _defined_tests(path: Path) -> set[str]:
-    """Return top-level test names plus each class method as ``method`` and ``Class.method``."""
+    """Return the names pytest collects: top-level ``test_*`` functions and ``test_*`` methods of ``Test*`` classes.
+
+    Each method is listed as ``method`` and as ``Class.method``, so a cited helper name fails the check.
+    """
     names: set[str] = set()
     for node in ast.parse(path.read_text(encoding="utf-8")).body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
             names.add(node.name)
-        elif isinstance(node, ast.ClassDef):
+        elif isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
             for member in node.body:
-                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)) and member.name.startswith("test_"):
                     names.update({member.name, f"{node.name}.{member.name}"})
     return names
 
