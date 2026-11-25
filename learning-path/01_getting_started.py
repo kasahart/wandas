@@ -236,7 +236,7 @@ def _(mo, t):
 
 @app.cell(hide_code=True)
 def _(mo, t):
-    from importlib.metadata import version as _metadata_version
+    from importlib.metadata import version as _installed_version
 
     import matplotlib
 
@@ -244,7 +244,7 @@ def _(mo, t):
         t(
             "troubleshooting_output",
             backend=matplotlib.get_backend(),
-            version=_metadata_version("marimo"),
+            version=_installed_version("marimo"),
         )
     )
     return
