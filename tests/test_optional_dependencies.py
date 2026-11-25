@@ -98,7 +98,7 @@ def test_every_runtime_dependency_is_imported_by_wandas() -> None:
     assert names - imported == set(), (
         f"Core dependencies never imported under wandas/: {sorted(names - imported)}.\n"
         "Rule: [project.dependencies] lists only packages the core library imports "
-        f"(see {REGISTRY_RULE_DOC}).\n"
+        "(see docs/src/contributing.md, Development Environment Setup).\n"
         "Fix: remove the package from [project.dependencies] in pyproject.toml or move it to an optional extra."
     )
 

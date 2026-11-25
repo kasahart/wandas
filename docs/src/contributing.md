@@ -17,6 +17,13 @@ This project uses `uv` for package management.
   uv sync --frozen --all-groups
   ```
 
+`[project.dependencies]` in `pyproject.toml` lists only packages that the core
+library under `wandas/` imports; anything else belongs in an optional extra or a
+dependency group.
+`pyproject.toml` の `[project.dependencies]` には、`wandas/` 以下の core library が
+import する package だけを載せます。それ以外は optional extra か dependency group に
+入れます。
+
 ## Branch Naming Policy / ブランチ命名ポリシー
 
 The repository allows the following branch naming patterns. For normal contribution work, please create your branch with one of the prefixed patterns listed below.
