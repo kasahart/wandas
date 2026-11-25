@@ -109,6 +109,7 @@ def test_unsupported_schema_version_lists_supported_versions_and_remedy() -> Non
     assert "Got: 5" in message
     assert "Supported: 2, 3, 4" in message
     assert "Use a compatible Wandas version" in message
+    assert "upgrade Wandas to read this schema" in message
 
 
 def test_schema_3_writes_finite_floats_as_json_numbers_and_reads_schema_2() -> None:

@@ -624,7 +624,7 @@ class ChannelTransformMixin:
         hop_length: int | None = None,
         win_length: int | None = None,
         window: str = "hann",
-        detrend: Literal["constant", "linear"] | None = "constant",
+        detrend: Literal["constant", "linear", False] | None = "constant",
     ) -> "CoherenceFrame":
         """Calculate typed magnitude-squared coherence for every channel pair.
 
@@ -653,6 +653,7 @@ class ChannelTransformMixin:
             win_length: Window length. Default is n_fft.
             window: Window type. Default is "hann".
             detrend: Detrend method. Options: "constant", "linear", None (no detrend).
+                ``False`` is also accepted as no detrend for backward compatibility.
 
         Returns:
             CoherenceFrame whose public single-pair shape is ``(frequency,)`` and
@@ -748,7 +749,7 @@ class ChannelTransformMixin:
         hop_length: int | None = None,
         win_length: int | None = None,
         window: str = "hann",
-        detrend: Literal["constant", "linear"] | None = "constant",
+        detrend: Literal["constant", "linear", False] | None = "constant",
         scaling: Literal["spectrum", "density"] = "spectrum",
         average: Literal["mean", "median"] = "mean",
     ) -> "CrossSpectralFrame":
@@ -777,6 +778,7 @@ class ChannelTransformMixin:
             win_length: Window length. Default is n_fft.
             window: Window type. Default is "hann".
             detrend: Detrend method. Options: "constant", "linear", None (no detrend).
+                ``False`` is also accepted as no detrend for backward compatibility.
             scaling: Scaling method. Options: "spectrum", "density".
             average: Method for averaging segments. Default is "mean".
 
@@ -812,7 +814,7 @@ class ChannelTransformMixin:
         hop_length: int | None = None,
         win_length: int | None = None,
         window: str = "hann",
-        detrend: Literal["constant", "linear"] | None = "constant",
+        detrend: Literal["constant", "linear", False] | None = "constant",
         scaling: Literal["spectrum", "density"] = "spectrum",
         average: Literal["mean", "median"] = "mean",
         estimator: Literal["H1", "H2"] = "H1",
@@ -847,6 +849,7 @@ class ChannelTransformMixin:
             win_length: Window length. Default is n_fft.
             window: Window type. Default is "hann".
             detrend: Detrend method. Options: "constant", "linear", None (no detrend).
+                ``False`` is also accepted as no detrend for backward compatibility.
             scaling: Scaling method. Options: "spectrum", "density".
             average: Method for averaging segments. Default is "mean".
             estimator: ``"H1"`` (default) when the output is the noisy

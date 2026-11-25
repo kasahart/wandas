@@ -304,7 +304,23 @@ def test_add_channel_v1_recipe_is_rejected_as_unknown_version() -> None:
     assert "wandas.channel.add_channel" in str(exc_info.value)
     assert "Version: 1" in str(exc_info.value)
     assert "Registered versions: 2" in str(exc_info.value)
-    assert "save it again" in str(exc_info.value)
+    assert "no longer replayed; rebuild the Recipe with the current API" in str(exc_info.value)
+    assert "newer Wandas release" not in str(exc_info.value)
+
+
+def test_add_channel_newer_version_recipe_asks_to_upgrade_wandas() -> None:
+    base = _frame(np.zeros((1, 8)), labels=["base"], offsets=[1.0])
+    payload = _payload(base.add_channel(np.ones(8)), ("base", "data"))
+    payload["nodes"][0]["version"] = 3
+
+    with pytest.raises(RecipeSerializationError, match="Invalid Recipe graph") as exc_info:
+        RecipePlan.from_dict(payload)
+
+    message = str(exc_info.value)
+    assert "Version: 3" in message
+    assert "Registered versions: 2" in message
+    assert "saved by a newer Wandas release; upgrade Wandas" in message
+    assert "no longer replayed" not in message
 
 
 def test_sparse_stft_recipe_round_trip_preserves_opt_in_and_frame_times() -> None:

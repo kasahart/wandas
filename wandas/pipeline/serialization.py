@@ -88,8 +88,7 @@ class RecipeLoader:
                 "Unsupported Recipe schema version\n"
                 f"  Got: {payload['version']!r}\n"
                 f"  Supported: {', '.join(map(str, sorted(_READABLE_SCHEMA_VERSIONS)))}\n"
-                "Use a compatible Wandas version or save the Recipe again with a release that\n"
-                "reads this schema."
+                "Use a compatible Wandas version; upgrade Wandas to read this schema."
             )
         expected_fields = _FIELDS | {"steps"} if payload["version"] == STEPS_SCHEMA_VERSION else _FIELDS
         if set(payload) != expected_fields:

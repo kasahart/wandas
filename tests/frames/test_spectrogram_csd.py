@@ -60,7 +60,7 @@ def test_spectrogram_csd_matches_scipy_csd_over_interior_frames(
         nperseg=win_length,
         noverlap=win_length - hop_length,
         nfft=n_fft,
-        detrend=None,
+        detrend=False,
         scaling=scaling,
     )
     np.testing.assert_allclose(channel_first_values(result), expected.reshape(4, -1), rtol=1e-10, atol=1e-14)
@@ -76,7 +76,7 @@ def test_spectrogram_csd_is_lazy_and_matches_channel_frame_csd_state() -> None:
         result = interior.csd(scaling="density")
         compute.assert_not_called()
 
-    direct = source[:, lo:hi].csd(n_fft=256, hop_length=64, detrend=None, scaling="density")
+    direct = source[:, lo:hi].csd(n_fft=256, hop_length=64, detrend=False, scaling="density")
     assert type(result) is CrossSpectralFrame
     assert isinstance(result._data, DaArray)
     np.testing.assert_allclose(channel_first_values(result), channel_first_values(direct), rtol=1e-10, atol=1e-14)
@@ -101,8 +101,8 @@ def test_spectrogram_csd_feeds_transfer_function_and_coherence() -> None:
     transfer = csd.transfer_function().select_pair(1, 0)
     coherence = csd.coherence().select_pair(1, 0)
 
-    direct_transfer = segment.transfer_function(n_fft=256, hop_length=128, detrend=None).select_pair(1, 0)
-    direct_coherence = segment.coherence(n_fft=256, hop_length=128, detrend=None).select_pair(1, 0)
+    direct_transfer = segment.transfer_function(n_fft=256, hop_length=128, detrend=False).select_pair(1, 0)
+    direct_coherence = segment.coherence(n_fft=256, hop_length=128, detrend=False).select_pair(1, 0)
     assert type(transfer) is TransferFunctionFrame
     np.testing.assert_allclose(transfer.data, direct_transfer.data, rtol=1e-10, atol=1e-14)
     np.testing.assert_allclose(coherence.data, direct_coherence.data, rtol=1e-10, atol=1e-14)
