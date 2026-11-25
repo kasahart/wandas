@@ -323,7 +323,7 @@ jobs:
             ~/.cache/wandas/pyodide/314.0.3
           key: ${{ runner.os }}-node22-pyodide-314.0.3-${{ hashFiles('scripts/pyodide/package.json', 'scripts/pyodide/package-lock.json', 'scripts/pyodide/requirements.txt') }}
 
-      - name: Pyodide core tests と WAV smoke を実行
+      - name: Pyodide core tests、WAV smoke、追加機能の検証を実行
         run: bash scripts/test_pyodide.sh
 
   native-test:

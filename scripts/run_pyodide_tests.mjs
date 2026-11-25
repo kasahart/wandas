@@ -41,7 +41,7 @@ const mode = options.mode;
 const repositoryRoot = path.resolve(options["repository-root"]);
 const runtimeDir = path.resolve(options["runtime-dir"]);
 const expectedPyodideVersion = options["expected-pyodide-version"];
-const wheelModes = new Set(["wheel-guide-smoke", "source-tests"]);
+const wheelModes = new Set(["wheel-guide-smoke", "source-tests", "extras-smoke"]);
 const guideModes = new Set(["wheel-guide-smoke", "published-guide-smoke"]);
 if (!["html-smoke", ...wheelModes, "published-guide-smoke"].includes(mode)) {
   throw new Error(`Unsupported Pyodide harness mode: ${mode}`);
@@ -49,8 +49,8 @@ if (!["html-smoke", ...wheelModes, "published-guide-smoke"].includes(mode)) {
 if (wheelModes.has(mode) && !options.wheel) {
   throw new Error(`${mode} requires --wheel PATH`);
 }
-if (mode === "source-tests" && !options["expected-wandas-version"]) {
-  throw new Error("source-tests requires an expected Wandas version");
+if ((mode === "source-tests" || mode === "extras-smoke") && !options["expected-wandas-version"]) {
+  throw new Error(`${mode} requires an expected Wandas version`);
 }
 const lockedConstraints = fs
   .readFileSync(path.join(repositoryRoot, "scripts", "pyodide", "requirements.txt"), "utf8")
@@ -240,6 +240,82 @@ print(
     f"Matplotlib {importlib.metadata.version('matplotlib')}"
 )
 `);
+  process.exitCode = 0;
+} else if (mode === "extras-smoke") {
+  // Checks the optional-feature rows of the support matrix in
+  // docs/src/how-to/pyodide-browser.md. Update that table when this changes.
+  pyodide.globals.set("wandas_wheel_uri", localWheelUri);
+  pyodide.globals.set("expected_wandas_version", options["expected-wandas-version"]);
+  await pyodide.runPythonAsync(`
+import importlib.metadata
+import json
+
+import micropip
+
+constraints = json.loads(wandas_locked_constraints_json)
+await micropip.install(wandas_wheel_uri, constraints=constraints)
+
+import numpy as np
+import wandas as wd
+
+actual_version = importlib.metadata.version("wandas")
+if actual_version != expected_wandas_version:
+    raise RuntimeError(f"Installed Wandas {actual_version}, expected {expected_wandas_version}")
+
+sampling_rate = 48_000
+time = np.arange(sampling_rate // 2, dtype=np.float64) / sampling_rate
+frame = wd.from_numpy(
+    0.02 * np.sin(2 * np.pi * 1_000 * time),
+    sampling_rate=sampling_rate,
+    ch_units="Pa",
+)
+
+
+def expect_install_hint(name, call, extra):
+    try:
+        call()
+    except ImportError as error:
+        if f'pip install "wandas[{extra}]"' not in str(error):
+            raise RuntimeError(f"{name}: ImportError does not name wandas[{extra}]: {error}") from error
+    else:
+        raise RuntimeError(f"{name} ran without its optional dependency; update the Pyodide support matrix")
+
+
+# Before any extra is installed, each optional feature must fail with an
+# install hint instead of silently doing nothing.
+expect_install_hint("loudness_zwst", frame.loudness_zwst, "psychoacoustic")
+expect_install_hint("noct_spectrum", lambda: frame.noct_spectrum(fmin=100, fmax=5_000), "psychoacoustic")
+expect_install_hint("WDF save", lambda: frame.save("/tmp/extras-smoke.wdf"), "io")
+expect_install_hint("hpss_harmonic", lambda: frame.hpss_harmonic().data, "effects")
+
+await micropip.install(["mosqito", "h5netcdf[h5py]"], constraints=constraints)
+
+loudness = frame.loudness_zwst()
+if loudness.shape != (1,) or not np.isfinite(loudness).all() or loudness[0] <= 0:
+    raise RuntimeError(f"loudness_zwst returned {loudness!r}")
+sharpness = frame.sharpness_din_st()
+if sharpness.shape != (1,) or not np.isfinite(sharpness).all():
+    raise RuntimeError(f"sharpness_din_st returned {sharpness!r}")
+roughness = frame.roughness_dw()
+if roughness.n_channels != 1 or not np.isfinite(roughness.data).all():
+    raise RuntimeError("roughness_dw returned non-finite values")
+bands = frame.noct_spectrum(fmin=100, fmax=5_000)
+if not np.isfinite(bands.data).all():
+    raise RuntimeError("noct_spectrum returned non-finite values")
+frame.save("/tmp/extras-smoke.wdf")
+loaded = wd.ChannelFrame.load("/tmp/extras-smoke.wdf")
+if loaded.shape != frame.shape or not np.array_equal(loaded.data, frame.data):
+    raise RuntimeError("WDF round trip changed the frame")
+
+print(
+    "Pyodide extras: "
+    f"mosqito {importlib.metadata.version('mosqito')}, "
+    f"h5py {importlib.metadata.version('h5py')}; "
+    "librosa (wandas[effects]) stays unavailable with an install hint"
+)
+`);
+  pyodide.globals.delete("wandas_wheel_uri");
+  pyodide.globals.delete("expected_wandas_version");
   process.exitCode = 0;
 } else {
   copyTree(pyodide, path.join(repositoryRoot, "tests", "core"), "/work/tests/core");
