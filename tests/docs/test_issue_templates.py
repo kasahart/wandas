@@ -40,7 +40,13 @@ def test_issue_templates_reject_compatibility_helpers_and_pinned_versions() -> N
     template_text = "\n".join(path.read_text(encoding="utf-8") for path in TEMPLATE_PATHS)
 
     for compatibility_helper in ("wd.read_wav(", "wd.read_csv(", "wd.from_ndarray("):
-        assert compatibility_helper not in template_text
+        offenders = [path.name for path in TEMPLATE_PATHS if compatibility_helper in path.read_text(encoding="utf-8")]
+        assert compatibility_helper not in template_text, (
+            f"Issue templates {offenders} use the compatibility helper {compatibility_helper!r}.\n"
+            "Rule: issue template examples use the primary API in wandas.__all__, such as wd.read() "
+            "(see docs/src/api/index.md).\n"
+            "Fix: replace the helper with wd.read(), wd.from_numpy(), or another primary API in those templates."
+        )
 
     bug_template = _load_template(TEMPLATE_PATHS[0])
     environment = _body_item(bug_template, "environment")["attributes"]["value"]
@@ -54,6 +60,11 @@ def test_feature_template_areas_match_current_module_boundaries() -> None:
     options = _body_item(feature_template, "area")["attributes"]["options"]
 
     for module in ("frames/", "processing/", "io/", "pipeline/", "visualization/", "datasets/", "utils/"):
-        assert any(module in option for option in options)
+        assert any(module in option for option in options), (
+            f".github/ISSUE_TEMPLATE/feature_request.yml has no 'area' option for {module}.\n"
+            "Rule: the feature request areas follow the current wandas/ package boundaries "
+            "(see the module pages under docs/src/api/).\n"
+            f"Fix: add an area option naming {module} to that template, or update this list if the package moved."
+        )
     assert any("Recipe" in option for option in options)
     assert any("calibration" in option.lower() for option in options)
