@@ -40,6 +40,14 @@ jobs:
         with:
           fetch-depth: 1
 
+      # .claude/review.md compares with released files through
+      # `git show origin/<base>:<path>`; the shallow checkout has no base ref.
+      - name: Fetch the base branch
+        if: steps.auth.outputs.ok == 'true'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: git fetch --no-tags --depth=1 origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+
       # Lets the reviewer run scripts and tests to confirm what it reports.
       - uses: astral-sh/setup-uv@v5
         if: steps.auth.outputs.ok == 'true'
@@ -50,7 +58,7 @@ jobs:
         if: steps.auth.outputs.ok == 'true'
         run: |
           uv python install 3.12
-          uv sync --no-dev --extra io --extra effects --extra psychoacoustic --group test
+          uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
 
       # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB isolates the reviewer's subprocesses
       # with bubblewrap, which needs the user namespaces Ubuntu 24.04 blocks.
