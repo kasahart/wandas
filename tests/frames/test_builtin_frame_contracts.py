@@ -82,4 +82,12 @@ def test_public_frames_shared_cases_and_wdf_codecs_cover_identical_exact_types()
         if missing or unexpected:
             failures.append(f"{boundary}: missing={missing}, unexpected={unexpected}")
 
-    assert not failures, "Built-in Frame type drift:\n" + "\n".join(failures)
+    assert not failures, (
+        "Built-in Frame type drift:\n"
+        + "\n".join(failures)
+        + "\nRule: every concrete Frame type exported from wandas.frames has a shared "
+        "Frame case and a WDF codec (see docs/src/contributing/frame-operation-extensions.md, "
+        "'Add a new Frame family').\n"
+        "Fix: add or remove a BuiltinFrameCase in BUILTIN_FRAME_CASES in tests/builtin_frame_cases.py "
+        "and a FrameCodec in _codecs() in wandas/io/wdf_frames.py."
+    )
