@@ -31,13 +31,23 @@ Each channel's `channel_ref` comes from its calibration metadata. For example,
 `Pa` defaults to `20 µPa`, while reader-created canonical audio explicitly uses
 `FS` with reference `1`. Identity calibration with an empty unit also has a
 numeric reference of `1`, but its level label remains generic `dB re 1 input
-unit`, never dBFS. All amplitude conversions floor the magnitude/reference
+unit`, never dBFS. The Frame dB and level conversions floor the magnitude/reference
 ratio at `1e-12`, so zero returns `-240 dB`.
 The `20 log10` conversions in the table are for channels whose
 `calibration.level` is `"amplitude"`, the kind these results keep from an
 amplitude input. A channel whose level kind is `"power"` uses
 `10 log10(value / channel_ref)`, and one whose level kind is `"none"` warns
 and uses the amplitude rule, whose result may be meaningless.
+
+!!! note "Exception: `wandas.utils.amplitude_to_db`"
+    The standalone helper `amplitude_to_db(amplitude, ref)` does not use the
+    ratio floor. It returns
+    `20 log10(max(|amplitude|, 1e-15)) - 20 log10(max(|ref|, 1e-15))`, so the
+    absolute floor `1e-15` applies to the magnitude and to `|ref|` separately.
+    Zero input therefore returns `-300 dB` minus the reference level, for
+    example about `-206 dB` with `ref=2e-5`, not `-240 dB`. A negative `ref` is
+    used by its magnitude.
+
 For the amplitude results above, `dBA` adds the IEC 61672 A-weighting curve to
 that amplitude level; it does not change the underlying stored amplitude.
 

@@ -149,9 +149,16 @@ def amplitude_to_db(amplitude: "NDArrayReal", ref: float) -> "NDArrayReal":
     """
     Convert amplitude to decibel.
 
+    Computes ``20 * log10(max(|amplitude|, DB_AMIN)) - 20 * log10(max(|ref|, DB_AMIN))``
+    with ``DB_AMIN = 1e-15``. The floor is absolute and applied to the magnitude and to
+    ``|ref|`` separately, not to their ratio, so this helper differs from the Frame dB
+    conversions (ratio floor ``1e-12``, -240 dB). Zero input returns ``-300 dB`` minus the
+    reference level (about -206 dB for ``ref=2e-5``), and a negative ``ref`` is used by
+    its magnitude.
+
     Args:
         amplitude: NDArrayReal. Input amplitude data.
-        ref: float. Reference value for conversion.
+        ref: float. Reference value for conversion. Its absolute value is used.
 
     Returns:
         NDArrayReal: Amplitude data converted to decibels.

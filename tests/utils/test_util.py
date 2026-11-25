@@ -295,3 +295,15 @@ class TestAmplitudeToDb:
         result = amplitude_to_db(amp, ref=1.0)
         expected_db = 20 * np.log10(0.5)  # -6.0206 dB
         np.testing.assert_allclose(result, expected_db, rtol=1e-6)  # Theoretical: 20*log10(0.5)
+
+    def test_amplitude_to_db_zero_uses_absolute_floor(self) -> None:
+        """Zero is floored at an absolute 1e-15, not at a 1e-12 ratio (documented exception)."""
+        result = amplitude_to_db(np.array([0.0, 1e-16]), ref=2e-5)
+        expected = 20 * np.log10(1e-15) - 20 * np.log10(2e-5)  # about -206.02 dB
+        np.testing.assert_allclose(result, [expected, expected])
+        assert result[0] == pytest.approx(-206.0206, abs=1e-3)
+
+    def test_amplitude_to_db_zero_ref_is_floored(self) -> None:
+        """A zero reference is floored at 1e-15, giving a +300 dB offset."""
+        result = amplitude_to_db(np.array([1e-3]), ref=0.0)
+        np.testing.assert_allclose(result, [240.0], atol=1e-9)
