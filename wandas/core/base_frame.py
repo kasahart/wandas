@@ -1886,7 +1886,10 @@ class BaseFrame(ABC, Generic[T]):
         compress: str | None = "gzip",
         overwrite: bool = False,
     ) -> None:
-        """Save this exact built-in Frame type as a versioned WDF artifact.
+        """Save this built-in Frame as a versioned WDF artifact.
+
+        A subclass of a built-in Frame without its own ``__init__`` is saved as its
+        nearest built-in base class, and loading returns that built-in class.
 
         SpectrogramFrame and CepstrogramFrame with a known ``frame_time_origin``
         use WDF 0.5 to preserve physical frame centers. Other supported Frames,
@@ -1911,7 +1914,8 @@ class BaseFrame(ABC, Generic[T]):
             FileExistsError: If the destination exists and ``overwrite`` is false.
             ImportError: If the ``io`` extra is not installed. The message names
                 ``pip install "wandas[io]"``.
-            TypeError: If this is not an exact supported built-in Frame type.
+            TypeError: If this is neither a supported built-in Frame nor a subclass of
+                one without its own ``__init__``.
             ValueError: If Frame state cannot be represented by the current schema.
         """
         from wandas.io.wdf_io import save as wdf_save
