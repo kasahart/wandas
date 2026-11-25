@@ -31,8 +31,13 @@ Each channel's `channel_ref` comes from its calibration metadata. For example,
 `Pa` defaults to `20 µPa`, while reader-created canonical audio explicitly uses
 `FS` with reference `1`. Identity calibration with an empty unit also has a
 numeric reference of `1`, but its level label remains generic `dB re 1 input
-unit`, never dBFS. The Frame dB and level conversions floor the
-magnitude/reference ratio at `1e-12`, so zero returns `-240 dB`.
+unit`, never dBFS. The Frame dB and level conversions floor the magnitude/reference
+ratio at `1e-12`, so zero returns `-240 dB`.
+The `20 log10` conversions in the table are for channels whose
+`calibration.level` is `"amplitude"`, the kind these results keep from an
+amplitude input. A channel whose level kind is `"power"` uses
+`10 log10(value / channel_ref)`, and one whose level kind is `"none"` warns
+and uses the amplitude rule, whose result may be meaningless.
 
 !!! note "Exception: `wandas.utils.amplitude_to_db`"
     The standalone helper `amplitude_to_db(amplitude, ref)` does not use the
@@ -236,10 +241,12 @@ because there is no unambiguous generic choice of which channel(s) to weight or
 how many times to apply the weighting. The architecture-neutral
 `reject_pairwise_a_weighting()` helper is the enforcement hook for those
 consumers; requests must fail explicitly rather than silently altering a
-pairwise value. #401 intentionally does not route the current generic
-Generic `SpectralFrame.dBA` and its amplitude plot `Aw` path remain available
-for amplitude spectra. Dedicated pairwise Frames reject `Aw` at their typed
-plot boundary; no operation-history quantity inference is used.
+pairwise value. #401 intentionally does not route generic
+`SpectralFrame.dBA` or its amplitude plot `Aw` path through this helper; they
+remain available for amplitude spectra. The dedicated pairwise Frames call it
+at their typed plot boundary, so `plot(Aw=True)` raises `ValueError` there,
+and they have no `dBA` property; no operation-history quantity inference is
+used.
 
 The dedicated Frames own the typed plotting implementation. Their frequency
 and matrix projections use linear `abs(P_out_in)` for CSD and linear

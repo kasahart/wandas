@@ -98,6 +98,9 @@ def _kind_level_db(data: ArrayLike, reference: ArrayLike, level_kind: str, unit:
     """Compute the level of one channel domain from its level kind.
 
     Raises:
+        ValueError: If ``level_kind`` is not ``"amplitude"``, ``"power"`` or ``"none"``.
+
+    Warns:
         UserWarning: If the level kind is ``"none"`` (amplitude factor is used).
     """
     from wandas.core.metadata import _level_factor, _normalize_level_kind

@@ -65,6 +65,13 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   SpectralFrame and CepstralFrame fields when `win_length == n_fft`; a shorter
   window adds `win_length`, which older readers reject explicitly. Frame-frame
   arithmetic on either frame type rejects operands whose `win_length` differs.
+- `welch(n_fft=0)` passes `0` through and raises `ValueError` instead of
+  running with `n_fft=win_length`. New Welch Recipes use operation version 3;
+  released version 2 replays the `win_length` fallback.
+- `sum()` and `mean()` keep the reference shared by all channels and the first
+  channel's source-time offset instead of resetting the reference to the unit
+  default and differing offsets to 0. New Recipes use operation version 2;
+  released version 1 replays the resets.
 - `noct_synthesis` converts the peak-amplitude bins to RMS and divides them by
   the square root of the analysis window's equivalent noise bandwidth before
   MoSQITo sums each band, using the frame's `window` and `win_length`. New

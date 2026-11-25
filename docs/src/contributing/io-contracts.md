@@ -26,6 +26,16 @@ signal processing は `wandas/processing`、axis、metadata、domain state は F
   a format contract explicitly adds that behavior.
   format contract が明示的に追加しない限り、runtime lineage、`operation_history`、operation graph は
   永続化しません。
+- WDF is the format contract that adds this: it persists the derived
+  `operation_history` display view as the root attribute
+  `operation_history_json`, and never persists lineage, `previous`, or Recipe
+  intent. A loaded history is display-only. The pinning test is
+  `test_operation_history_remains_display_history_not_recipe_lineage` in
+  `tests/io/test_wdf_io.py` (rows I-01c and I-01d of the
+  [component test specification](component-test-specification.md)).
+  これを追加する format contract は WDF です。派生表示である `operation_history` を root
+  attribute `operation_history_json` として保存しますが、lineage、`previous`、Recipe の intent は
+  保存しません。読み込んだ history は表示専用です。
 - For lossy or metadata-limited formats such as WAV and CSV, define and test what
   is retained, reconstructed, normalized, or rejected.
   WAV や CSV のような lossy／metadata 制限 format では、保持、再構築、normalize、reject の契約を

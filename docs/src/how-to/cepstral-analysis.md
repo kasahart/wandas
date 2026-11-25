@@ -139,8 +139,8 @@ for inspection only and must be applied after liftering and reconstruction.
 
 ## Replay the workflow as a Recipe / Recipeとして再実行する
 
-The complete typed workflow is portable through Recipe v2:
-型付きワークフロー全体をRecipe v2で再利用できます。
+The complete typed workflow is portable through a Recipe:
+型付きワークフロー全体をRecipeで再利用できます。
 
 ```python
 from wandas.pipeline import RecipePlan

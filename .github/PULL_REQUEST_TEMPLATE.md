@@ -54,11 +54,11 @@
 <!-- Check the items that actually apply, and explain skipped checks below. -->
 
 - [ ] Existing tests pass (`Run pytest` task / `uv run pytest -n auto --cov=wandas --cov-report=term-missing`) / 既存のテストが通ること
-- [ ] Formatting applied (`Run ruff format` task / `uv run ruff format wandas tests`) / フォーマットを適用したこと
+- [ ] Formatting applied (`Run ruff format` task / `uv run ruff format wandas tests scripts learning-path`) / フォーマットを適用したこと
 - [ ] New tests added for the changes / 変更に対応するテストを追加した
-- [ ] Type checks pass (`Run ty (red-knot) check` task / `uv run ty check wandas tests`) / 型チェックが通ること
-- [ ] Lint checks pass (`Run ruff check` task / `uv run ruff check wandas tests --config=pyproject.toml -v`) / Lintチェックが通ること
-- [ ] Documentation build checked when `docs/`, `src/`, `README.md`, or other MkDocs-backed user-facing markdown changed (`Build MkDocs Documentation` task / `uv run mkdocs build -f docs/mkdocs.yml`) / `docs/`、`src/`、`README.md`、または MkDocs 対象のユーザー向け Markdown を変更した場合にドキュメントビルドを確認した
+- [ ] Type checks pass (`Run ty (red-knot) check` task / `uv run ty check wandas tests scripts learning-path`) / 型チェックが通ること
+- [ ] Lint checks pass (`Run ruff check` task / `uv run ruff check wandas tests scripts learning-path --config=pyproject.toml -v`) / Lintチェックが通ること
+- [ ] Documentation build checked when `docs/`, `wandas/`, `README.md`, or other MkDocs-backed user-facing markdown changed (`Build MkDocs Documentation` task / `uv run mkdocs build --strict -f docs/mkdocs.yml`) / `docs/`、`wandas/`、`README.md`、または MkDocs 対象のユーザー向け Markdown を変更した場合にドキュメントビルドを確認した
 
 ---
 
