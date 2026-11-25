@@ -43951,7 +43951,7 @@ transformation operations.</p>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_ref_values</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">BaseFrameProtocol</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">require_non_default</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
@@ -44006,7 +44006,7 @@ transformation operations.</p>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_compute_scalar_metric</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">BaseFrameProtocol</span><span class="p">,</span>
         <span class="n">operation</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Run *operation* per-channel and return a 1-D NumPy result.</span>
