@@ -1,0 +1,19 @@
+# Dependabot security updates for uv.lock.
+#
+# Without this file GitHub opens one pull request per vulnerable package, so a
+# week with many advisories produces a dozen PRs that all edit uv.lock and
+# conflict with each other. The group below puts every security update into one
+# PR. open-pull-requests-limit: 0 turns off plain version updates; security
+# updates are not limited by it.
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    groups:
+      security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"
