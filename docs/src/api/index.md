@@ -8,6 +8,10 @@ WandasのAPIリファレンスは、公開symbolのGoogle style docstringから�
 最上位の`wandas.__all__`が主要な安定公開面で、各モジュールのページは対応するexportを
 公開します。
 
+::: wandas.read
+
+::: wandas.from_folder
+
 ::: wandas.inspect
 
 ::: wandas.from_files
@@ -22,6 +26,8 @@ WandasのAPIリファレンスは、公開symbolのGoogle style docstringから�
 
 ::: wandas.default_dtype
 
-The [tutorials](../tutorial/index.md) and [how-to guides](../how-to/cepstral-analysis.md)
-cover workflows that combine several APIs. The [learning path](../tutorial/index.md) is
-for executable, task-oriented examples.
+The [tutorial](../tutorial/index.md) and [how-to guides](../how-to/cepstral-analysis.md)
+cover workflows that combine several APIs. The
+<a href="../en/learning-path/00_why_wandas.html">English Learning Path</a> and the
+<a href="../learning-path/00_why_wandas.html">日本語 Learning Path</a> are for
+executable, task-oriented examples.
