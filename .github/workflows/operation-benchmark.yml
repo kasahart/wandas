@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       base:
-        description: "Base ref (default: the latest v* release tag)"
+        description: "Base tag, branch or SHA (default: the latest v* release tag)"
         required: false
         type: string
       candidate:
@@ -46,8 +46,12 @@ jobs:
             echo "No base ref was given and no v* tag exists." >&2
             exit 1
           fi
-          git worktree add --detach ../base "$base"
-          echo "Base: $base ($(git rev-parse "$base^{commit}"))"
+          # Branches exist only as origin/<name> after checkout, so try that too.
+          commit="$(git rev-parse --verify --quiet "$base^{commit}" \
+            || git rev-parse --verify --quiet "origin/$base^{commit}")" \
+            || { echo "Cannot resolve base ref: $base" >&2; exit 1; }
+          git worktree add --detach ../base "$commit"
+          echo "Base: $base ($commit)"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
